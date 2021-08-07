@@ -1,8 +1,13 @@
 use bio_types::strand::ReqStrand;
 use rust_htslib::bam::Record;
 
-pub trait StrandDeductor {
-    fn deduce(&self, record: &mut Record) -> ReqStrand;
+use crate::rada::modules::read::AlignedRead;
+#[cfg(test)]
+use mockall::{automock, predicate::*};
+
+#[cfg_attr(test, automock)]
+pub trait StrandDeductor<R: AlignedRead> {
+    fn deduce(&self, record: &mut R) -> ReqStrand;
 }
 
 pub enum StrandSpecificExperimentDesign {
@@ -33,22 +38,22 @@ impl DeductStrandByDesign {
     }
 }
 
-impl StrandDeductor for DeductStrandByDesign {
+impl<R: AlignedRead> StrandDeductor<R> for DeductStrandByDesign {
     // MUTABLE IS NOT REALLY NEEDED HERE!
-    fn deduce(&self, record: &mut Record) -> ReqStrand {
-        let strand = record.strand();
+    fn deduce(&self, record: &mut R) -> ReqStrand {
+        let strand = *record.strand();
         match self.design {
             StrandSpecificExperimentDesign::Same => strand,
             StrandSpecificExperimentDesign::Flip => DeductStrandByDesign::flip(&strand),
             StrandSpecificExperimentDesign::Same1Flip2 => {
-                if record.is_first_in_template() {
+                if record.is_first() {
                     strand
                 } else {
                     DeductStrandByDesign::flip(&strand)
                 }
             }
             StrandSpecificExperimentDesign::Flip1Same2 => {
-                if record.is_first_in_template() {
+                if record.is_first() {
                     DeductStrandByDesign::flip(&strand)
                 } else {
                     strand

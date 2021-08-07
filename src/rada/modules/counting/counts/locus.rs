@@ -4,7 +4,7 @@ use derive_more::{Add, AddAssign};
 
 use crate::rada::modules::dna::ReqNucleotide;
 
-#[derive(Clone, Copy, Add, AddAssign)]
+#[derive(Clone, Copy, PartialEq, Debug, Add, AddAssign)]
 #[allow(non_snake_case)]
 pub struct LocusCounts {
     pub A: u32,
@@ -60,8 +60,8 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_coverage() {
-        let mut dummy = LocusCounts {
+    fn coverage() {
+        let dummy = LocusCounts {
             A: 1,
             C: 2,
             G: 3,
@@ -72,7 +72,7 @@ mod tests {
     }
 
     #[test]
-    fn test_mismatches() {
+    fn mismatches() {
         let dummy = LocusCounts {
             A: 1,
             C: 2,
@@ -86,14 +86,13 @@ mod tests {
     }
 
     #[test]
-    fn test_mostfreq() {
+    fn mostfreq_maximum() {
         let mut dummy = LocusCounts {
             A: 10,
             C: 2,
             G: 3,
             T: 5,
         };
-        // naive maximum
         assert_eq!(dummy.mostfreq(), (ReqNucleotide::A, &10));
         dummy.A = 1;
         assert_eq!(dummy.mostfreq(), (ReqNucleotide::T, &5));
@@ -102,6 +101,16 @@ mod tests {
         dummy.G = 1;
         assert_eq!(dummy.mostfreq(), (ReqNucleotide::C, &2));
         dummy.C = 1;
+    }
+
+    #[test]
+    fn mostfreq_compet_maximum() {
+        let mut dummy = LocusCounts {
+            A: 1,
+            C: 1,
+            G: 1,
+            T: 1,
+        };
         // ordered when counts are equal
         assert_eq!(dummy.mostfreq(), (ReqNucleotide::A, &1));
         dummy.A = 0;
@@ -110,5 +119,30 @@ mod tests {
         assert_eq!(dummy.mostfreq(), (ReqNucleotide::G, &1));
         dummy.G = 0;
         assert_eq!(dummy.mostfreq(), (ReqNucleotide::T, &1));
+    }
+
+    #[test]
+    fn add() {
+        let mut a = LocusCounts {
+            A: 0,
+            C: 1,
+            G: 2,
+            T: 3,
+        };
+        let b = LocusCounts {
+            A: 1,
+            C: 2,
+            G: 3,
+            T: 4,
+        };
+        let result = LocusCounts {
+            A: 1,
+            C: 3,
+            G: 5,
+            T: 7,
+        };
+        assert_eq!(a + b, result);
+        a += b;
+        assert_eq!(a, result);
     }
 }

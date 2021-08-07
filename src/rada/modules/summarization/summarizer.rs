@@ -1,6 +1,3 @@
-use std::hint::unreachable_unchecked;
-
-use bio_types::annot::loc::Loc;
 use bio_types::genome::{AbstractInterval, Interval, Locus};
 use bio_types::strand::Strand;
 use itertools::izip;

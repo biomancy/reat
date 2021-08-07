@@ -1,6 +1,6 @@
 use crate::rada::modules::summarization::IntervalSummary;
 
-use super::{IntervalSummaryFilter, LocusSummaryFilter};
+use super::{IntervalSummaryFilter};
 use derive_more::Constructor;
 
 #[derive(Constructor, Debug, PartialEq, Clone)]

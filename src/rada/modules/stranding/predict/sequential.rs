@@ -9,7 +9,7 @@ use crate::rada::modules::counting::LocusCounts;
 use crate::rada::modules::dna::ReqNucleotide;
 use crate::rada::modules::summarization::MismatchSummary;
 
-use super::{IntervalStrandPredictor, LocusStrandPredictor, StrandPredictor};
+use super::{IntervalStrandPredictor, LocusStrandPredictor};
 
 pub struct DynamicSequentialStrandPredictor<T> {
     predictors: Vec<T>,

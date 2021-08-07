@@ -1,15 +1,9 @@
-use std::collections::HashMap;
-use std::fs::read;
-use std::path::{Path, PathBuf};
-
-use bio_types::genome::{AbstractInterval, Interval, Locus};
+use bio_types::genome::{Interval, Locus};
 use bio_types::strand::Strand;
 use derive_more::Constructor;
 
 use crate::rada::modules::counting::LocusCounts;
 use crate::rada::modules::dna::ReqNucleotide;
-use crate::rada::modules::workload;
-use crate::rada::modules::workload::Workload;
 
 #[derive(Constructor)]
 #[allow(non_snake_case)]

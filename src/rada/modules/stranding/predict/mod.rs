@@ -28,7 +28,7 @@ pub trait LocusStrandPredictor {
     fn predict(&self, locus: &Locus, refnuc: &ReqNucleotide, sequenced: &LocusCounts) -> Strand;
 }
 
-impl LocusStrandPredictor for Box<LocusStrandPredictor> {
+impl LocusStrandPredictor for Box<dyn LocusStrandPredictor> {
     fn predict(&self, locus: &Locus, refnuc: &ReqNucleotide, sequenced: &LocusCounts) -> Strand {
         self.as_ref().predict(locus, refnuc, sequenced)
     }

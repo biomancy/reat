@@ -1,4 +1,4 @@
-pub mod records;
+pub mod reads;
 pub mod summary;
 
 // pub struct ByMismatches {

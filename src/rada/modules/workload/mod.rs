@@ -66,7 +66,7 @@ impl Workload {
         let mut buf = String::new();
         while reader
             .read_line(&mut buf)
-            .expect("Failed to records BED file")
+            .expect("Failed to reads BED file")
             != 0
         {
             let split: Vec<&str> = buf.trim_end().split('\t').take(4).collect();
@@ -77,8 +77,8 @@ impl Workload {
                 continue;
             }
 
-            let start = split[1].parse().expect("Failed to records string start");
-            let end = split[2].parse().expect("Failed to records string start");
+            let start = split[1].parse().expect("Failed to reads string start");
+            let end = split[2].parse().expect("Failed to reads string start");
             let interval = Interval::new(split[0].to_owned(), Range { start, end });
 
             let name = if split.len() >= 4 { split[3] } else { &"." };

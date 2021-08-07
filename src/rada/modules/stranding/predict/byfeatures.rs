@@ -54,7 +54,7 @@ impl StrandByGenomicFeatures {
         let mut buf = String::new();
         while reader
             .read_line(&mut buf)
-            .expect("Failed to records GFF3 file")
+            .expect("Failed to reads GFF3 file")
             != 0
         {
             if buf.starts_with("#") {

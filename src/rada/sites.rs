@@ -8,7 +8,7 @@
 // use super::modules::{filtering, counting};
 // use super::modules::counting::{Counts, CountsBuffer};
 // use super::modules::workload::Workload;
-// use std::fs::records;
+// use std::fs::reads;
 // use crate::rada::other::LibraryType;
 // use bio_types::genome::AbstractInterval;
 //

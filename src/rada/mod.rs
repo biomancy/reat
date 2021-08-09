@@ -1,3 +1,10 @@
-pub mod modules;
+pub mod counting;
+pub mod dna;
+pub mod filtering;
+pub mod read;
+pub mod refnuc;
 pub mod regions;
 pub mod sites;
+pub mod stranding;
+pub mod summarization;
+pub mod workload;

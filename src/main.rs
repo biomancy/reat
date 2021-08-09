@@ -28,6 +28,7 @@
 // // use crate::rada::per_region::IntervalSummary;
 //
 mod rada;
+fn main() {}
 // // mod nuccounter;
 //
 // // use rada::mismatches;

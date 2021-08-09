@@ -1,7 +1,6 @@
 use bio_types::genome::Interval;
 #[cfg(test)]
 use mockall::{automock, predicate::*};
-use rust_htslib::bam::record::Record;
 
 pub use basecounter::BaseNucCounter;
 

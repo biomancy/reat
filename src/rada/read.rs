@@ -1,10 +1,8 @@
 use bio_types::strand::ReqStrand;
 #[cfg(test)]
 use mockall::{mock, predicate::*};
-use rust_htslib::bam::record::{Cigar, CigarStringView};
+use rust_htslib::bam::record::CigarStringView;
 use rust_htslib::bam::Record;
-
-use crate::rada::dna::Nucleotide;
 
 pub trait SequencedRead {
     fn name(&self) -> &[u8];

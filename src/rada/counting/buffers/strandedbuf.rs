@@ -1,5 +1,4 @@
 use bio_types::strand::ReqStrand;
-use rust_htslib::bam::record::Record;
 
 use crate::rada::stranding::deduct::StrandDeductor;
 
@@ -55,14 +54,13 @@ impl<R: AlignedRead, Deductor: StrandDeductor<R>> CountsBuffer<R> for StrandedCo
 mod tests {
     use std::ptr;
 
+    use super::*;
     use crate::rada::read::MockRead;
     use crate::rada::stranding::deduct::MockStrandDeductor;
 
-    use super::*;
-
     fn dummy(
         maxsize: u32,
-        deductor: MockStrandDeductor<MockRead>,
+        _deductor: MockStrandDeductor<MockRead>,
     ) -> StrandedCountsBuffer<MockRead, MockStrandDeductor<MockRead>> {
         StrandedCountsBuffer::<MockRead, MockStrandDeductor<MockRead>>::new(maxsize, MockStrandDeductor::new())
     }
@@ -91,9 +89,8 @@ mod tests {
 
         let mut dummy = StrandedCountsBuffer::new(10, mock);
 
-        let mut record = Record::new();
-        assert!(ptr::eq(dummy.buffer_for(&mut record), dummy.forward.as_slice()));
-        assert!(ptr::eq(dummy.buffer_for(&mut record), dummy.reverse.as_slice()));
+        assert!(ptr::eq(dummy.buffer_for(&mut MockRead::new()), dummy.forward.as_slice()));
+        assert!(ptr::eq(dummy.buffer_for(&mut MockRead::new()), dummy.reverse.as_slice()));
     }
 
     #[test]

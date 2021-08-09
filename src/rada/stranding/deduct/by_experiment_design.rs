@@ -1,6 +1,5 @@
 use bio_types::strand::ReqStrand;
 use derive_more::Constructor;
-use rust_htslib::bam::Record;
 
 use crate::rada::read::AlignedRead;
 

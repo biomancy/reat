@@ -46,9 +46,6 @@ impl Default for MismatchesSummary {
 
 #[cfg(test)]
 mod tests {
-    use bio_types::genome::Interval;
-    use bio_types::strand::Strand;
-    use mockall::predicate::eq;
 
     use super::*;
 

@@ -2,15 +2,14 @@ use std::cmp::min;
 use std::marker::PhantomData;
 
 use bio_types::genome::{AbstractInterval, Interval};
-use bio_types::sequence::SequenceRead;
-use derive_more::Constructor;
-use rust_htslib::bam::record::{Cigar, Record};
+
+use rust_htslib::bam::record::Cigar;
 
 use crate::rada::counting::LocusCounts;
 use crate::rada::filtering::reads::ReadsFilter;
 use crate::rada::read::AlignedRead;
 
-use super::super::buffers::{CountsBuffer, CountsBufferContent};
+use super::super::buffers::CountsBuffer;
 use super::{NucCounter, NucCounterContent};
 
 pub struct BaseNucCounter<R: AlignedRead, Filter: ReadsFilter<R>, Buffer: CountsBuffer<R>> {
@@ -113,15 +112,12 @@ impl<R: AlignedRead, Filter: ReadsFilter<R>, Buffer: CountsBuffer<R>> NucCounter
 #[cfg(test)]
 mod tests {
     use std::ops::Range;
-    use std::ptr;
 
-    use bio::alignment::AlignmentMode::Local;
-    use bio::data_structures::qgram_index::Match;
     use mockall::predicate;
     use rust_htslib::bam::record::Cigar::*;
-    use rust_htslib::bam::record::{CigarString, CigarStringView};
+    use rust_htslib::bam::record::CigarString;
 
-    use crate::rada::counting::LocusCounts;
+    use crate::rada::counting::{CountsBufferContent, LocusCounts};
     use crate::rada::filtering::reads::MockReadsFilter;
     use crate::rada::read::MockRead;
 
@@ -261,7 +257,7 @@ mod tests {
 
             let mut buffer = MockCountsBuffer::<MockRead>::new();
             buffer.expect_reset().once().return_const(());
-            let mut dummy = BaseNucCounter::new(filter, buffer, roi.clone());
+            let dummy = BaseNucCounter::new(filter, buffer, roi.clone());
 
             let mut read = MockRead::new();
             read.expect_contig().return_const(ctg.clone());

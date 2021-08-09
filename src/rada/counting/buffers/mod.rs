@@ -1,6 +1,5 @@
 #[cfg(test)]
 use mockall::{automock, predicate::*};
-use rust_htslib::bam::record::Record;
 
 use crate::rada::read::AlignedRead;
 pub use locus::LocusCounts;

@@ -1,7 +1,7 @@
 use derive_more::Constructor;
 
 use crate::rada::counting::LocusCounts;
-use crate::rada::dna::{Nucleotide, ReqNucleotide};
+use crate::rada::dna::Nucleotide;
 
 use super::RefNucPredictor;
 
@@ -31,7 +31,7 @@ mod tests {
 
     #[test]
     fn predict() {
-        let mut sequenced = LocusCounts { A: 1, C: 2, G: 3, T: 4 };
+        let sequenced = LocusCounts { A: 1, C: 2, G: 3, T: 4 };
         let assembly = Nucleotide::A;
         for (mincoverage, freqthr, result) in [
             (100, 0.0, assembly),

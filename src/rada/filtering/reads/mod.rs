@@ -1,6 +1,5 @@
 #[cfg(test)]
 use mockall::{automock, predicate::*};
-use rust_htslib::bam::Record;
 
 pub use by_quality::ReadsFilterByQuality;
 

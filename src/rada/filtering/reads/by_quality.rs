@@ -1,5 +1,4 @@
 use derive_more::Constructor;
-use rust_htslib::bam::Record;
 
 use super::{AlignedRead, ReadsFilter};
 

@@ -10,6 +10,7 @@ use bio_types::genome::{AbstractInterval, Interval};
 use flate2::bufread::GzDecoder;
 use rust_htslib::bam::{IndexedReader, Read};
 
+#[derive(PartialEq, Debug)]
 pub struct Workload {
     pub name: String,
     pub interval: Interval,
@@ -52,7 +53,7 @@ impl Workload {
         workloads
     }
 
-    fn _from_bed_interval<T: BufRead>(mut reader: T, bam: &Path) -> Vec<Workload> {
+    fn _from_bed_intervals<T: BufRead>(mut reader: T, bam: &Path) -> Vec<Workload> {
         let mut result: Vec<Workload> = Vec::new();
 
         let mut buf = String::new();
@@ -91,14 +92,67 @@ impl Workload {
 
         if last == "gz" || last == "gzip" {
             assert_eq!(extensions[extensions.len() - 2], "bed");
-            Workload::_from_bed_interval(io::BufReader::new(GzDecoder::new(file)), bam)
+            Workload::_from_bed_intervals(io::BufReader::new(GzDecoder::new(file)), bam)
         } else {
             assert_eq!(last, "bed");
-            Workload::_from_bed_interval(file, bam)
+            Workload::_from_bed_intervals(file, bam)
         }
     }
 
     pub fn len(&self) -> u64 {
         self.interval.range().end - self.interval.range().start
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::io::BufReader;
+
+    use super::*;
+
+    #[test]
+    fn bin_chromosome() {
+        let workload = Workload::_bin_chromosome("chr1", 284, 100);
+        let expected = vec![
+            Interval::new("chr1".into(), 0..100),
+            Interval::new("chr1".into(), 100..200),
+            Interval::new("chr1".into(), 200..284),
+        ];
+
+        assert_eq!(workload.len(), expected.len());
+        for (work, exp) in workload.iter().zip(&expected) {
+            assert_eq!(work, exp);
+        }
+
+        let workload = Workload::_bin_chromosome("2", 10, 1000);
+        assert_eq!(workload.len(), 1);
+        assert_eq!(workload[0], Interval::new("2".into(), 0..10));
+    }
+
+    #[test]
+    fn from_bed_intervals() {
+        let bed = "chr1\t100\t200\t1\n\
+        chr2\t100\t200\tRegion 2\n\
+        chr2\t150\t250\tRegion 3v.a\n\
+        3\t1\t100\tVery long Region 4";
+        let bam = PathBuf::from("test.bam");
+
+        let workload = Workload::_from_bed_intervals(BufReader::new(bed.as_bytes()), &bam);
+
+        let expected = vec![
+            Workload { name: "1".into(), interval: Interval::new("chr1".into(), 100..200), bam: bam.clone() },
+            Workload { name: "Region 2".into(), interval: Interval::new("chr2".into(), 100..200), bam: bam.clone() },
+            Workload { name: "Region 3v.a".into(), interval: Interval::new("chr2".into(), 150..250), bam: bam.clone() },
+            Workload {
+                name: "Very long Region 4".into(),
+                interval: Interval::new("3".into(), 1..100),
+                bam: bam.clone(),
+            },
+        ];
+
+        assert_eq!(workload.len(), expected.len());
+        for (work, exp) in workload.iter().zip(&expected) {
+            assert_eq!(work, exp);
+        }
     }
 }

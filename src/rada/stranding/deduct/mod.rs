@@ -1,5 +1,4 @@
 use bio_types::strand::ReqStrand;
-use rust_htslib::bam::Record;
 
 mod by_experiment_design;
 

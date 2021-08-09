@@ -1,7 +1,5 @@
 use std::marker::PhantomData;
 
-use rust_htslib::bam::record::Record;
-
 use crate::rada::counting::buffers::CountsBufferContent;
 use crate::rada::read::AlignedRead;
 
@@ -47,11 +45,8 @@ impl<R: AlignedRead> CountsBuffer<R> for UnstrandedCountsBuffer<R> {
 mod tests {
     use std::ptr;
 
-    use bio_types::strand::ReqStrand;
-
     use super::*;
     use crate::rada::read::MockRead;
-    use itertools::rev;
 
     fn dummy(reserve: u32) -> UnstrandedCountsBuffer<MockRead> {
         UnstrandedCountsBuffer::new(reserve)

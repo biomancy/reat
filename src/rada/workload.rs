@@ -86,7 +86,7 @@ impl Workload {
         let extensions: Vec<&str> = extensions.split('.').collect();
         assert!(extensions.len() >= 1);
 
-        let file = File::open(bed.clone()).expect("Failed to open bed file");
+        let file = File::open(bed).expect("Failed to open bed file");
         let file = io::BufReader::new(file);
         let last = *extensions.last().unwrap();
 

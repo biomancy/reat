@@ -35,7 +35,7 @@ impl StrandByGenomicFeatures {
         let extensions: Vec<&str> = extensions.split('.').collect();
         assert!(extensions.len() >= 1);
 
-        let gff3 = File::open(gff3.clone()).expect("Failed to open GFF3 file");
+        let gff3 = File::open(gff3).expect("Failed to open GFF3 file");
         let gff3 = io::BufReader::new(gff3);
         let last = *extensions.last().unwrap();
 

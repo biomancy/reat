@@ -18,7 +18,7 @@ pub struct CountsBufferContent<'a> {
 }
 
 impl<'a> CountsBufferContent<'a> {
-    pub fn capacity(&self) -> usize {
+    pub fn total_counts(&self) -> usize {
         self.forward.map_or(0, |x| x.len())
             + self.reverse.map_or(0, |x| x.len())
             + self.unstranded.map_or(0, |x| x.len())

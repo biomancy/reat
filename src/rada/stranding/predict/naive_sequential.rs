@@ -9,7 +9,7 @@ use derive_more::Constructor;
 use crate::rada::counting::LocusCounts;
 use crate::rada::dna::Nucleotide;
 use crate::rada::stranding::predict::{StrandByAtoIEditing, StrandByGenomicFeatures};
-use crate::rada::summarization::MismatchesSummary;
+use crate::rada::summary::MismatchesSummary;
 
 use super::{IntervalStrandPredictor, LocusStrandPredictor};
 

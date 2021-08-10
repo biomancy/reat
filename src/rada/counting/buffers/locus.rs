@@ -1,10 +1,10 @@
 use std::cmp::max;
 
-use derive_more::{Add, AddAssign, Constructor};
+use derive_more::{Add, AddAssign, Constructor, Mul};
 
 use crate::rada::dna::ReqNucleotide;
 
-#[derive(Clone, Copy, PartialEq, Debug, Add, AddAssign, Constructor)]
+#[derive(Clone, Copy, Eq, PartialEq, Debug, Add, AddAssign, Mul, Constructor)]
 #[allow(non_snake_case)]
 pub struct LocusCounts {
     pub A: u32,

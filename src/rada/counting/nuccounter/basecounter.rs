@@ -62,9 +62,7 @@ impl<R: AlignedRead, Filter: ReadsFilter<R>, Buffer: CountsBuffer<R>> BaseNucCou
                                 b'T' | b't' => counts[roipos as usize].T += 1,
                                 b'G' | b'g' => counts[roipos as usize].G += 1,
                                 b'C' | b'c' => counts[roipos as usize].C += 1,
-                                base => {
-                                    panic!("Unknown base {}", base)
-                                }
+                                _ => {}
                             }
                         }
                         roipos += 1;
@@ -210,6 +208,7 @@ mod tests {
         _implprocess(2..5, 0, "AGC", vec![true], vec![D(4), M(1), N(3), M(2)], &vec![Z(), Z(), A()]);
         _implprocess(2..5, 0, "AGC", vec![false], vec![M(3)], &vec![Z(), Z(), Z()]);
         _implprocess(2..5, 0, "AGC", vec![true, true], vec![M(1), N(2), M(2)], &vec![Z(), G(), C()]);
+        _implprocess(1..5, 0, "NNN", vec![true, true], vec![M(1), N(2), M(2)], &vec![Z(), Z(), Z(), Z()]);
     }
 
     #[test]

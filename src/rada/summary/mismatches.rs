@@ -3,7 +3,7 @@ use derive_more::Constructor;
 use crate::rada::counting::LocusCounts;
 use crate::rada::dna::ReqNucleotide;
 
-#[derive(Constructor)]
+#[derive(Constructor, Eq, PartialEq, Debug)]
 #[allow(non_snake_case)]
 pub struct MismatchesSummary {
     pub A: LocusCounts,

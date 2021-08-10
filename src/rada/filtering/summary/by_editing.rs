@@ -1,6 +1,6 @@
 use derive_more::Constructor;
 
-use crate::rada::summarization::IntervalSummary;
+use crate::rada::summary::IntervalSummary;
 
 use super::IntervalSummaryFilter;
 

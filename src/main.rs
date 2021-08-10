@@ -15,7 +15,7 @@
 //     DynamicSequentialStrandPredictor, IntervalStrandPredictor, StrandByAtoIEditing,
 //     StrandByGenomicFeatures,
 // };
-// use crate::rada::modules::summarization::{BaseSummarizer, IntervalSummarizer, IntervalSummary};
+// use crate::rada::modules::summary::{BaseSummarizer, IntervalSummarizer, IntervalSummary};
 // // use crate::rada::modules::editfiltering::{ByMismatches, BySequencingQuality, Filters, FiltersBuilder};
 // use crate::rada::modules::workload::Workload;
 // use crate::rada::regions::ThreadContext;

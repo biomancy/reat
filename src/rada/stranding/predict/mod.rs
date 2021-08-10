@@ -7,12 +7,16 @@ pub use naive_sequential::NaiveSequentialStrandPredictor;
 
 use crate::rada::counting::LocusCounts;
 use crate::rada::dna::Nucleotide;
-use crate::rada::summarization::MismatchesSummary;
+use crate::rada::summary::MismatchesSummary;
 
 mod by_editing;
 mod by_features;
 mod naive_sequential;
 
+#[cfg(test)]
+use mockall::{automock, predicate::*};
+
+#[cfg_attr(test, automock)]
 pub trait IntervalStrandPredictor {
     fn predict(&self, interval: &Interval, mismatches: &MismatchesSummary) -> Strand;
 }
@@ -23,6 +27,7 @@ impl IntervalStrandPredictor for Box<dyn IntervalStrandPredictor> {
     }
 }
 
+#[cfg_attr(test, automock)]
 pub trait LocusStrandPredictor {
     fn predict(&self, locus: &Locus, refnuc: &Nucleotide, sequenced: &LocusCounts) -> Strand;
 }

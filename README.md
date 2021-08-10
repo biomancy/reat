@@ -1,1 +1,1 @@
-![codecov.io](https://codecov.io/github/alnfedorov/rada/coverage.svg?branch=master)
+[![codecov](https://codecov.io/gh/alnfedorov/rada/branch/main/graph/badge.svg?token=9TF8UQD0PD)](https://codecov.io/gh/alnfedorov/rada)

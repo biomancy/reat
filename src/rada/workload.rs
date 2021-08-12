@@ -1,10 +1,10 @@
 use std::cmp::min;
-use std::ffi::{CStr, CString, OsStr};
+use std::ffi::{CStr, OsStr};
 use std::fs::File;
 use std::io;
 use std::io::BufRead;
 use std::ops::Range;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 
 use bio_types::genome::{AbstractInterval, Interval};
 use flate2::bufread::GzDecoder;

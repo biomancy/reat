@@ -13,10 +13,6 @@ pub struct IntervalSummary {
 }
 
 impl IntervalSummary {
-    pub fn zeros(interval: Interval, strand: Strand, name: String) -> Self {
-        IntervalSummary { interval, strand, name, mismatches: MismatchesSummary::zeros() }
-    }
-
     pub fn from_counts(
         interval: Interval,
         name: String,

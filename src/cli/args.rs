@@ -3,28 +3,28 @@ use clap::{Arg, ArgSettings};
 use super::validate;
 
 // Core
-pub const INPUT: &'static str = "input";
-pub const REFERENCE: &'static str = "reference";
-pub const ROI: &'static str = "roi";
-pub const BINSIZE: &'static str = "binsize";
-pub const STRANDING: &'static str = "stranding";
-pub const THREADS: &'static str = "threads";
-pub const SAVETO: &'static str = "saveto";
+pub const INPUT: &str = "input";
+pub const REFERENCE: &str = "reference";
+pub const ROI: &str = "roi";
+pub const BINSIZE: &str = "binsize";
+pub const STRANDING: &str = "stranding";
+pub const THREADS: &str = "threads";
+pub const SAVETO: &str = "saveto";
 
 // Filtering
-pub const MAPQ: &'static str = "mapq";
-pub const PHREAD: &'static str = "phread";
-pub const OUT_MIN_MISMATCHES: &'static str = "out-min-mismatches";
-pub const OUT_MIN_FREQ: &'static str = "out-min-freq";
+pub const MAPQ: &str = "mapq";
+pub const PHREAD: &str = "phread";
+pub const OUT_MIN_MISMATCHES: &str = "out-min-mismatches";
+pub const OUT_MIN_FREQ: &str = "out-min-freq";
 
 // Autoref
-pub const AUTOREF_MIN_COVERAGE: &'static str = "ref-min-cov";
-pub const AUTOREF_MIN_FREQ: &'static str = "ref-min-freq";
+pub const AUTOREF_MIN_COVERAGE: &str = "ref-min-cov";
+pub const AUTOREF_MIN_FREQ: &str = "ref-min-freq";
 
 // Stranding
-pub const STRANDING_MIN_MISMATCHES: &'static str = "str-min-mismatches";
-pub const STRANDING_MIN_FREQ: &'static str = "str-min-freq";
-pub const ANNOTATION: &'static str = "annotation";
+pub const STRANDING_MIN_MISMATCHES: &str = "str-min-mismatches";
+pub const STRANDING_MIN_FREQ: &str = "str-min-freq";
+pub const ANNOTATION: &str = "annotation";
 
 fn reqdefaults() -> Vec<ArgSettings> {
     vec![ArgSettings::Required, ArgSettings::TakesValue, ArgSettings::AllowHyphenValues]

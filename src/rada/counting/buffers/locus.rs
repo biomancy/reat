@@ -1,16 +1,23 @@
 use std::cmp::max;
 
-use derive_more::{Add, AddAssign, Constructor, Mul};
+pub use inner::LocusCounts;
 
-use crate::rada::dna::{Nucleotide, ReqNucleotide};
+use crate::rada::dna::ReqNucleotide;
 
-#[derive(Clone, Copy, Eq, PartialEq, Debug, Add, AddAssign, Mul, Constructor)]
-#[allow(non_snake_case)]
-pub struct LocusCounts {
-    pub A: u32,
-    pub C: u32,
-    pub G: u32,
-    pub T: u32,
+// Workaround to disable snake_case warning for the struct.
+// Annotating struct/fields didn't work for some reasons
+mod inner {
+    #![allow(non_snake_case)]
+
+    use derive_more::{Add, AddAssign, Constructor, Mul};
+
+    #[derive(Clone, Copy, Eq, PartialEq, Debug, Add, AddAssign, Mul, Constructor)]
+    pub struct LocusCounts {
+        pub A: u32,
+        pub C: u32,
+        pub G: u32,
+        pub T: u32,
+    }
 }
 
 impl LocusCounts {

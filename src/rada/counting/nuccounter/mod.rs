@@ -19,5 +19,5 @@ pub trait NucCounter<R: AlignedRead> {
     fn roi(&self) -> &Interval;
     fn process(&mut self, read: &mut R);
     fn reset(&mut self, roi: Interval);
-    fn content<'a>(&'a self) -> NucCounterContent<'a>;
+    fn content(&'_ self) -> NucCounterContent<'_>;
 }

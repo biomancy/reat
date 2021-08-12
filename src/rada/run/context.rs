@@ -1,6 +1,5 @@
-use std::collections::HashMap;
 use std::marker::PhantomData;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 
 use bio_types::genome::{AbstractInterval, Interval};
 use itertools::izip;

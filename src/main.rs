@@ -1,34 +1,27 @@
-use std::cmp::max;
 use std::fs::File;
-use std::io::prelude::*;
+
 use std::io::BufWriter;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use std::str::FromStr;
 
 use bio_types::genome::Interval;
-use clap::{crate_authors, crate_name, crate_version, App, AppSettings, Arg, ArgMatches, ArgSettings};
-use itertools::Itertools;
+use clap::{crate_authors, crate_name, crate_version, App, AppSettings, ArgMatches};
+
 use rayon::ThreadPoolBuilder;
-use rust_htslib::bam::Record;
-use rust_htslib::faidx;
-use thread_local::ThreadLocal;
 
-use cli::{args, stranding};
+use cli::args;
 
-use crate::cli::stranding::Stranding;
 use crate::cli::stranding::Stranding::{Stranded, Unstranded};
-use crate::rada::counting::{BaseNucCounter, NucCounter, StrandedCountsBuffer, UnstrandedCountsBuffer};
+use crate::rada::counting::{BaseNucCounter, StrandedCountsBuffer, UnstrandedCountsBuffer};
 use crate::rada::filtering::reads::ReadsFilterByQuality;
-use crate::rada::filtering::summary::LocusSummaryFilter;
-use crate::rada::filtering::summary::{IntervalSummaryFilter, SummaryFilterByMismatches};
-use crate::rada::refnuc::{RefNucPredByHeurisitc, RefNucPredictor};
-use crate::rada::run::ThreadContext;
+
+use crate::rada::filtering::summary::SummaryFilterByMismatches;
+use crate::rada::refnuc::RefNucPredByHeurisitc;
+
 use crate::rada::stranding::deduct::DeductStrandByDesign;
-use crate::rada::stranding::predict::LocusStrandPredictor;
-use crate::rada::stranding::predict::{
-    IntervalStrandPredictor, NaiveSequentialStrandPredictor, StrandByAtoIEditing, StrandByGenomicFeatures,
-};
-use crate::rada::summary::IntervalSummary;
+
+use crate::rada::stranding::predict::{NaiveSequentialStrandPredictor, StrandByAtoIEditing, StrandByGenomicFeatures};
+
 use crate::rada::workload::Workload;
 
 mod cli;
@@ -74,7 +67,7 @@ pub fn refnucpred(matches: &ArgMatches) -> RefNucPredByHeurisitc {
 pub fn workload(bamfiles: &[&Path], matches: &ArgMatches) -> (Vec<Workload>, u32) {
     if let Some(binsize) = matches.value_of(args::BINSIZE) {
         let binsize = binsize.parse().unwrap();
-        let workload = Workload::from_binned_hts(&bamfiles, binsize);
+        let workload = Workload::from_binned_hts(bamfiles, binsize);
         (workload, binsize as u32)
     } else {
         let workload = Workload::from_bed_intervals(matches.value_of(args::ROI).unwrap().as_ref());
@@ -109,7 +102,7 @@ fn main() {
     let stranding = cli::stranding::Stranding::from_str(matches.value_of(args::STRANDING).unwrap()).unwrap();
 
     let saveto = matches.value_of(args::SAVETO).unwrap();
-    let mut saveto = BufWriter::new(File::create(saveto).unwrap());
+    let saveto = BufWriter::new(File::create(saveto).unwrap());
 
     // TODO: refactor this using a builder-like pattern
     match stranding {

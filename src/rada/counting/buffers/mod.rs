@@ -30,6 +30,6 @@ pub trait CountsBuffer<R: AlignedRead> {
     fn reset(&mut self, len: u32);
     // record must NOT be mutable here, yet some const(!) methods in rust_htslib require mutable(!) instance
     fn buffer_for(&mut self, record: &mut R) -> &mut [LocusCounts];
-    fn content<'a>(&'a self) -> CountsBufferContent<'a>;
+    fn content(&'_ self) -> CountsBufferContent<'_>;
     fn len(&self) -> u32;
 }

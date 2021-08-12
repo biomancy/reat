@@ -1,14 +1,22 @@
-use derive_more::Constructor;
+pub use inner::*;
 
-use crate::rada::counting::LocusCounts;
 use crate::rada::dna::ReqNucleotide;
 
-#[derive(Constructor, Eq, PartialEq, Debug)]
-pub struct MismatchesSummary {
-    pub A: LocusCounts,
-    pub C: LocusCounts,
-    pub G: LocusCounts,
-    pub T: LocusCounts,
+// See LocusCounts note
+mod inner {
+    #![allow(non_snake_case)]
+
+    use derive_more::Constructor;
+
+    pub use crate::rada::counting::LocusCounts;
+
+    #[derive(Constructor, Eq, PartialEq, Debug)]
+    pub struct MismatchesSummary {
+        pub A: LocusCounts,
+        pub C: LocusCounts,
+        pub G: LocusCounts,
+        pub T: LocusCounts,
+    }
 }
 
 impl MismatchesSummary {
@@ -23,10 +31,6 @@ impl MismatchesSummary {
 
     pub fn coverage(&self) -> u32 {
         self.A.coverage() + self.C.coverage() + self.G.coverage() + self.T.coverage()
-    }
-
-    pub fn matches(&self) -> u32 {
-        self.A.A + self.C.C + self.G.G + self.T.T
     }
 
     pub fn mismatches(&self) -> u32 {

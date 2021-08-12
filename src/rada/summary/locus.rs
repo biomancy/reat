@@ -12,10 +12,6 @@ pub struct LocusSummary {
 }
 
 impl LocusSummary {
-    pub fn zeros(locus: Locus, strand: Strand, refnuc: Nucleotide) -> Self {
-        LocusSummary { locus, strand, refnuc, sequenced: LocusCounts::zeros() }
-    }
-
     pub fn new(locus: Locus, strand: Strand, refnuc: Nucleotide, sequenced: LocusCounts) -> Self {
         LocusSummary { locus, strand, refnuc, sequenced }
     }

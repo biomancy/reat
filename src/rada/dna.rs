@@ -1,3 +1,5 @@
+use std::fmt::{Display, Formatter};
+
 #[derive(Clone, Copy, Eq, PartialEq, Debug)]
 #[allow(non_snake_case)]
 pub enum Nucleotide {
@@ -6,6 +8,28 @@ pub enum Nucleotide {
     G,
     T,
     Unknown,
+}
+
+impl Display for Nucleotide {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Nucleotide::A => {
+                write!(f, "A")
+            }
+            Nucleotide::C => {
+                write!(f, "C")
+            }
+            Nucleotide::G => {
+                write!(f, "G")
+            }
+            Nucleotide::T => {
+                write!(f, "T")
+            }
+            Nucleotide::Unknown => {
+                write!(f, "N")
+            }
+        }
+    }
 }
 
 impl From<u8> for Nucleotide {

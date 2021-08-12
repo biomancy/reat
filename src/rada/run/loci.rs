@@ -1,13 +1,14 @@
 use std::path::Path;
 
-use bio_types::strand::{Same, Strand};
+use bio_types::genome::{AbstractInterval, Locus};
+use bio_types::strand::Strand;
 use rust_htslib::bam::record::Record;
 
 use crate::rada::counting::NucCounter;
-use crate::rada::filtering::summary::IntervalSummaryFilter;
+use crate::rada::filtering::summary::LocusSummaryFilter;
 use crate::rada::refnuc::RefNucPredictor;
-use crate::rada::stranding::predict::IntervalStrandPredictor;
-use crate::rada::summary::IntervalSummary;
+use crate::rada::stranding::predict::LocusStrandPredictor;
+use crate::rada::summary::LocusSummary;
 use crate::rada::workload::Workload;
 
 use super::context::ThreadContext;
@@ -15,8 +16,8 @@ use super::context::ThreadContext;
 pub fn run<
     Counter: NucCounter<Record>,
     RefNucPred: RefNucPredictor,
-    StrandPred: IntervalStrandPredictor,
-    Filter: IntervalSummaryFilter,
+    StrandPred: LocusStrandPredictor,
+    Filter: LocusSummaryFilter,
 >(
     workload: Vec<Workload>,
     bamfiles: &[&Path],
@@ -25,7 +26,7 @@ pub fn run<
     refnucpred: RefNucPred,
     strandpred: StrandPred,
     filter: Filter,
-) -> Vec<IntervalSummary> {
+) -> Vec<LocusSummary> {
     let mut ctx = ThreadContext::new(bamfiles, reference, counter, refnucpred, strandpred, filter);
     workload
         .into_iter()
@@ -43,24 +44,22 @@ pub fn run<
             let sequence = ctx.predseq(&ctx.reference(&content.interval), &content.counts);
 
             // Build summaries
-            let mut result = Vec::with_capacity(3);
-            for (strand, counts) in [
-                (Strand::Forward, counts.forward),
-                (Strand::Reverse, counts.reverse),
-                (Strand::Unknown, counts.unstranded),
-            ] {
+            let mut result = Vec::with_capacity(counts.total_counts());
+
+            for (strand, counts) in [(Strand::Forward, counts.forward), (Strand::Reverse, counts.reverse)] {
                 if let Some(counts) = counts {
-                    let mut summary = IntervalSummary::from_counts(
-                        content.interval.clone(),
-                        w.name.clone(),
-                        strand,
-                        &sequence,
-                        counts,
-                    );
-                    if strand.same(&Strand::Unknown) {
-                        summary.strand = ctx.strandpred.predict(&summary.interval, &summary.mismatches);
+                    for (offset, (cnt, nuc)) in counts.iter().zip(&sequence).enumerate() {
+                        let locus = Locus::new(w.interval.contig().into(), w.interval.range().start + offset as u64);
+                        result.push(LocusSummary::new(locus, strand, *nuc, *cnt));
                     }
-                    result.push(summary);
+                }
+            }
+
+            if let Some(counts) = counts.unstranded {
+                for (offset, (cnt, nuc)) in counts.iter().zip(&sequence).enumerate() {
+                    let locus = Locus::new(w.interval.contig().into(), w.interval.range().start + offset as u64);
+                    let locstrand = ctx.strandpred.predict(&locus, nuc, cnt);
+                    result.push(LocusSummary::new(locus, locstrand, *nuc, *cnt));
                 }
             }
 

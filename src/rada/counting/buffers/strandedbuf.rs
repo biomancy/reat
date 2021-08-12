@@ -14,7 +14,7 @@ pub struct StrandedCountsBuffer<R: AlignedRead, Deductor: StrandDeductor<R>> {
 }
 
 impl<R: AlignedRead, Deductor: StrandDeductor<R>> StrandedCountsBuffer<R, Deductor> {
-    fn new(maxsize: u32, strand_deductor: Deductor) -> Self {
+    pub(crate) fn new(maxsize: u32, strand_deductor: Deductor) -> Self {
         let (mut plstrand, mut mnstrand) = (Vec::new(), Vec::new());
         plstrand.reserve(maxsize as usize);
         mnstrand.reserve(maxsize as usize);

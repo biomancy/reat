@@ -1,195 +1,146 @@
-// use std::fs::File;
-// use std::io::prelude::*;
-// use std::io::BufWriter;
-// use std::path::{Path, PathBuf};
-//
-// use bio_types::genome::Interval;
-// use clap::{App, Arg, ArgSettings};
-// use rust_htslib::faidx;
-//
-// use crate::rada::modules::counting::{BaseNucCounter, NucCounter, UnstrandedCountsBuffer};
-// use crate::rada::modules::filtering::reads::ReadsFilterByQuality;
-// use crate::rada::modules::filtering::summary::{IntervalSummaryFilter, SummaryFilterByEditing};
-// use crate::rada::modules::refnuc::RefNucPredByHeurisitc;
-// use crate::rada::modules::stranding::predict::{
-//     DynamicSequentialStrandPredictor, IntervalStrandPredictor, StrandByAtoIEditing,
-//     StrandByGenomicFeatures,
-// };
-// use crate::rada::modules::summary::{BaseSummarizer, IntervalSummarizer, IntervalSummary};
-// // use crate::rada::modules::editfiltering::{ByMismatches, BySequencingQuality, Filters, FiltersBuilder};
-// use crate::rada::modules::workload::Workload;
-// use crate::rada::regions::ThreadContext;
-//
-// // BySequencingQuality {mapq: 2, phread: 20};
-// // use rada::modules::stranding::{ByAtoIEditing, ByFeatures};
-// // use rada::per_region::ThreadContext;
-//
-// // use crate::rada::other::LibraryType::Unstranded;
-// // use crate::rada::per_region::IntervalSummary;
-//
+use std::cmp::max;
+use std::fs::File;
+use std::io::prelude::*;
+use std::io::BufWriter;
+use std::path::{Path, PathBuf};
+use std::str::FromStr;
+
+use bio_types::genome::Interval;
+use clap::{crate_authors, crate_name, crate_version, App, AppSettings, Arg, ArgMatches, ArgSettings};
+use itertools::Itertools;
+use rayon::ThreadPoolBuilder;
+use rust_htslib::bam::Record;
+use rust_htslib::faidx;
+use thread_local::ThreadLocal;
+
+use cli::{args, stranding};
+
+use crate::cli::stranding::Stranding;
+use crate::cli::stranding::Stranding::{Stranded, Unstranded};
+use crate::rada::counting::{BaseNucCounter, NucCounter, StrandedCountsBuffer, UnstrandedCountsBuffer};
+use crate::rada::filtering::reads::ReadsFilterByQuality;
+use crate::rada::filtering::summary::LocusSummaryFilter;
+use crate::rada::filtering::summary::{IntervalSummaryFilter, SummaryFilterByMismatches};
+use crate::rada::refnuc::{RefNucPredByHeurisitc, RefNucPredictor};
+use crate::rada::run::ThreadContext;
+use crate::rada::stranding::deduct::DeductStrandByDesign;
+use crate::rada::stranding::predict::LocusStrandPredictor;
+use crate::rada::stranding::predict::{
+    IntervalStrandPredictor, NaiveSequentialStrandPredictor, StrandByAtoIEditing, StrandByGenomicFeatures,
+};
+use crate::rada::summary::IntervalSummary;
+use crate::rada::workload::Workload;
+
+mod cli;
 mod rada;
-fn main() {}
-// // mod nuccounter;
-//
-// // use rada::mismatches;
-// //
-// fn runall<Counter: NucCounter, Summarizer: IntervalSummarizer, Filter: IntervalSummaryFilter>(
-//     workload: Vec<Workload>,
-//     counter: Counter,
-//     summarizer: Summarizer,
-//     filter: Filter,
-//     bam: &Path,
-// ) -> Vec<IntervalSummary> {
-//     let mut ctx = ThreadContext::new(&vec![bam], filter, counter, summarizer);
-//
-//     workload
-//         .into_iter()
-//         .map(|w| rada::regions::run(&mut ctx, w))
-//         .flatten()
-//         .collect()
-//
-//     // load bam file index only once in each thread
-//     // thread_local! {
-//     //     static CONTEXT: RefCell<Option<ThreadContext<Filter, Counter, Summarizer>>> = RefCell::new(None)
-//     // }
-//     // workload.into_par_iter()
-//     //     .map(move |w| {
-//     //         CONTEXT.with(|mut ctx| {
-//     //             if ctx.borrow().is_none() {
-//     //                 ctx.replace(Some(ThreadContext::new(&vec![bam], filter, nuccounter, summarizer)));
-//     //             }
-//     //             let mut summaries = rada::regions::run(ctx.borrow_mut().as_mut().unwrap(), w);
-//     //             summaries
-//     //         })
-//     //     })
-//     //     .collect()
-// }
-//
-// // fn runall(fasta: &Path,
-// //           workload: Vec<Workload>,
-// //           thresholds: &FilteringThresholds) {
-// //     // load bam file index only once in each thread
-// //     thread_local! {
-// //         static CONTEXT: RefCell<Option<Context>> = None
-// //     }
-// //     let bam = Path::new("/home/aleksander/projects/rada/tests/data/ADAR1-WT-IFNb-72h-Z22.bam");
-// //     for w in workload.into_iter() {
-// //         rayon::spawn(move || {
-// //             CONTEXT.with(|ctx| {
-// //                 if ctx.borrow().is_none() {
-// //                     ctx.replace(Some(Context::new(bam, fasta, 10_000)));
-// //                 }
-// //                 let mut ctx = ctx.borrow_mut().as_mut().unwrap();
-// //                 nuccounter::run(ctx, w, &thresholds);
-// //             })
-// //         })
-// //     }
-//
-// // CONTEXT.set(&mut nuccounter::Context::new(bam, fasta, 10_000))
-// //
-// // workload.into_par_iter()
-// //     .map_init(
-// //         || CONTEXT.set(,
-// //         move |ctx, work| {
-// //
-// //         }
-// // );
-//
-// // pool.scope(move |s| {
-// //     for w in workload {
-// //         let tx = tx.clone();
-// //         s.spawn(move |_| {
-// //             context.with(|ctx| {
-// //                 tx.send(nuccounter::run(ctx, w, thresholds)).expect("Failed to pass data between threads");
-// //             })
-// //         })
-// //     }
-// //     let mut a = 0;
-// //     for &_ in rx.into_iter() {
-// //         a += 1;
-// //     }
-// //     println!("{}", a);
-// // });
-// // }
-//
-// fn main() {
-//     let settings = vec![
-//         ArgSettings::Required,
-//         ArgSettings::TakesValue,
-//         ArgSettings::AllowHyphenValues,
-//     ];
-//
-//     let matches = App::new("rada")
-//         .args(vec![
-//             Arg::new("input")
-//                 .short('i')
-//                 .settings(&settings)
-//                 .about("Bam file"),
-//             Arg::new("genome")
-//                 .short('g')
-//                 .settings(&settings)
-//                 .about("Fasta file"),
-//             Arg::new("regions")
-//                 .short('r')
-//                 .settings(&settings)
-//                 .about("Regions file"),
-//             Arg::new("annotation")
-//                 .short('a')
-//                 .settings(&settings)
-//                 .about("Annotation gff3 file"),
-//             Arg::new("output")
-//                 .short('o')
-//                 .settings(&settings)
-//                 .about("Output path"),
-//         ])
-//         .get_matches();
-//
-//     let bam = PathBuf::from(matches.value_of("input").unwrap());
-//     let fasta = PathBuf::from(matches.value_of("genome").unwrap());
-//     assert!(bam.is_file() && fasta.is_file());
-//
-//     // ThreadPoolBuilder::new()
-//     //     .num_threads(threads)
-//     //     .build_global()
-//     //     .expect("Failed to initialize global thread pool");
-//     // 1 - reads regions
-//     let bed = PathBuf::from(matches.value_of("regions").unwrap());
-//
-//     let output = matches.value_of("output").unwrap();
-//     let mut output = BufWriter::new(File::create(output).unwrap());
-//
-//     writeln!(output, "chr\tstart\tend\tstrand\tname\t#A\t#T\t#G\t#C\tAA\tAG\tAC\tAT\tTA\tTG\tTC\tTT\tGA\tGG\tGC\tGT\tCA\tCG\tCC\tCT");
-//
-//     let workload = Workload::from_bed_intervals(&bed, &bam);
-//
-//     let gff3 = PathBuf::from(matches.value_of("annotation").unwrap());
-//     let strander: Vec<Box<dyn IntervalStrandPredictor>> = vec![
-//         Box::new(StrandByGenomicFeatures::from_gff3(&gff3)),
-//         Box::new(StrandByAtoIEditing::new(10, 0.05)),
-//     ];
-//     let strander = DynamicSequentialStrandPredictor::new(strander);
-//
-//     let records_filter = ReadsFilterByQuality::new(2, 20);
-//     let maxsize = workload.iter().max_by_key(|x| x.len()).unwrap().len() as u32;
-//     let buffer = UnstrandedCountsBuffer::new(maxsize);
-//     let counter = BaseNucCounter::new(records_filter, buffer, Interval::new("".to_string(), 0..0));
-//
-//     let refnuc = RefNucPredByHeurisitc::new(10, 0.95);
-//
-//     let summary_filter = SummaryFilterByEditing::new(10, 0.05);
-//
-//     let fasta = faidx::Reader::from_path(fasta).expect("Failed to parse Fasta");
-//
-//     let summarizer = BaseSummarizer::new(fasta, refnuc, strander);
-//
-//     for _x in runall(workload, counter, summarizer, summary_filter, &bam) {
-//         // write!(output, "{}\t{}\t{}\t{}\t{}",
-//         //        x.interval.contig(), x.interval.range().start, x.interval.range().end, x.strand.strand_symbol(), x.name);
-//         // write!(output, "\t{}\t{}\t{}\t{}", x.refnuc.A, x.refnuc.T, x.refnuc.G, x.refnuc.C);
-//         //
-//         // for x in vec![&x.A, &x.T, &x.G, &x.C] {
-//         //     write!(output, "\t{}\t{}\t{}\t{}", x.A, x.G, x.C, x.T);
-//         // }
-//         write!(output, "\n");
-//     }
-// }
+
+pub fn sumfilter(matches: &ArgMatches) -> SummaryFilterByMismatches {
+    let (minmismatches, minfreq) = (
+        matches.value_of(args::OUT_MIN_MISMATCHES).unwrap().parse().unwrap(),
+        matches.value_of(args::OUT_MIN_FREQ).unwrap().parse().unwrap(),
+    );
+    SummaryFilterByMismatches::new(minmismatches, minfreq)
+}
+
+pub fn readfilter(matches: &ArgMatches) -> ReadsFilterByQuality {
+    let (mapq, phread) = (
+        matches.value_of(args::MAPQ).unwrap().parse().unwrap(),
+        matches.value_of(args::PHREAD).unwrap().parse().unwrap(),
+    );
+    ReadsFilterByQuality::new(mapq, phread)
+}
+
+pub fn strandpred(matches: &ArgMatches) -> NaiveSequentialStrandPredictor {
+    let (minmismatches, minfreq) = (
+        matches.value_of(args::STRANDING_MIN_MISMATCHES).unwrap().parse().unwrap(),
+        matches.value_of(args::STRANDING_MIN_FREQ).unwrap().parse().unwrap(),
+    );
+    let strand_by_editing = Some(StrandByAtoIEditing::new(minmismatches, minfreq));
+    let strand_by_features = matches
+        .value_of(args::ANNOTATION)
+        .map(|x| Some(StrandByGenomicFeatures::from_gff3(x.as_ref())))
+        .unwrap_or(None);
+    NaiveSequentialStrandPredictor::new(strand_by_editing, strand_by_features)
+}
+
+pub fn refnucpred(matches: &ArgMatches) -> RefNucPredByHeurisitc {
+    let (mincoverage, minfreq) = (
+        matches.value_of(args::AUTOREF_MIN_COVERAGE).unwrap().parse().unwrap(),
+        matches.value_of(args::AUTOREF_MIN_FREQ).unwrap().parse().unwrap(),
+    );
+    RefNucPredByHeurisitc::new(mincoverage, minfreq)
+}
+
+pub fn workload(bamfiles: &[&Path], matches: &ArgMatches) -> (Vec<Workload>, u32) {
+    if let Some(binsize) = matches.value_of(args::BINSIZE) {
+        let binsize = binsize.parse().unwrap();
+        let workload = Workload::from_binned_hts(&bamfiles, binsize);
+        (workload, binsize as u32)
+    } else {
+        let workload = Workload::from_bed_intervals(matches.value_of(args::ROI).unwrap().as_ref());
+        let maxlen = workload.iter().max_by_key(|x| x.len()).map(|x| x.len()).unwrap_or(0);
+        (workload, maxlen as u32)
+    }
+}
+
+fn main() {
+    let matches = App::new(crate_name!())
+        .author(crate_authors!("\n"))
+        .version(crate_version!())
+        .max_term_width(120)
+        .setting(AppSettings::DeriveDisplayOrder)
+        .args(cli::args::all())
+        .get_matches();
+
+    let threads = matches.value_of(args::THREADS).unwrap().parse().unwrap();
+    ThreadPoolBuilder::new().num_threads(threads).build_global().expect("Failed to initialize global thread pool");
+
+    let bamfiles: Vec<&Path> = matches.values_of(args::INPUT).unwrap().map(|x| Path::new(x)).collect();
+    let reference = matches.value_of(args::REFERENCE).unwrap().as_ref();
+
+    let (workload, maxsize) = workload(&bamfiles, &matches);
+
+    let readfilter = readfilter(&matches);
+    let refnucpred = refnucpred(&matches);
+    let strandpred = strandpred(&matches);
+    let sumfilter = sumfilter(&matches);
+
+    let dummy = Interval::new("".into(), 1..2);
+    let stranding = cli::stranding::Stranding::from_str(matches.value_of(args::STRANDING).unwrap()).unwrap();
+
+    let saveto = matches.value_of(args::SAVETO).unwrap();
+    let mut saveto = BufWriter::new(File::create(saveto).unwrap());
+
+    // TODO: refactor this using a builder-like pattern
+    match stranding {
+        Unstranded => {
+            let counter = BaseNucCounter::new(readfilter, UnstrandedCountsBuffer::new(maxsize), dummy);
+            if matches.is_present(args::ROI) {
+                cli::resformat::regions(
+                    saveto,
+                    rada::run::regions(workload, &bamfiles, reference, counter, refnucpred, strandpred, sumfilter),
+                );
+            } else {
+                cli::resformat::loci(
+                    saveto,
+                    rada::run::loci(workload, &bamfiles, reference, counter, refnucpred, strandpred, sumfilter),
+                );
+            }
+        }
+        Stranded(design) => {
+            let deductor = DeductStrandByDesign::new(design);
+            let counter = BaseNucCounter::new(readfilter, StrandedCountsBuffer::new(maxsize, deductor), dummy);
+            if matches.is_present(args::ROI) {
+                cli::resformat::regions(
+                    saveto,
+                    rada::run::regions(workload, &bamfiles, reference, counter, refnucpred, strandpred, sumfilter),
+                );
+            } else {
+                cli::resformat::loci(
+                    saveto,
+                    rada::run::loci(workload, &bamfiles, reference, counter, refnucpred, strandpred, sumfilter),
+                );
+            }
+        }
+    }
+}

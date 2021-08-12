@@ -3,65 +3,61 @@ use std::marker::PhantomData;
 use std::path::{Path, PathBuf};
 
 use bio_types::genome::{AbstractInterval, Interval};
-use bio_types::strand::{Same, Strand};
 use itertools::izip;
 use rust_htslib::bam::record::Record;
 use rust_htslib::bam::Read;
 use rust_htslib::{bam, faidx};
 
-use crate::rada::counting::{CountsBufferContent, LocusCounts, NucCounter, NucCounterContent};
+use crate::rada::counting::{CountsBufferContent, LocusCounts, NucCounter};
 use crate::rada::dna::Nucleotide;
-use crate::rada::filtering::summary::{IntervalSummaryFilter, LocusSummaryFilter};
 use crate::rada::read::AlignedRead;
 use crate::rada::refnuc::RefNucPredictor;
-use crate::rada::stranding::predict::{IntervalStrandPredictor, LocusStrandPredictor, StrandPredictor};
-use crate::rada::summary::IntervalSummary;
-use crate::rada::workload::Workload;
 
-pub struct ThreadContext<R: AlignedRead, SummaryFilter, Counter: NucCounter<R>, RefNucPred: RefNucPredictor, StrandPred>
+pub struct ThreadContext<R: AlignedRead, Counter: NucCounter<R>, RefNucPred: RefNucPredictor, StrandPred, SummaryFilter>
 {
-    pub(super) htsreaders: HashMap<PathBuf, bam::IndexedReader>,
+    pub(super) htsreaders: Vec<bam::IndexedReader>,
     pub(super) reference: faidx::Reader,
-    pub(super) filter: SummaryFilter,
     pub(super) counter: Counter,
     pub(super) refnucpred: RefNucPred,
     pub(super) strandpred: StrandPred,
+    pub(super) filter: SummaryFilter,
     pub(super) phantom: PhantomData<R>,
 }
 
-impl<SummaryFilter, Counter: NucCounter<Record>, RefNucPred: RefNucPredictor, StrandPred>
-    ThreadContext<Record, SummaryFilter, Counter, RefNucPred, StrandPred>
+impl<Counter: NucCounter<Record>, RefNucPred: RefNucPredictor, StrandPred, SummaryFilter>
+    ThreadContext<Record, Counter, RefNucPred, StrandPred, SummaryFilter>
 {
     pub fn new(
         htsfiles: &[&Path],
         reference: &Path,
-        filter: SummaryFilter,
         counter: Counter,
         refnucpred: RefNucPred,
         strandpred: StrandPred,
+        filter: SummaryFilter,
     ) -> Self {
-        let mut htsreaders: HashMap<PathBuf, bam::IndexedReader> = HashMap::new();
-        for &hts in htsfiles {
-            let reader = bam::IndexedReader::from_path(&hts).expect(&format!("Failed to open file {}", hts.display()));
-            htsreaders.insert(PathBuf::from(hts), reader);
-        }
-        let reference =
-            faidx::Reader::from_path(reference).expect(&format!("Failed to open file {}", reference.display()));
-        ThreadContext { htsreaders, reference, filter, counter, refnucpred, strandpred, phantom: Default::default() }
+        let htsreaders: Vec<bam::IndexedReader> = htsfiles
+            .iter()
+            .map(|&hts| {
+                bam::IndexedReader::from_path(&hts).unwrap_or_else(|_| panic!("Failed to open file {}", hts.display()))
+            })
+            .collect();
+        let reference = faidx::Reader::from_path(reference)
+            .unwrap_or_else(|_| panic!("Failed to open file {}", reference.display()));
+        ThreadContext { htsreaders, reference, counter, refnucpred, strandpred, filter, phantom: Default::default() }
     }
 
-    pub fn nuccount(&mut self, bam: &Path, interval: &Interval) {
+    pub fn nuccount(&mut self, interval: &Interval) {
         self.counter.reset(interval.clone());
 
-        let htsreader = self.htsreaders.get_mut(bam).expect("Bug: thread failed to initialize all BAM readers");
+        for htsreader in &mut self.htsreaders {
+            let err = htsreader.fetch((interval.contig(), interval.range().start, interval.range().end));
+            err.unwrap_or_else(|_| panic!("Failed to fetch reads for {:?} (HTS file corrupted?)", interval));
 
-        let err = htsreader.fetch((interval.contig(), interval.range().start, interval.range().end));
-        err.expect(&format!("Failed to fetch reads for {:?} (HTS file corrupted?)", interval));
-
-        let mut record = Record::new();
-        while let Some(r) = htsreader.read(&mut record) {
-            r.expect("Failed to parse record information (HTS file corrupted?)");
-            self.counter.process(&mut record);
+            let mut record = Record::new();
+            while let Some(r) = htsreader.read(&mut record) {
+                r.expect("Failed to parse record information (HTS file corrupted?)");
+                self.counter.process(&mut record);
+            }
         }
     }
 
@@ -108,7 +104,7 @@ impl<SummaryFilter, Counter: NucCounter<Record>, RefNucPred: RefNucPredictor, St
         let reference = self
             .reference
             .fetch_seq(interval.contig(), start, end)
-            .expect(&format!("Failed to fetch sequence for region {:?}", interval));
+            .unwrap_or_else(|_| panic!("Failed to fetch sequence for region {:?}", interval));
 
         debug_assert_eq!(reference.len(), end - start);
 
@@ -118,22 +114,21 @@ impl<SummaryFilter, Counter: NucCounter<Record>, RefNucPred: RefNucPredictor, St
 
 #[cfg(test)]
 mod tests {
+    use mockall::predicate::eq;
+
     use crate::rada::counting::MockNucCounter;
     use crate::rada::filtering::summary::MockIntervalSummaryFilter;
     use crate::rada::refnuc::MockRefNucPredictor;
     use crate::rada::stranding::predict::MockIntervalStrandPredictor;
-    use bio_types::strand::Same;
-    use mockall::predicate::eq;
-    use rust_htslib::errors::Error::ThreadPool;
 
     use super::*;
 
     type Context = ThreadContext<
         Record,
-        MockIntervalSummaryFilter,
         MockNucCounter<Record>,
         MockRefNucPredictor,
         MockIntervalStrandPredictor,
+        MockIntervalSummaryFilter,
     >;
 
     #[test]

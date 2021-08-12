@@ -2,7 +2,7 @@ use std::cmp::max;
 
 use derive_more::{Add, AddAssign, Constructor, Mul};
 
-use crate::rada::dna::ReqNucleotide;
+use crate::rada::dna::{Nucleotide, ReqNucleotide};
 
 #[derive(Clone, Copy, Eq, PartialEq, Debug, Add, AddAssign, Mul, Constructor)]
 #[allow(non_snake_case)]
@@ -27,10 +27,10 @@ impl LocusCounts {
     #[inline]
     pub fn mismatches(&self, reference: &ReqNucleotide) -> u32 {
         match reference {
-            ReqNucleotide::A => self.T + self.G + self.C,
-            ReqNucleotide::C => self.A + self.T + self.G,
-            ReqNucleotide::G => self.A + self.T + self.C,
-            ReqNucleotide::T => self.A + self.G + self.C,
+            ReqNucleotide::A => self.C + self.G + self.T,
+            ReqNucleotide::C => self.A + self.G + self.T,
+            ReqNucleotide::G => self.A + self.C + self.T,
+            ReqNucleotide::T => self.A + self.C + self.G,
         }
     }
 

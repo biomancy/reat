@@ -1,7 +1,7 @@
 use bio_types::genome::Interval;
-use bio_types::strand::{ReqStrand, Strand};
+use bio_types::strand::Strand;
 
-use crate::rada::counting::{LocusCounts, NucCounterContent};
+use crate::rada::counting::LocusCounts;
 use crate::rada::dna::Nucleotide;
 use crate::rada::summary::MismatchesSummary;
 

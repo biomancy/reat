@@ -1,3 +1,5 @@
+use bio_types::genome;
+use bio_types::sequence::SequenceRead;
 use bio_types::strand::ReqStrand;
 #[cfg(test)]
 use mockall::{mock, predicate::*};
@@ -57,7 +59,7 @@ mock! {
 
 impl SequencedRead for Record {
     fn name(&self) -> &[u8] {
-        self.name()
+        SequenceRead::name(self)
     }
 
     fn strand(&self) -> &ReqStrand {
@@ -81,7 +83,7 @@ impl SequencedRead for Record {
     }
 
     fn len(&self) -> usize {
-        self.len()
+        SequenceRead::len(self)
     }
 }
 
@@ -98,6 +100,6 @@ impl AlignedRead for Record {
     }
 
     fn contig(&self) -> &str {
-        self.contig()
+        genome::AbstractInterval::contig(self)
     }
 }

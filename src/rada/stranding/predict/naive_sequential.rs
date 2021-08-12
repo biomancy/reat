@@ -25,11 +25,15 @@ impl LocusStrandPredictor for NaiveSequentialStrandPredictor {
     fn predict(&self, locus: &Locus, refnuc: &Nucleotide, sequenced: &LocusCounts) -> Strand {
         let mut strand = Strand::Unknown;
 
-        self.by_features.as_ref().map(|p| strand = LocusStrandPredictor::predict(p, locus, refnuc, sequenced));
+        if let Some(p) = self.by_features.as_ref() {
+            strand = LocusStrandPredictor::predict(p, locus, refnuc, sequenced);
+        }
         if !strand.is_unknown() {
             return strand;
         }
-        self.by_editing.as_ref().map(|p| strand = LocusStrandPredictor::predict(p, locus, refnuc, sequenced));
+        if let Some(p) = self.by_editing.as_ref() {
+            strand = LocusStrandPredictor::predict(p, locus, refnuc, sequenced);
+        }
         strand
     }
 }
@@ -38,11 +42,15 @@ impl IntervalStrandPredictor for NaiveSequentialStrandPredictor {
     fn predict(&self, interval: &Interval, mismatches: &MismatchesSummary) -> Strand {
         let mut strand = Strand::Unknown;
 
-        self.by_features.as_ref().map(|p| strand = IntervalStrandPredictor::predict(p, interval, mismatches));
+        if let Some(p) = self.by_features.as_ref() {
+            strand = IntervalStrandPredictor::predict(p, interval, mismatches);
+        }
         if !strand.is_unknown() {
             return strand;
         }
-        self.by_editing.as_ref().map(|p| strand = IntervalStrandPredictor::predict(p, interval, mismatches));
+        if let Some(p) = self.by_editing.as_ref() {
+            strand = IntervalStrandPredictor::predict(p, interval, mismatches);
+        }
         strand
     }
 }

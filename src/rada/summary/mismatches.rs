@@ -4,7 +4,6 @@ use crate::rada::counting::LocusCounts;
 use crate::rada::dna::ReqNucleotide;
 
 #[derive(Constructor, Eq, PartialEq, Debug)]
-#[allow(non_snake_case)]
 pub struct MismatchesSummary {
     pub A: LocusCounts,
     pub C: LocusCounts,
@@ -46,7 +45,6 @@ impl Default for MismatchesSummary {
 
 #[cfg(test)]
 mod tests {
-
     use super::*;
 
     fn fillall(value: u32, counts: &mut LocusCounts) {

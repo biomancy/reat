@@ -1,8 +1,8 @@
 use crate::rada::summary::{IntervalSummary, LocusSummary};
 
-mod by_editing;
+mod by_mismatches;
 
-pub use by_editing::SummaryFilterByEditing;
+pub use by_mismatches::SummaryFilterByMismatches;
 
 #[cfg(test)]
 use mockall::{automock, predicate::*};

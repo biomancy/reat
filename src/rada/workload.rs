@@ -1,5 +1,5 @@
 use std::cmp::min;
-use std::ffi::OsStr;
+use std::ffi::{CStr, CString, OsStr};
 use std::fs::File;
 use std::io;
 use std::io::BufRead;
@@ -8,13 +8,13 @@ use std::path::{Path, PathBuf};
 
 use bio_types::genome::{AbstractInterval, Interval};
 use flate2::bufread::GzDecoder;
+use itertools::Itertools;
 use rust_htslib::bam::{IndexedReader, Read};
 
 #[derive(PartialEq, Debug)]
 pub struct Workload {
     pub name: String,
     pub interval: Interval,
-    pub bam: PathBuf,
 }
 
 impl Workload {
@@ -32,28 +32,41 @@ impl Workload {
         bins
     }
 
-    pub fn from_binned_hts(hts: &Path, binsize: u64) -> Vec<Workload> {
+    pub fn from_binned_hts(hts: &[&Path], binsize: u64) -> Vec<Workload> {
         assert!(binsize > 0, "Binsize must be > 0");
 
-        let bam = IndexedReader::from_path(hts).expect(&format!("Failed to open file {}", hts.display()));
-        let header = bam.header();
+        let hts = hts
+            .iter()
+            .map(|x| IndexedReader::from_path(x).unwrap_or_else(|_| panic!("Failed to open file {}", x.display())))
+            .collect_vec();
 
+        // Check that headers are identical
+        let all_equal = hts
+            .iter()
+            .map(|x| x.header())
+            .map(|h| {
+                (0..h.target_count())
+                    .map(|tid| (CStr::from_bytes_with_nul(h.tid2name(tid)).unwrap(), h.target_len(tid)))
+                    .sorted()
+                    .collect_vec()
+            })
+            .all_equal();
+        assert!(all_equal, "BAM files must be mapped against identical reference assemblies");
+
+        let header = hts[0].header();
         let mut workloads = Vec::with_capacity((4f32 * 10f32.powi(10) / binsize as f32) as usize);
         for tid in 0..header.target_count() {
             let tname = String::from_utf8_lossy(header.tid2name(tid)).to_string();
-            let tlen =
-                header.target_len(tid).expect(&format!("Failed to parse {} length for file {}.", tname, hts.display()));
-
+            let tlen = header.target_len(tid).unwrap();
             workloads.extend(Workload::_bin_chromosome(&tname, tlen, binsize).into_iter().map(|e| Workload {
                 name: format!("{}:{}-{}", e.contig(), e.range().start, e.range().start),
                 interval: e,
-                bam: hts.to_path_buf(),
             }))
         }
         workloads
     }
 
-    fn _from_bed_intervals<T: BufRead>(mut reader: T, bam: &Path) -> Vec<Workload> {
+    fn _from_bed_intervals<T: BufRead>(mut reader: T) -> Vec<Workload> {
         let mut result: Vec<Workload> = Vec::new();
 
         let mut buf = String::new();
@@ -72,19 +85,19 @@ impl Workload {
 
             let name = if split.len() >= 4 { split[3] } else { &"." };
 
-            result.push(Workload { name: name.to_string(), interval: interval, bam: bam.to_path_buf() });
+            result.push(Workload { name: name.to_string(), interval });
             buf.clear();
         }
         result
     }
 
-    pub fn from_bed_intervals<'a>(bed: &'a Path, bam: &Path) -> Vec<Workload> {
+    pub fn from_bed_intervals(bed: &Path) -> Vec<Workload> {
         let extensions = bed.file_name().and_then(OsStr::to_str).expect(
             "Failed to infer extension for BED file with target regions. \
                           Only \".bed\" and \".bed.gz\" files are supported",
         );
         let extensions: Vec<&str> = extensions.split('.').collect();
-        assert!(extensions.len() >= 1);
+        assert!(!extensions.is_empty());
 
         let file = File::open(bed).expect("Failed to open bed file");
         let file = io::BufReader::new(file);
@@ -92,10 +105,10 @@ impl Workload {
 
         if last == "gz" || last == "gzip" {
             assert_eq!(extensions[extensions.len() - 2], "bed");
-            Workload::_from_bed_intervals(io::BufReader::new(GzDecoder::new(file)), bam)
+            Workload::_from_bed_intervals(io::BufReader::new(GzDecoder::new(file)))
         } else {
             assert_eq!(last, "bed");
-            Workload::_from_bed_intervals(file, bam)
+            Workload::_from_bed_intervals(file)
         }
     }
 
@@ -135,19 +148,14 @@ mod tests {
         chr2\t100\t200\tRegion 2\n\
         chr2\t150\t250\tRegion 3v.a\n\
         3\t1\t100\tVery long Region 4";
-        let bam = PathBuf::from("test.bam");
 
-        let workload = Workload::_from_bed_intervals(BufReader::new(bed.as_bytes()), &bam);
+        let workload = Workload::_from_bed_intervals(BufReader::new(bed.as_bytes()));
 
         let expected = vec![
-            Workload { name: "1".into(), interval: Interval::new("chr1".into(), 100..200), bam: bam.clone() },
-            Workload { name: "Region 2".into(), interval: Interval::new("chr2".into(), 100..200), bam: bam.clone() },
-            Workload { name: "Region 3v.a".into(), interval: Interval::new("chr2".into(), 150..250), bam: bam.clone() },
-            Workload {
-                name: "Very long Region 4".into(),
-                interval: Interval::new("3".into(), 1..100),
-                bam: bam.clone(),
-            },
+            Workload { name: "1".into(), interval: Interval::new("chr1".into(), 100..200) },
+            Workload { name: "Region 2".into(), interval: Interval::new("chr2".into(), 100..200) },
+            Workload { name: "Region 3v.a".into(), interval: Interval::new("chr2".into(), 150..250) },
+            Workload { name: "Very long Region 4".into(), interval: Interval::new("3".into(), 1..100) },
         ];
 
         assert_eq!(workload.len(), expected.len());

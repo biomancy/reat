@@ -33,7 +33,7 @@ impl StrandByGenomicFeatures {
             .and_then(OsStr::to_str)
             .expect("Failed to infer extension for regions file. Only .bed and .bed.gz are supported");
         let extensions: Vec<&str> = extensions.split('.').collect();
-        assert!(extensions.len() >= 1);
+        assert!(!extensions.is_empty());
 
         let gff3 = File::open(gff3).expect("Failed to open GFF3 file");
         let gff3 = io::BufReader::new(gff3);
@@ -54,7 +54,7 @@ impl StrandByGenomicFeatures {
 
         let mut buf = String::new();
         while reader.read_line(&mut buf).expect("Failed to reads GFF3 file") != 0 {
-            if buf.starts_with("#") || buf == "\n" {
+            if buf.starts_with('#') || buf == "\n" {
                 buf.clear();
                 continue;
             }
@@ -71,7 +71,7 @@ impl StrandByGenomicFeatures {
                 }
             };
 
-            let interval_tree = interval_tree.entry(split[0].to_string()).or_insert(ArrayBackedIntervalTree::new());
+            let interval_tree = interval_tree.entry(split[0].to_string()).or_insert_with(ArrayBackedIntervalTree::new);
 
             let (start, end) = (split[3].parse::<u64>().unwrap() - 1, split[4].parse::<u64>().unwrap());
             let strand = match split[6] {

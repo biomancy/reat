@@ -2,7 +2,7 @@ use bio_types::genome::Locus;
 use bio_types::strand::Strand;
 
 use crate::rada::counting::LocusCounts;
-use crate::rada::dna::{Nucleotide, ReqNucleotide};
+use crate::rada::dna::Nucleotide;
 
 pub struct LocusSummary {
     pub locus: Locus,

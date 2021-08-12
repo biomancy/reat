@@ -60,7 +60,7 @@ mod tests {
             dummy.reset(x);
             assert_eq!(dummy.len(), x);
             // previous changes must be cleaned
-            assert!(dummy.buffer.iter().all(|x| x.coverage() == 0), dummy.buffer);
+            assert!(dummy.buffer.iter().all(|x| x.coverage() == 0), "{:?}", dummy.buffer);
             // new dummy changes
             dummy.buffer[0].T = 100;
         }

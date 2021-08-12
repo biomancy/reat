@@ -157,6 +157,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(non_snake_case)]
     fn implprocess() {
         let A = || LocusCounts::new(1, 0, 0, 0);
         let C = || LocusCounts::new(0, 1, 0, 0);

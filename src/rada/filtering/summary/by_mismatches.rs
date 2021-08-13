@@ -5,7 +5,7 @@ use crate::rada::summary::{IntervalSummary, LocusSummary};
 
 use super::{IntervalSummaryFilter, LocusSummaryFilter};
 
-#[derive(Constructor, Debug, PartialEq, Clone)]
+#[derive(Constructor, Debug, PartialEq, Copy, Clone)]
 pub struct SummaryFilterByMismatches {
     minmismatches: u32,
     minfreq: f32,

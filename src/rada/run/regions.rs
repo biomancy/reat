@@ -1,22 +1,28 @@
+use std::cell::RefCell;
 use std::path::Path;
+use std::sync::Mutex;
 
 use bio_types::strand::{Same, Strand};
+use rayon::prelude::*;
 use rust_htslib::bam::record::Record;
+use thread_local::ThreadLocal;
+
+use indicatif::{MultiProgress, ProgressBar};
 
 use crate::rada::counting::NucCounter;
 use crate::rada::filtering::summary::IntervalSummaryFilter;
 use crate::rada::refnuc::RefNucPredictor;
+use crate::rada::run::workload::Workload;
 use crate::rada::stranding::predict::IntervalStrandPredictor;
 use crate::rada::summary::IntervalSummary;
-use crate::rada::workload::Workload;
 
 use super::context::ThreadContext;
 
 pub fn run<
-    Counter: NucCounter<Record>,
-    RefNucPred: RefNucPredictor,
-    StrandPred: IntervalStrandPredictor,
-    Filter: IntervalSummaryFilter,
+    Counter: NucCounter<Record> + Send + Clone,
+    RefNucPred: RefNucPredictor + Send + Clone,
+    StrandPred: IntervalStrandPredictor + Send + Clone,
+    Filter: IntervalSummaryFilter + Send + Clone,
 >(
     workload: Vec<Workload>,
     bamfiles: &[&Path],
@@ -26,10 +32,24 @@ pub fn run<
     strandpred: StrandPred,
     filter: Filter,
 ) -> Vec<IntervalSummary> {
-    let mut ctx = ThreadContext::new(bamfiles, reference, counter, refnucpred, strandpred, filter);
-    workload
-        .into_iter()
+    let ctxstore: ThreadLocal<RefCell<ThreadContext<Record, Counter, RefNucPred, StrandPred, Filter>>> =
+        ThreadLocal::new();
+    let builder = Mutex::new(move || {
+        RefCell::new(ThreadContext::new(
+            bamfiles,
+            reference,
+            counter.clone(),
+            refnucpred.clone(),
+            strandpred.clone(),
+            filter.clone(),
+        ))
+    });
+    let masterbar = MultiProgress::new();
+    let mut barstore: ThreadLocal<ProgressBar> = ThreadLocal::new();
+    let results = workload
+        .into_par_iter()
         .map(|w| {
+            let mut ctx = ctxstore.get_or(|| builder.lock().unwrap()()).borrow_mut();
             // Counting nucleotides occurrence
             ctx.nuccount(&w.interval);
             let content = ctx.counter.content();
@@ -57,6 +77,9 @@ pub fn run<
                         &sequence,
                         counts,
                     );
+                    if summary.mismatches.coverage() == 0 {
+                        continue;
+                    }
                     if strand.same(&Strand::Unknown) {
                         summary.strand = ctx.strandpred.predict(&summary.interval, &summary.mismatches);
                     }
@@ -66,9 +89,20 @@ pub fn run<
 
             // Filter results
             result.retain(|x| ctx.filter.is_ok(x));
+            if result.len() != 0 {
+                let pbar = barstore.get_or(|| {
+                    let pbar = masterbar.add(ProgressBar::new_spinner());
+                    // pbar.set_draw_rate(1);
+                    pbar
+                });
+                pbar.inc(result.len() as u64);
+            }
 
             result
         })
         .flatten()
-        .collect()
+        .collect();
+
+    masterbar.join();
+    results
 }

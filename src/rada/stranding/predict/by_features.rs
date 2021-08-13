@@ -1,11 +1,11 @@
-use std::collections::HashMap;
 use std::ffi::OsStr;
 use std::fs::File;
 use std::io;
 use std::io::BufRead;
 use std::path::Path;
 
-use bio::data_structures::interval_tree::ArrayBackedIntervalTree;
+use bio::data_structures::annot_map::AnnotMap;
+use bio_types::annot::contig::Contig;
 use bio_types::genome::{AbstractInterval, AbstractLocus, Interval, Locus};
 use bio_types::strand::{ReqStrand, Strand};
 use flate2::bufread::GzDecoder;
@@ -17,11 +17,10 @@ use crate::rada::summary::MismatchesSummary;
 
 use super::{IntervalStrandPredictor, LocusStrandPredictor, StrandPredictor};
 
-type GenomicIndex = HashMap<String, ArrayBackedIntervalTree<u64, ReqStrand>>;
-
+#[derive(Clone)]
 pub struct StrandByGenomicFeatures {
-    exons: GenomicIndex,
-    genes: GenomicIndex,
+    exons: AnnotMap<String, ReqStrand>,
+    genes: AnnotMap<String, ReqStrand>,
 }
 
 impl StrandPredictor for StrandByGenomicFeatures {}
@@ -49,8 +48,8 @@ impl StrandByGenomicFeatures {
     }
 
     fn parse_gff3<T: BufRead>(mut reader: T) -> Self {
-        let mut exons: HashMap<String, ArrayBackedIntervalTree<u64, ReqStrand>> = HashMap::new();
-        let mut genes: HashMap<String, ArrayBackedIntervalTree<u64, ReqStrand>> = HashMap::new();
+        let mut exons: AnnotMap<String, ReqStrand> = AnnotMap::new();
+        let mut genes: AnnotMap<String, ReqStrand> = AnnotMap::new();
 
         let mut buf = String::new();
         while reader.read_line(&mut buf).expect("Failed to reads GFF3 file") != 0 {
@@ -71,9 +70,7 @@ impl StrandByGenomicFeatures {
                 }
             };
 
-            let interval_tree = interval_tree.entry(split[0].to_string()).or_insert_with(ArrayBackedIntervalTree::new);
-
-            let (start, end) = (split[3].parse::<u64>().unwrap() - 1, split[4].parse::<u64>().unwrap());
+            let (start, end) = (split[3].parse::<isize>().unwrap() - 1, split[4].parse::<isize>().unwrap());
             let strand = match split[6] {
                 "+" => ReqStrand::Forward,
                 "-" => ReqStrand::Reverse,
@@ -81,25 +78,18 @@ impl StrandByGenomicFeatures {
                     continue;
                 }
             };
-            interval_tree.insert(start..end, strand);
+            interval_tree
+                .insert_at(strand, &Contig::new(split[0].into(), start, (end - start) as usize, Strand::Unknown));
 
             buf.clear();
         }
-
-        exons.values_mut().map(|x| x.index()).for_each(drop);
-        genes.values_mut().map(|x| x.index()).for_each(drop);
-
         StrandByGenomicFeatures { exons, genes }
     }
 
-    fn predict_by_index(&self, interval: &Interval, index: &GenomicIndex) -> Strand {
-        let index = index.get(interval.contig());
-        if index.is_none() {
-            return Strand::Unknown;
-        }
-        let index = index.unwrap();
-
-        let intersected = index.find(interval.range()).into_iter().unique_by(|x| x.data()).collect_vec();
+    fn predict_by_index(&self, interval: &Interval, index: &AnnotMap<String, ReqStrand>) -> Strand {
+        let (start, end) = (interval.range().start, interval.range().end);
+        let dummy = Contig::new(interval.contig().into(), start as isize, (end - start) as usize, Strand::Unknown);
+        let intersected = index.find(&dummy).unique_by(|x| x.data()).collect_vec();
         if intersected.len() == 1 {
             Strand::from(*intersected[0].data())
         } else {

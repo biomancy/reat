@@ -7,12 +7,7 @@ use crate::rada::summary::{IntervalSummary, LocusSummary};
 const IO_ERROR: &str = "Failed to write to the output file.";
 
 pub fn loci(mut saveto: impl Write, summary: Vec<LocusSummary>) {
-    writeln!(
-        saveto,
-        "chr\tposition\tstrand\t\
-        reference\tA\tC\tG\tT"
-    )
-    .expect(IO_ERROR);
+    writeln!(saveto, "chr\tposition\tstrand\treference\tA\tC\tG\tT").expect(IO_ERROR);
 
     for e in summary {
         writeln!(
@@ -32,14 +27,7 @@ pub fn loci(mut saveto: impl Write, summary: Vec<LocusSummary>) {
 }
 
 pub fn regions(mut saveto: impl Write, summary: Vec<IntervalSummary>) {
-    writeln!(
-        saveto,
-        "chr\tstart\tend\tstrand\tname\t\
-        A->A\tA->C\tA->G\tA->T\t\"
-        C->A\tC->C\tC->G\tC->T\t\"
-        G->A\tG->C\tG->G\tG->T\t\"
-        T->A\tT->C\tT->G\tT->T\t"
-    )
+    writeln!(saveto, "chr\tstart\tend\tstrand\tname\tA->A\tA->C\tA->G\tA->T\tC->A\tC->C\tC->G\tC->T\tG->A\tG->C\tG->G\tG->T\tT->A\tT->C\tT->G\tT->T\t")
     .expect(IO_ERROR);
 
     for e in summary {

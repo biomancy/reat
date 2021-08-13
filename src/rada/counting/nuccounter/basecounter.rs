@@ -12,6 +12,7 @@ use crate::rada::read::AlignedRead;
 use super::super::buffers::CountsBuffer;
 use super::{NucCounter, NucCounterContent};
 
+#[derive(Clone)]
 pub struct BaseNucCounter<R: AlignedRead, Filter: ReadsFilter<R>, Buffer: CountsBuffer<R>> {
     filter: Filter,
     buffer: Buffer,

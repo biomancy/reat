@@ -9,7 +9,7 @@ use crate::rada::summary::MismatchesSummary;
 
 use super::StrandPredictor;
 
-#[derive(Constructor)]
+#[derive(Constructor, Copy, Clone)]
 pub struct StrandByAtoIEditing {
     min_mismatches: u32,
     min_freq: f32,

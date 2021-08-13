@@ -1,12 +1,16 @@
 use std::fs::File;
-
-use std::io::BufWriter;
+use std::io::{stderr, stdout, BufWriter, Write};
 use std::path::Path;
 use std::str::FromStr;
+use std::thread;
+use std::thread::sleep;
+use std::time::Duration;
 
 use bio_types::genome::Interval;
 use clap::{crate_authors, crate_name, crate_version, App, AppSettings, ArgMatches};
-
+use fern;
+use indicatif::{MultiProgress, ProgressBar, ProgressDrawTarget, ProgressFinish, ProgressIterator, ProgressStyle};
+use log::info;
 use rayon::ThreadPoolBuilder;
 
 use cli::args;
@@ -14,15 +18,12 @@ use cli::args;
 use crate::cli::stranding::Stranding::{Stranded, Unstranded};
 use crate::rada::counting::{BaseNucCounter, StrandedCountsBuffer, UnstrandedCountsBuffer};
 use crate::rada::filtering::reads::ReadsFilterByQuality;
-
 use crate::rada::filtering::summary::SummaryFilterByMismatches;
-use crate::rada::refnuc::RefNucPredByHeurisitc;
-
+use crate::rada::refnuc::{RefNucPredByHeurisitc, RefNucPredictor};
 use crate::rada::stranding::deduct::DeductStrandByDesign;
-
 use crate::rada::stranding::predict::{NaiveSequentialStrandPredictor, StrandByAtoIEditing, StrandByGenomicFeatures};
 
-use crate::rada::workload::Workload;
+use self::rada::run::workload::Workload;
 
 mod cli;
 mod rada;
@@ -76,6 +77,54 @@ pub fn workload(bamfiles: &[&Path], matches: &ArgMatches) -> (Vec<Workload>, u32
     }
 }
 
+pub fn abvgd(
+    mbar: &mut MultiProgress,
+    style: &ProgressStyle,
+    args: &ArgMatches,
+) -> (ReadsFilterByQuality, RefNucPredByHeurisitc, NaiveSequentialStrandPredictor, SummaryFilterByMismatches) {
+    let (mut readf, mut refnuc, mut stranding, mut sumf): (
+        Option<ReadsFilterByQuality>,
+        Option<RefNucPredByHeurisitc>,
+        Option<NaiveSequentialStrandPredictor>,
+        Option<SummaryFilterByMismatches>,
+    ) = (None, None, None, None);
+    rayon::scope(|s| {
+        let pbar = mbar.add(ProgressBar::new_spinner().with_style(style.clone()));
+        s.spawn(move |_| {
+            let pbar = &pbar;
+            pbar.set_message("Constructing reads filter...");
+            Some(readfilter(args));
+            pbar.finish_with_message("Reads filter constructed");
+        });
+
+        let pbar = mbar.add(ProgressBar::new_spinner().with_style(style.clone()));
+        s.spawn(move |_| {
+            let pbar = &pbar;
+            pbar.set_message("Constructing reads filter...");
+            Some(refnucpred(args));
+            pbar.finish_with_message("Reference nucleotide prediction algorithm constructed");
+        });
+
+        let pbar = mbar.add(ProgressBar::new_spinner().with_style(style.clone()));
+        s.spawn(move |_| {
+            let pbar = &pbar;
+            pbar.set_message("Constructing reads filter...");
+            Some(strandpred(args));
+            pbar.finish_with_message("Strand prediction algorithm constructed (not used for stranded libraries)");
+        });
+
+        let pbar = mbar.add(ProgressBar::new_spinner().with_style(style.clone()));
+        s.spawn(move |_| {
+            let pbar = &pbar;
+            pbar.set_message("Constructing summary filter");
+            Some(sumfilter(args));
+            pbar.finish_with_message("Summary filter constructed");
+        });
+        mbar.join();
+    });
+    (readf.unwrap(), refnuc.unwrap(), stranding.unwrap(), sumf.unwrap())
+}
+
 fn main() {
     let matches = App::new(crate_name!())
         .author(crate_authors!("\n"))
@@ -84,56 +133,85 @@ fn main() {
         .setting(AppSettings::DeriveDisplayOrder)
         .args(cli::args::all())
         .get_matches();
+    let mut mbar = MultiProgress::new();
+    let style = ProgressStyle::default_bar()
+        .template("[{elapsed_precise}] {spinner} {msg}")
+        .on_finish(ProgressFinish::AndLeave);
 
-    let threads = matches.value_of(args::THREADS).unwrap().parse().unwrap();
+    let threads = matches.value_of(args::THREADS).and_then(|x| x.parse().ok()).unwrap();
     ThreadPoolBuilder::new().num_threads(threads).build_global().expect("Failed to initialize global thread pool");
 
     let bamfiles: Vec<&Path> = matches.values_of(args::INPUT).unwrap().map(|x| Path::new(x)).collect();
-    let reference = matches.value_of(args::REFERENCE).unwrap().as_ref();
+    let reference = Path::new(matches.value_of(args::REFERENCE).unwrap());
+    let (readfilter, refnucpred, strandpred, sumfilter): (
+        ReadsFilterByQuality,
+        RefNucPredByHeurisitc,
+        NaiveSequentialStrandPredictor,
+        SummaryFilterByMismatches,
+    ) = abvgd(&mut mbar, &style, &matches);
 
-    let (workload, maxsize) = workload(&bamfiles, &matches);
-
-    let readfilter = readfilter(&matches);
-    let refnucpred = refnucpred(&matches);
-    let strandpred = strandpred(&matches);
-    let sumfilter = sumfilter(&matches);
-
-    let dummy = Interval::new("".into(), 1..2);
-    let stranding = cli::stranding::Stranding::from_str(matches.value_of(args::STRANDING).unwrap()).unwrap();
-
-    let saveto = matches.value_of(args::SAVETO).unwrap();
-    let saveto = BufWriter::new(File::create(saveto).unwrap());
-
-    // TODO: refactor this using a builder-like pattern
-    match stranding {
-        Unstranded => {
-            let counter = BaseNucCounter::new(readfilter, UnstrandedCountsBuffer::new(maxsize), dummy);
-            if matches.is_present(args::ROI) {
-                cli::resformat::regions(
-                    saveto,
-                    rada::run::regions(workload, &bamfiles, reference, counter, refnucpred, strandpred, sumfilter),
-                );
-            } else {
-                cli::resformat::loci(
-                    saveto,
-                    rada::run::loci(workload, &bamfiles, reference, counter, refnucpred, strandpred, sumfilter),
-                );
+    rayon::scope(|s| {
+        let pb = mbar.add(ProgressBar::new_spinner().with_style(style.clone()));
+        let h1 = s.spawn(move |_| {
+            for i in 0..128 {
+                pb.set_message(format!("item #{}", i + 1));
+                thread::sleep(Duration::from_millis(15));
             }
-        }
-        Stranded(design) => {
-            let deductor = DeductStrandByDesign::new(design);
-            let counter = BaseNucCounter::new(readfilter, StrandedCountsBuffer::new(maxsize, deductor), dummy);
-            if matches.is_present(args::ROI) {
-                cli::resformat::regions(
-                    saveto,
-                    rada::run::regions(workload, &bamfiles, reference, counter, refnucpred, strandpred, sumfilter),
-                );
-            } else {
-                cli::resformat::loci(
-                    saveto,
-                    rada::run::loci(workload, &bamfiles, reference, counter, refnucpred, strandpred, sumfilter),
-                );
+            pb.finish_with_message("done");
+        });
+
+        let pb = mbar.add(ProgressBar::new_spinner().with_style(style.clone()));
+        let h2 = s.spawn(move |_| {
+            for _ in 0..3 {
+                pb.set_position(0);
+                for i in 0..128 {
+                    pb.set_message(format!("item #{}", i + 1));
+                    pb.inc(1);
+                    thread::sleep(Duration::from_millis(8));
+                }
             }
-        }
-    }
+            pb.finish_with_message("done");
+        });
+        mbar.join();
+    });
+    // let (workload, maxsize) = workload(&bamfiles, &matches);
+    //
+    // let dummy = Interval::new("".into(), 1..2);
+    // let stranding = cli::stranding::Stranding::from_str(matches.value_of(args::STRANDING).unwrap()).unwrap();
+    //
+    // let saveto = matches.value_of(args::SAVETO).unwrap();
+    // let saveto = BufWriter::new(File::create(saveto).unwrap());
+
+    // // TODO: refactor this using a builder-like pattern
+    // match stranding {
+    //     Unstranded => {
+    //         let counter = BaseNucCounter::new(readfilter, UnstrandedCountsBuffer::new(maxsize), dummy);
+    //         if matches.is_present(args::ROI) {
+    //             cli::resformat::regions(
+    //                 saveto,
+    //                 rada::run::regions(workload, &bamfiles, reference, counter, refnucpred, strandpred, sumfilter),
+    //             );
+    //         } else {
+    //             cli::resformat::loci(
+    //                 saveto,
+    //                 rada::run::loci(workload, &bamfiles, reference, counter, refnucpred, strandpred, sumfilter),
+    //             );
+    //         }
+    //     }
+    //     Stranded(design) => {
+    //         let deductor = DeductStrandByDesign::new(design);
+    //         let counter = BaseNucCounter::new(readfilter, StrandedCountsBuffer::new(maxsize, deductor), dummy);
+    //         if matches.is_present(args::ROI) {
+    //             cli::resformat::regions(
+    //                 saveto,
+    //                 rada::run::regions(workload, &bamfiles, reference, counter, refnucpred, strandpred, sumfilter),
+    //             );
+    //         } else {
+    //             cli::resformat::loci(
+    //                 saveto,
+    //                 rada::run::loci(workload, &bamfiles, reference, counter, refnucpred, strandpred, sumfilter),
+    //             );
+    //         }
+    //     }
+    // }
 }

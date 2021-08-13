@@ -6,6 +6,7 @@ use super::{CountsBuffer, CountsBufferContent, LocusCounts};
 use crate::rada::read::AlignedRead;
 use std::marker::PhantomData;
 
+#[derive(Clone)]
 pub struct StrandedCountsBuffer<R: AlignedRead, Deductor: StrandDeductor<R>> {
     forward: Vec<LocusCounts>,
     reverse: Vec<LocusCounts>,

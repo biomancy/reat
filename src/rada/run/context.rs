@@ -12,15 +12,18 @@ use crate::rada::dna::Nucleotide;
 use crate::rada::read::AlignedRead;
 use crate::rada::refnuc::RefNucPredictor;
 
+pub struct FastaReader(faidx::Reader);
+unsafe impl Send for FastaReader {}
+
 pub struct ThreadContext<R: AlignedRead, Counter: NucCounter<R>, RefNucPred: RefNucPredictor, StrandPred, SummaryFilter>
 {
     pub(super) htsreaders: Vec<bam::IndexedReader>,
-    pub(super) reference: faidx::Reader,
+    pub(super) reference: FastaReader,
     pub(super) counter: Counter,
     pub(super) refnucpred: RefNucPred,
     pub(super) strandpred: StrandPred,
     pub(super) filter: SummaryFilter,
-    pub(super) phantom: PhantomData<R>,
+    pub(super) phantom: PhantomData<fn() -> R>,
 }
 
 impl<Counter: NucCounter<Record>, RefNucPred: RefNucPredictor, StrandPred, SummaryFilter>
@@ -42,7 +45,15 @@ impl<Counter: NucCounter<Record>, RefNucPred: RefNucPredictor, StrandPred, Summa
             .collect();
         let reference = faidx::Reader::from_path(reference)
             .unwrap_or_else(|_| panic!("Failed to open file {}", reference.display()));
-        ThreadContext { htsreaders, reference, counter, refnucpred, strandpred, filter, phantom: Default::default() }
+        ThreadContext {
+            htsreaders,
+            reference: FastaReader(reference),
+            counter,
+            refnucpred,
+            strandpred,
+            filter,
+            phantom: Default::default(),
+        }
     }
 
     pub fn nuccount(&mut self, interval: &Interval) {
@@ -99,10 +110,11 @@ impl<Counter: NucCounter<Record>, RefNucPred: RefNucPredictor, StrandPred, Summa
     }
 
     pub fn reference(&self, interval: &Interval) -> Vec<Nucleotide> {
-        let (start, end) = (interval.range().start as usize, interval.range().end as usize - 1);
+        let (start, end) = (interval.range().start as usize, interval.range().end as usize);
         let reference = self
             .reference
-            .fetch_seq(interval.contig(), start, end)
+            .0
+            .fetch_seq(interval.contig(), start, end - 1)
             .unwrap_or_else(|_| panic!("Failed to fetch sequence for region {:?}", interval));
 
         debug_assert_eq!(reference.len(), end - start);

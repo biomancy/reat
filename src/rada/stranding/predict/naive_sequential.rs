@@ -15,7 +15,7 @@ use super::{IntervalStrandPredictor, LocusStrandPredictor};
 
 // TODO: Create macro for a generic structure with 1-12 predictors
 
-#[derive(Constructor)]
+#[derive(Constructor, Clone)]
 pub struct NaiveSequentialStrandPredictor {
     by_editing: Option<StrandByAtoIEditing>,
     by_features: Option<StrandByGenomicFeatures>,

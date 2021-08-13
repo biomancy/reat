@@ -6,4 +6,3 @@ pub mod refnuc;
 pub mod run;
 pub mod stranding;
 pub mod summary;
-pub mod workload;

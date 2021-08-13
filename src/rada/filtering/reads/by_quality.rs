@@ -2,7 +2,7 @@ use derive_more::Constructor;
 
 use super::{AlignedRead, ReadsFilter};
 
-#[derive(Constructor)]
+#[derive(Constructor, Copy, Clone)]
 pub struct ReadsFilterByQuality {
     mapq: u8,
     phread: u8,

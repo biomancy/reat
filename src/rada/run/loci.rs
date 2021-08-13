@@ -7,9 +7,9 @@ use rust_htslib::bam::record::Record;
 use crate::rada::counting::NucCounter;
 use crate::rada::filtering::summary::LocusSummaryFilter;
 use crate::rada::refnuc::RefNucPredictor;
+use crate::rada::run::workload::Workload;
 use crate::rada::stranding::predict::LocusStrandPredictor;
 use crate::rada::summary::LocusSummary;
-use crate::rada::workload::Workload;
 
 use super::context::ThreadContext;
 

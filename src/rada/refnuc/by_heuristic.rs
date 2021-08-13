@@ -5,7 +5,7 @@ use crate::rada::dna::Nucleotide;
 
 use super::RefNucPredictor;
 
-#[derive(Constructor)]
+#[derive(Constructor, Copy, Clone)]
 pub struct RefNucPredByHeurisitc {
     mincoverage: u32,
     freqthr: f32,

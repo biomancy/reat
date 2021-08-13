@@ -5,6 +5,7 @@ use crate::rada::read::AlignedRead;
 
 use super::StrandDeductor;
 
+#[derive(Copy, Clone)]
 pub enum StrandSpecificExperimentDesign {
     // Notation (+ <- sequenced read orientation, - <- parent transcript orientation) => +-
     // Single end experiments
@@ -15,7 +16,7 @@ pub enum StrandSpecificExperimentDesign {
     Flip1Same2, // read1 flipped, read2 same as the transcript (+-/-+, ++/--)
 }
 
-#[derive(Constructor)]
+#[derive(Constructor, Copy, Clone)]
 pub struct DeductStrandByDesign {
     design: StrandSpecificExperimentDesign,
 }

@@ -5,6 +5,7 @@ use crate::rada::read::AlignedRead;
 
 use super::{CountsBuffer, LocusCounts};
 
+#[derive(Clone)]
 pub struct UnstrandedCountsBuffer<R: AlignedRead> {
     buffer: Vec<LocusCounts>,
     phantom: PhantomData<R>,

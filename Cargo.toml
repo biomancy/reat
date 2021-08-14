@@ -12,9 +12,10 @@ bio-types = "0.12.0"
 flate2 = "1.0.20"
 bio = "0.34.0"
 itertools = "0.10.1"
-derive_more = "0.99.16"
 clap = { git = "https://github.com/clap-rs/clap", rev = "5a1a209", features = ["wrap_help"] }
 indicatif = { version = "0.16.2", features = ["rayon"] }
+derive-getters = "0.2.0"
+derive_more = "0.99.16"
 
 [dev-dependencies]
 mockall = "0.10.2"

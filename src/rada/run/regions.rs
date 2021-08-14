@@ -1,13 +1,11 @@
 use std::cell::RefCell;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::sync::Mutex;
 
 use bio_types::strand::{Same, Strand};
 use rayon::prelude::*;
 use rust_htslib::bam::record::Record;
 use thread_local::ThreadLocal;
-
-use indicatif::{MultiProgress, ProgressBar};
 
 use crate::rada::counting::NucCounter;
 use crate::rada::filtering::summary::IntervalSummaryFilter;
@@ -18,21 +16,27 @@ use crate::rada::summary::IntervalSummary;
 
 use super::context::ThreadContext;
 
+#[allow(clippy::too_many_arguments)]
 pub fn run<
     Counter: NucCounter<Record> + Send + Clone,
     RefNucPred: RefNucPredictor + Send + Clone,
     StrandPred: IntervalStrandPredictor + Send + Clone,
-    Filter: IntervalSummaryFilter + Send + Clone,
+    SumFilter: IntervalSummaryFilter + Send + Clone,
+    Hook: Fn(&[IntervalSummary]) + Sync,
+    OnFinish: FnOnce(),
 >(
     workload: Vec<Workload>,
-    bamfiles: &[&Path],
+    bamfiles: &[PathBuf],
     reference: &Path,
     counter: Counter,
     refnucpred: RefNucPred,
     strandpred: StrandPred,
-    filter: Filter,
+    filter: SumFilter,
+    hook: Hook,
+    onfinish: OnFinish,
 ) -> Vec<IntervalSummary> {
-    let ctxstore: ThreadLocal<RefCell<ThreadContext<Record, Counter, RefNucPred, StrandPred, Filter>>> =
+    #[allow(clippy::type_complexity)]
+    let ctxstore: ThreadLocal<RefCell<ThreadContext<Record, Counter, RefNucPred, StrandPred, SumFilter>>> =
         ThreadLocal::new();
     let builder = Mutex::new(move || {
         RefCell::new(ThreadContext::new(
@@ -44,8 +48,6 @@ pub fn run<
             filter.clone(),
         ))
     });
-    let masterbar = MultiProgress::new();
-    let mut barstore: ThreadLocal<ProgressBar> = ThreadLocal::new();
     let results = workload
         .into_par_iter()
         .map(|w| {
@@ -87,22 +89,14 @@ pub fn run<
                 }
             }
 
+            hook(&result);
+
             // Filter results
             result.retain(|x| ctx.filter.is_ok(x));
-            if result.len() != 0 {
-                let pbar = barstore.get_or(|| {
-                    let pbar = masterbar.add(ProgressBar::new_spinner());
-                    // pbar.set_draw_rate(1);
-                    pbar
-                });
-                pbar.inc(result.len() as u64);
-            }
-
             result
         })
         .flatten()
         .collect();
-
-    masterbar.join();
+    onfinish();
     results
 }

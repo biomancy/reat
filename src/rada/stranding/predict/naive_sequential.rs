@@ -21,6 +21,15 @@ pub struct NaiveSequentialStrandPredictor {
     by_features: Option<StrandByGenomicFeatures>,
 }
 
+impl NaiveSequentialStrandPredictor {
+    pub fn by_editing(&self) -> &Option<StrandByAtoIEditing> {
+        &self.by_editing
+    }
+    pub fn by_features(&self) -> &Option<StrandByGenomicFeatures> {
+        &self.by_features
+    }
+}
+
 impl LocusStrandPredictor for NaiveSequentialStrandPredictor {
     fn predict(&self, locus: &Locus, refnuc: &Nucleotide, sequenced: &LocusCounts) -> Strand {
         let mut strand = Strand::Unknown;

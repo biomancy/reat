@@ -1,8 +1,12 @@
-use std::path::Path;
+use std::cell::RefCell;
+use std::path::{Path, PathBuf};
+use std::sync::Mutex;
 
 use bio_types::genome::{AbstractInterval, Locus};
 use bio_types::strand::Strand;
+use rayon::prelude::*;
 use rust_htslib::bam::record::Record;
+use thread_local::ThreadLocal;
 
 use crate::rada::counting::NucCounter;
 use crate::rada::filtering::summary::LocusSummaryFilter;
@@ -13,24 +17,42 @@ use crate::rada::summary::LocusSummary;
 
 use super::context::ThreadContext;
 
+#[allow(clippy::too_many_arguments)]
 pub fn run<
-    Counter: NucCounter<Record>,
-    RefNucPred: RefNucPredictor,
-    StrandPred: LocusStrandPredictor,
-    Filter: LocusSummaryFilter,
+    Counter: NucCounter<Record> + Send + Clone,
+    RefNucPred: RefNucPredictor + Send + Clone,
+    StrandPred: LocusStrandPredictor + Send + Clone,
+    SumFilter: LocusSummaryFilter + Send + Clone,
+    Hook: Fn(&[LocusSummary]) + Sync,
+    OnFinish: FnOnce(),
 >(
     workload: Vec<Workload>,
-    bamfiles: &[&Path],
+    bamfiles: &[PathBuf],
     reference: &Path,
     counter: Counter,
     refnucpred: RefNucPred,
     strandpred: StrandPred,
-    filter: Filter,
+    filter: SumFilter,
+    hook: Hook,
+    onfinish: OnFinish,
 ) -> Vec<LocusSummary> {
-    let mut ctx = ThreadContext::new(bamfiles, reference, counter, refnucpred, strandpred, filter);
-    workload
-        .into_iter()
+    #[allow(clippy::type_complexity)]
+    let ctxstore: ThreadLocal<RefCell<ThreadContext<Record, Counter, RefNucPred, StrandPred, SumFilter>>> =
+        ThreadLocal::new();
+    let builder = Mutex::new(move || {
+        RefCell::new(ThreadContext::new(
+            bamfiles,
+            reference,
+            counter.clone(),
+            refnucpred.clone(),
+            strandpred.clone(),
+            filter.clone(),
+        ))
+    });
+    let result = workload
+        .into_par_iter()
         .map(|w| {
+            let mut ctx = ctxstore.get_or(|| builder.lock().unwrap()()).borrow_mut();
             // Counting nucleotides occurrence
             ctx.nuccount(&w.interval);
             let content = ctx.counter.content();
@@ -63,11 +85,14 @@ pub fn run<
                 }
             }
 
+            hook(&result);
+
             // Filter results
             result.retain(|x| ctx.filter.is_ok(x));
-
             result
         })
         .flatten()
-        .collect()
+        .collect();
+    onfinish();
+    result
 }

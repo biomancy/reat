@@ -4,8 +4,9 @@ use crate::rada::counting::LocusCounts;
 use crate::rada::dna::Nucleotide;
 
 use super::RefNucPredictor;
+use derive_getters::Getters;
 
-#[derive(Constructor, Copy, Clone)]
+#[derive(Constructor, Getters, Copy, Clone)]
 pub struct RefNucPredByHeurisitc {
     mincoverage: u32,
     freqthr: f32,

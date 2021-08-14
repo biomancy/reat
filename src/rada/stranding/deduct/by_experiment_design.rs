@@ -1,3 +1,5 @@
+use std::fmt::{Display, Formatter};
+
 use bio_types::strand::ReqStrand;
 use derive_more::Constructor;
 
@@ -5,7 +7,7 @@ use crate::rada::read::AlignedRead;
 
 use super::StrandDeductor;
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Eq, PartialEq)]
 pub enum StrandSpecificExperimentDesign {
     // Notation (+ <- sequenced read orientation, - <- parent transcript orientation) => +-
     // Single end experiments
@@ -14,6 +16,23 @@ pub enum StrandSpecificExperimentDesign {
     // Paired end experiments
     Same1Flip2, // read1 same as the transcript, read2 flipped (++/--, +-/-+)
     Flip1Same2, // read1 flipped, read2 same as the transcript (+-/-+, ++/--)
+}
+
+impl Display for StrandSpecificExperimentDesign {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.symbol())
+    }
+}
+
+impl StrandSpecificExperimentDesign {
+    pub fn symbol(&self) -> &str {
+        match self {
+            StrandSpecificExperimentDesign::Same => "s",
+            StrandSpecificExperimentDesign::Flip => "f",
+            StrandSpecificExperimentDesign::Same1Flip2 => "sf",
+            StrandSpecificExperimentDesign::Flip1Same2 => "fs",
+        }
+    }
 }
 
 #[derive(Constructor, Copy, Clone)]

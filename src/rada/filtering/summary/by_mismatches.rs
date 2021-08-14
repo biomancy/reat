@@ -1,3 +1,4 @@
+use derive_getters::Getters;
 use derive_more::Constructor;
 
 use crate::rada::dna::Nucleotide;
@@ -5,7 +6,7 @@ use crate::rada::summary::{IntervalSummary, LocusSummary};
 
 use super::{IntervalSummaryFilter, LocusSummaryFilter};
 
-#[derive(Constructor, Debug, PartialEq, Copy, Clone)]
+#[derive(Constructor, Getters, Debug, PartialEq, Copy, Clone)]
 pub struct SummaryFilterByMismatches {
     minmismatches: u32,
     minfreq: f32,

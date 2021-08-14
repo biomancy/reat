@@ -1,5 +1,5 @@
 use std::marker::PhantomData;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 use bio_types::genome::{AbstractInterval, Interval};
 use itertools::izip;
@@ -30,7 +30,7 @@ impl<Counter: NucCounter<Record>, RefNucPred: RefNucPredictor, StrandPred, Summa
     ThreadContext<Record, Counter, RefNucPred, StrandPred, SummaryFilter>
 {
     pub fn new(
-        htsfiles: &[&Path],
+        htsfiles: &[PathBuf],
         reference: &Path,
         counter: Counter,
         refnucpred: RefNucPred,
@@ -39,7 +39,7 @@ impl<Counter: NucCounter<Record>, RefNucPred: RefNucPredictor, StrandPred, Summa
     ) -> Self {
         let htsreaders: Vec<bam::IndexedReader> = htsfiles
             .iter()
-            .map(|&hts| {
+            .map(|hts| {
                 bam::IndexedReader::from_path(&hts).unwrap_or_else(|_| panic!("Failed to open file {}", hts.display()))
             })
             .collect();

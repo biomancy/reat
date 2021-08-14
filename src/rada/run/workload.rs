@@ -1,5 +1,5 @@
 use std::cmp::min;
-use std::ffi::{CStr, OsStr};
+use std::ffi::OsStr;
 use std::fs::File;
 use std::io;
 use std::io::BufRead;
@@ -32,12 +32,14 @@ impl Workload {
         bins
     }
 
-    pub fn from_binned_hts(hts: &[&Path], binsize: u64) -> Vec<Workload> {
+    pub fn from_binned_hts(hts: &[impl AsRef<Path>], binsize: u64) -> Vec<Workload> {
         assert!(binsize > 0, "Binsize must be > 0");
 
         let hts = hts
             .iter()
-            .map(|x| IndexedReader::from_path(x).unwrap_or_else(|_| panic!("Failed to open file {}", x.display())))
+            .map(|x| {
+                IndexedReader::from_path(x).unwrap_or_else(|_| panic!("Failed to open file {}", x.as_ref().display()))
+            })
             .collect_vec();
 
         // Check that headers are identical
@@ -46,7 +48,7 @@ impl Workload {
             .map(|x| x.header())
             .map(|h| {
                 (0..h.target_count())
-                    .map(|tid| (CStr::from_bytes_with_nul(h.tid2name(tid)).unwrap(), h.target_len(tid)))
+                    .map(|tid| (String::from_utf8_lossy(h.tid2name(tid)), h.target_len(tid)))
                     .sorted()
                     .collect_vec()
             })

@@ -26,7 +26,7 @@ pub struct StrandByGenomicFeatures {
 impl StrandPredictor for StrandByGenomicFeatures {}
 
 impl StrandByGenomicFeatures {
-    pub fn from_gff3(gff3: &Path) -> Self {
+    pub fn from_gff3(gff3: &Path, hook: impl Fn(&Contig<String, Strand>)) -> Self {
         let extensions = gff3
             .file_name()
             .and_then(OsStr::to_str)
@@ -40,14 +40,14 @@ impl StrandByGenomicFeatures {
 
         if last == "gz" || last == "gzip" {
             assert_eq!(extensions[extensions.len() - 2], "gff3");
-            StrandByGenomicFeatures::parse_gff3(io::BufReader::new(GzDecoder::new(gff3)))
+            StrandByGenomicFeatures::parse_gff3(io::BufReader::new(GzDecoder::new(gff3)), hook)
         } else {
             assert_eq!(last, "gff3");
-            StrandByGenomicFeatures::parse_gff3(gff3)
+            StrandByGenomicFeatures::parse_gff3(gff3, hook)
         }
     }
 
-    fn parse_gff3<T: BufRead>(mut reader: T) -> Self {
+    fn parse_gff3<T: BufRead>(mut reader: T, hook: impl Fn(&Contig<String, Strand>)) -> Self {
         let mut exons: AnnotMap<String, ReqStrand> = AnnotMap::new();
         let mut genes: AnnotMap<String, ReqStrand> = AnnotMap::new();
 
@@ -78,8 +78,9 @@ impl StrandByGenomicFeatures {
                     continue;
                 }
             };
-            interval_tree
-                .insert_at(strand, &Contig::new(split[0].into(), start, (end - start) as usize, Strand::Unknown));
+            let record = Contig::new(split[0].into(), start, (end - start) as usize, Strand::Unknown);
+            hook(&record);
+            interval_tree.insert_at(strand, &record);
 
             buf.clear();
         }
@@ -148,7 +149,7 @@ mod tests {
         2\t.\texon\t1\t9\t.\t-\t0\n\
         2\t.\texon\t20\t22\t.\t-\t0";
 
-        let dummy = StrandByGenomicFeatures::parse_gff3(io::BufReader::new(gff3.as_bytes()));
+        let dummy = StrandByGenomicFeatures::parse_gff3(io::BufReader::new(gff3.as_bytes()), |_| {});
         for (contig, range, strand) in [
             ("chr1", 5..25, Strand::Forward),
             ("chr1", 3..4, Strand::Forward),

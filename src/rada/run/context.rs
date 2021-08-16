@@ -7,27 +7,28 @@ use rust_htslib::bam::record::Record;
 use rust_htslib::bam::Read;
 use rust_htslib::{bam, faidx};
 
-use crate::rada::counting::{CountsBufferContent, LocusCounts, NucCounter};
+use crate::rada::counting::{CountsBufferContent, LocusCounts, NucCounter, NucCounterContent};
 use crate::rada::dna::Nucleotide;
 use crate::rada::read::AlignedRead;
 use crate::rada::refnuc::RefNucPredictor;
 
+// Dummy FastaReader
 pub struct FastaReader(faidx::Reader);
 unsafe impl Send for FastaReader {}
 
-pub struct ThreadContext<R: AlignedRead, Counter: NucCounter<R>, RefNucPred: RefNucPredictor, StrandPred, SummaryFilter>
-{
-    pub(super) htsreaders: Vec<bam::IndexedReader>,
-    pub(super) reference: FastaReader,
-    pub(super) counter: Counter,
-    pub(super) refnucpred: RefNucPred,
-    pub(super) strandpred: StrandPred,
-    pub(super) filter: SummaryFilter,
-    pub(super) phantom: PhantomData<fn() -> R>,
+pub struct Context<R: AlignedRead, Counter: NucCounter<R>, RefNucPred: RefNucPredictor, StrandPred, SummaryFilter> {
+    pub htsreaders: Vec<bam::IndexedReader>,
+    pub refreader: FastaReader,
+    counter: Counter,
+    pub refnucpred: RefNucPred,
+    pub strandpred: StrandPred,
+    pub filter: SummaryFilter,
+    has_some_data: bool,
+    phantom: PhantomData<fn() -> R>,
 }
 
 impl<Counter: NucCounter<Record>, RefNucPred: RefNucPredictor, StrandPred, SummaryFilter>
-    ThreadContext<Record, Counter, RefNucPred, StrandPred, SummaryFilter>
+    Context<Record, Counter, RefNucPred, StrandPred, SummaryFilter>
 {
     pub fn new(
         htsfiles: &[PathBuf],
@@ -45,29 +46,45 @@ impl<Counter: NucCounter<Record>, RefNucPred: RefNucPredictor, StrandPred, Summa
             .collect();
         let reference = faidx::Reader::from_path(reference)
             .unwrap_or_else(|_| panic!("Failed to open file {}", reference.display()));
-        ThreadContext {
+        Context {
             htsreaders,
-            reference: FastaReader(reference),
+            refreader: FastaReader(reference),
             counter,
             refnucpred,
             strandpred,
             filter,
+            has_some_data: false,
             phantom: Default::default(),
         }
     }
 
     pub fn nuccount(&mut self, interval: &Interval) {
         self.counter.reset(interval.clone());
+        self.has_some_data = false;
 
         for htsreader in &mut self.htsreaders {
-            let err = htsreader.fetch((interval.contig(), interval.range().start, interval.range().end));
-            err.unwrap_or_else(|_| panic!("Failed to fetch reads for {:?} (HTS file corrupted?)", interval));
+            if !htsreader.header().target_names().contains(&interval.contig().as_bytes()) {
+                continue;
+            }
+
+            htsreader
+                .fetch((interval.contig(), interval.range().start, interval.range().end))
+                .unwrap_or_else(|_| panic!("Failed to fetch reads for {:?} (HTS file corrupted?)", interval));
 
             let mut record = Record::new();
             while let Some(r) = htsreader.read(&mut record) {
                 r.expect("Failed to parse record information (HTS file corrupted?)");
                 self.counter.process(&mut record);
             }
+            self.has_some_data = true;
+        }
+    }
+
+    pub fn nuccontent(&self) -> Option<NucCounterContent> {
+        if self.has_some_data {
+            Some(self.counter.content())
+        } else {
+            None
         }
     }
 
@@ -112,7 +129,7 @@ impl<Counter: NucCounter<Record>, RefNucPred: RefNucPredictor, StrandPred, Summa
     pub fn reference(&self, interval: &Interval) -> Vec<Nucleotide> {
         let (start, end) = (interval.range().start as usize, interval.range().end as usize);
         let reference = self
-            .reference
+            .refreader
             .0
             .fetch_seq(interval.contig(), start, end - 1)
             .unwrap_or_else(|_| panic!("Failed to fetch sequence for region {:?}", interval));
@@ -134,7 +151,7 @@ mod tests {
 
     use super::*;
 
-    type Context = ThreadContext<
+    type DummyContext = Context<
         Record,
         MockNucCounter<Record>,
         MockRefNucPredictor,
@@ -164,12 +181,12 @@ mod tests {
             }
 
             let content = CountsBufferContent { forward, reverse, unstranded };
-            let pred = Context::implpredseq(&refnucpred, &reference, &content);
+            let pred = DummyContext::implpredseq(&refnucpred, &reference, &content);
             assert_eq!(pred, reference);
         }
 
         let content = CountsBufferContent { forward: None, reverse: None, unstranded: None };
-        let pred = Context::implpredseq(&refnucpred, &reference, &content);
+        let pred = DummyContext::implpredseq(&refnucpred, &reference, &content);
         assert_eq!(pred, vec![]);
     }
 }

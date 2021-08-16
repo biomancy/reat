@@ -20,6 +20,7 @@ mod inner {
 }
 
 impl MismatchesSummary {
+    #[inline]
     pub fn zeros() -> Self {
         MismatchesSummary {
             A: LocusCounts::zeros(),
@@ -29,10 +30,12 @@ impl MismatchesSummary {
         }
     }
 
+    #[inline]
     pub fn coverage(&self) -> u32 {
         self.A.coverage() + self.C.coverage() + self.G.coverage() + self.T.coverage()
     }
 
+    #[inline]
     pub fn mismatches(&self) -> u32 {
         self.A.mismatches(&ReqNucleotide::A)
             + self.C.mismatches(&ReqNucleotide::C)

@@ -1,4 +1,4 @@
-pub use context::ThreadContext;
+pub use context::Context;
 pub use loci::run as loci;
 pub use regions::run as regions;
 

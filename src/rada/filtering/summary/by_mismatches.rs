@@ -13,6 +13,7 @@ pub struct SummaryFilterByMismatches {
 }
 
 impl IntervalSummaryFilter for SummaryFilterByMismatches {
+    #[inline]
     fn is_ok(&self, summary: &IntervalSummary) -> bool {
         let (cov, mismatch) = (summary.mismatches.coverage(), summary.mismatches.mismatches());
         mismatch >= self.minmismatches && mismatch as f32 / cov as f32 >= self.minfreq
@@ -20,6 +21,7 @@ impl IntervalSummaryFilter for SummaryFilterByMismatches {
 }
 
 impl LocusSummaryFilter for SummaryFilterByMismatches {
+    #[inline]
     fn is_ok(&self, summary: &LocusSummary) -> bool {
         if summary.refnuc == Nucleotide::Unknown {
             // Always pass N's if coverage is sufficient to let the user decide what to do with them

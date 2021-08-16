@@ -15,7 +15,7 @@ use crate::rada::run::workload::Workload;
 use crate::rada::stranding::predict::LocusStrandPredictor;
 use crate::rada::summary::LocusSummary;
 
-use super::context::ThreadContext;
+use super::context::Context;
 
 #[allow(clippy::too_many_arguments)]
 pub fn run<
@@ -23,8 +23,8 @@ pub fn run<
     RefNucPred: RefNucPredictor + Send + Clone,
     StrandPred: LocusStrandPredictor + Send + Clone,
     SumFilter: LocusSummaryFilter + Send + Clone,
-    Hook: Fn(&[LocusSummary]) + Sync,
-    OnFinish: FnOnce(),
+    OnIteration: Fn(&[LocusSummary]) + Sync,
+    OnFinish: FnOnce(&[LocusSummary]) + Sync,
 >(
     workload: Vec<Workload>,
     bamfiles: &[PathBuf],
@@ -33,14 +33,14 @@ pub fn run<
     refnucpred: RefNucPred,
     strandpred: StrandPred,
     filter: SumFilter,
-    hook: Hook,
+    hook: OnIteration,
     onfinish: OnFinish,
 ) -> Vec<LocusSummary> {
     #[allow(clippy::type_complexity)]
-    let ctxstore: ThreadLocal<RefCell<ThreadContext<Record, Counter, RefNucPred, StrandPred, SumFilter>>> =
+    let ctxstore: ThreadLocal<RefCell<Context<Record, Counter, RefNucPred, StrandPred, SumFilter>>> =
         ThreadLocal::new();
     let builder = Mutex::new(move || {
-        RefCell::new(ThreadContext::new(
+        RefCell::new(Context::new(
             bamfiles,
             reference,
             counter.clone(),
@@ -49,30 +49,37 @@ pub fn run<
             filter.clone(),
         ))
     });
-    let result = workload
+    let result: Vec<LocusSummary> = workload
         .into_par_iter()
         .map(|w| {
             let mut ctx = ctxstore.get_or(|| builder.lock().unwrap()()).borrow_mut();
             // Counting nucleotides occurrence
             ctx.nuccount(&w.interval);
-            let content = ctx.counter.content();
-            let counts = &content.counts;
-
-            if counts.forward.is_none() && counts.reverse.is_none() && counts.unstranded.is_none() {
-                return vec![];
+            let content = ctx.nuccontent();
+            if content.is_none() {
+                let result = vec![];
+                hook(&result);
+                return result;
             }
+            let content = content.unwrap();
+
+            let counts = &content.counts;
 
             // Fetch reference sequence and predict "real" sequence based on the sequenced nucleotides
             let sequence = ctx.predseq(&ctx.reference(&content.interval), &content.counts);
 
             // Build summaries
-            let mut result = Vec::with_capacity(counts.total_counts());
+            let total = counts.total_counts();
+            let mut result = Vec::with_capacity(total);
 
             for (strand, counts) in [(Strand::Forward, counts.forward), (Strand::Reverse, counts.reverse)] {
                 if let Some(counts) = counts {
                     for (offset, (cnt, nuc)) in counts.iter().zip(&sequence).enumerate() {
                         let locus = Locus::new(w.interval.contig().into(), w.interval.range().start + offset as u64);
-                        result.push(LocusSummary::new(locus, strand, *nuc, *cnt));
+                        let summary = LocusSummary::new(locus, strand, *nuc, *cnt);
+                        if ctx.filter.is_ok(&summary) {
+                            result.push(summary);
+                        }
                     }
                 }
             }
@@ -81,18 +88,46 @@ pub fn run<
                 for (offset, (cnt, nuc)) in counts.iter().zip(&sequence).enumerate() {
                     let locus = Locus::new(w.interval.contig().into(), w.interval.range().start + offset as u64);
                     let locstrand = ctx.strandpred.predict(&locus, nuc, cnt);
-                    result.push(LocusSummary::new(locus, locstrand, *nuc, *cnt));
+                    let summary = LocusSummary::new(locus, locstrand, *nuc, *cnt);
+                    if ctx.filter.is_ok(&summary) {
+                        result.push(summary);
+                    }
                 }
             }
 
             hook(&result);
-
-            // Filter results
-            result.retain(|x| ctx.filter.is_ok(x));
             result
         })
         .flatten()
         .collect();
-    onfinish();
+    onfinish(&result);
     result
 }
+
+// #[cfg(test)]
+// mod test {
+//     use super::*;
+//     use crate::rada::counting::MockNucCounter;
+//     use crate::rada::filtering::summary::MockLocusSummaryFilter;
+//     use crate::rada::read::MockRead;
+//     use crate::rada::refnuc::MockRefNucPredictor;
+//     use crate::rada::stranding::predict::MockLocusStrandPredictor;
+//     use bio_types::genome::Interval;
+//     use std::str::FromStr;
+//
+//     #[test]
+//     fn run() {
+//         let workload = vec![
+//             Workload { interval: Interval::new("1".into(), 1..2), name: "First".into() },
+//             Workload { interval: Interval::new("2".into(), 3..4), name: "Second".into() },
+//         ];
+//         let bamfiles = &vec![PathBuf::from_str("A!").unwrap(), PathBuf::from_str("B!").unwrap()];
+//         let reference = Path::new("C!");
+//         let mut counter = MockNucCounter::<MockRead>::new();
+//         let mut refnucpred = MockRefNucPredictor::new();
+//         let mut strandpred = MockLocusStrandPredictor::new();
+//         let mut filter = MockLocusSummaryFilter::new();
+//
+//         super::run(workload, bamfiles, reference, counter, refnucpred, strandpred, filter, |_| {}, |_| {});
+//     }
+// }

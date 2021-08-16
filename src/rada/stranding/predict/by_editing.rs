@@ -17,6 +17,7 @@ pub struct StrandByAtoIEditing {
 }
 
 impl StrandByAtoIEditing {
+    #[inline]
     fn is_ok(&self, matches: u32, mismatches: u32) -> bool {
         let coverage = mismatches + matches;
         coverage > 0 && mismatches >= self.min_mismatches && (mismatches as f32 / coverage as f32) >= self.min_freq

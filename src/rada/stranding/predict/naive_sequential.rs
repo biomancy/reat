@@ -63,3 +63,13 @@ impl IntervalStrandPredictor for NaiveSequentialStrandPredictor {
         strand
     }
 }
+
+// #[cfg(test)]
+// mod test {
+//     use super::*;
+//
+//     #[test]
+//     fn predict() {
+//         // TODO: make a reasonable unit test once Sequential predictor is a macro
+//     }
+// }

@@ -14,7 +14,7 @@ use crate::rada::run::workload::Workload;
 use crate::rada::stranding::predict::IntervalStrandPredictor;
 use crate::rada::summary::IntervalSummary;
 
-use super::context::ThreadContext;
+use super::context::Context;
 
 #[allow(clippy::too_many_arguments)]
 pub fn run<
@@ -22,8 +22,8 @@ pub fn run<
     RefNucPred: RefNucPredictor + Send + Clone,
     StrandPred: IntervalStrandPredictor + Send + Clone,
     SumFilter: IntervalSummaryFilter + Send + Clone,
-    Hook: Fn(&[IntervalSummary]) + Sync,
-    OnFinish: FnOnce(),
+    OnIteration: Fn(&[IntervalSummary]) + Sync,
+    OnFinish: FnOnce(&[IntervalSummary]),
 >(
     workload: Vec<Workload>,
     bamfiles: &[PathBuf],
@@ -32,14 +32,14 @@ pub fn run<
     refnucpred: RefNucPred,
     strandpred: StrandPred,
     filter: SumFilter,
-    hook: Hook,
+    hook: OnIteration,
     onfinish: OnFinish,
 ) -> Vec<IntervalSummary> {
     #[allow(clippy::type_complexity)]
-    let ctxstore: ThreadLocal<RefCell<ThreadContext<Record, Counter, RefNucPred, StrandPred, SumFilter>>> =
+    let ctxstore: ThreadLocal<RefCell<Context<Record, Counter, RefNucPred, StrandPred, SumFilter>>> =
         ThreadLocal::new();
     let builder = Mutex::new(move || {
-        RefCell::new(ThreadContext::new(
+        RefCell::new(Context::new(
             bamfiles,
             reference,
             counter.clone(),
@@ -48,18 +48,21 @@ pub fn run<
             filter.clone(),
         ))
     });
-    let results = workload
+    let results: Vec<IntervalSummary> = workload
         .into_par_iter()
         .map(|w| {
             let mut ctx = ctxstore.get_or(|| builder.lock().unwrap()()).borrow_mut();
             // Counting nucleotides occurrence
             ctx.nuccount(&w.interval);
-            let content = ctx.counter.content();
-            let counts = &content.counts;
-
-            if counts.forward.is_none() && counts.reverse.is_none() && counts.unstranded.is_none() {
-                return vec![];
+            let content = ctx.nuccontent();
+            if content.is_none() {
+                let result = vec![];
+                hook(&result);
+                return result;
             }
+            let content = content.unwrap();
+
+            let counts = &content.counts;
 
             // Fetch reference sequence and predict "real" sequence based on the sequenced nucleotides
             let sequence = ctx.predseq(&ctx.reference(&content.interval), &content.counts);
@@ -85,18 +88,16 @@ pub fn run<
                     if strand.same(&Strand::Unknown) {
                         summary.strand = ctx.strandpred.predict(&summary.interval, &summary.mismatches);
                     }
-                    result.push(summary);
+                    if ctx.filter.is_ok(&summary) {
+                        result.push(summary);
+                    }
                 }
             }
-
             hook(&result);
-
-            // Filter results
-            result.retain(|x| ctx.filter.is_ok(x));
             result
         })
         .flatten()
         .collect();
-    onfinish();
+    onfinish(&results);
     results
 }

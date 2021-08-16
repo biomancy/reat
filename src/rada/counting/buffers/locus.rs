@@ -22,7 +22,7 @@ mod inner {
 
 impl LocusCounts {
     #[inline]
-    pub fn zeros() -> LocusCounts {
+    pub const fn zeros() -> LocusCounts {
         LocusCounts { A: 0, T: 0, G: 0, C: 0 }
     }
 

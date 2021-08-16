@@ -6,7 +6,7 @@ use crate::rada::summary::{IntervalSummary, LocusSummary};
 
 const IO_ERROR: &str = "Failed to write to the output file.";
 
-pub fn loci(mut saveto: impl Write, summary: Vec<LocusSummary>) {
+pub fn loci(saveto: &mut impl Write, summary: Vec<LocusSummary>) {
     writeln!(saveto, "chr\tposition\tstrand\treference\tA\tC\tG\tT").expect(IO_ERROR);
 
     for e in summary {
@@ -15,7 +15,7 @@ pub fn loci(mut saveto: impl Write, summary: Vec<LocusSummary>) {
             "{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}",
             e.locus.contig(),
             e.locus.pos(),
-            e.strand,
+            e.strand.strand_symbol(),
             e.refnuc,
             e.sequenced.A,
             e.sequenced.C,
@@ -26,8 +26,8 @@ pub fn loci(mut saveto: impl Write, summary: Vec<LocusSummary>) {
     }
 }
 
-pub fn regions(mut saveto: impl Write, summary: Vec<IntervalSummary>) {
-    writeln!(saveto, "chr\tstart\tend\tstrand\tname\tA->A\tA->C\tA->G\tA->T\tC->A\tC->C\tC->G\tC->T\tG->A\tG->C\tG->G\tG->T\tT->A\tT->C\tT->G\tT->T\t")
+pub fn regions(saveto: &mut impl Write, summary: Vec<IntervalSummary>) {
+    writeln!(saveto, "chr\tstart\tend\tstrand\tname\tA->A\tA->C\tA->G\tA->T\tC->A\tC->C\tC->G\tC->T\tG->A\tG->C\tG->G\tG->T\tT->A\tT->C\tT->G\tT->T")
     .expect(IO_ERROR);
 
     for e in summary {
@@ -38,5 +38,72 @@ pub fn regions(mut saveto: impl Write, summary: Vec<IntervalSummary>) {
         write!(saveto, "{}\t{}\t{}\t{}\t", m.C.A, m.C.C, m.C.G, m.C.T).expect(IO_ERROR);
         write!(saveto, "{}\t{}\t{}\t{}\t", m.G.A, m.G.C, m.G.G, m.G.T).expect(IO_ERROR);
         writeln!(saveto, "{}\t{}\t{}\t{}", m.T.A, m.T.C, m.T.G, m.T.T).expect(IO_ERROR);
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use bio_types::genome::{Interval, Locus};
+    use bio_types::strand::Strand;
+
+    use crate::rada::counting::LocusCounts;
+    use crate::rada::dna::Nucleotide;
+
+    use super::*;
+
+    #[test]
+    fn regions() {
+        let dummy = vec![
+            IntervalSummary::from_counts(
+                Interval::new("1".into(), 1..20),
+                "First".into(),
+                Strand::Forward,
+                &vec![Nucleotide::A, Nucleotide::Unknown],
+                &vec![LocusCounts::new(1, 10, 100, 1000), LocusCounts::new(1, 1, 1, 1)],
+            ),
+            IntervalSummary::from_counts(
+                Interval::new("3".into(), 30..31),
+                "".into(),
+                Strand::Unknown,
+                &vec![Nucleotide::C, Nucleotide::G],
+                &vec![LocusCounts::new(1, 2, 3, 4), LocusCounts::new(5, 6, 7, 8)],
+            ),
+        ];
+        let mut saveto = Vec::new();
+        super::regions(&mut saveto, dummy);
+
+        let result = String::from_utf8(saveto).unwrap();
+        let expected = "chr\tstart\tend\tstrand\tname\t\
+                              A->A\tA->C\tA->G\tA->T\t\
+                              C->A\tC->C\tC->G\tC->T\t\
+                              G->A\tG->C\tG->G\tG->T\t\
+                              T->A\tT->C\tT->G\tT->T\n\
+                              1\t1\t20\t+\tFirst\t\
+                              1\t10\t100\t1000\t\
+                              0\t0\t0\t0\t\
+                              0\t0\t0\t0\t\
+                              0\t0\t0\t0\n\
+                              3\t30\t31\t.\t\t\
+                              0\t0\t0\t0\t\
+                              1\t2\t3\t4\t\
+                              5\t6\t7\t8\t\
+                              0\t0\t0\t0\n";
+        assert_eq!(&result, expected)
+    }
+
+    #[test]
+    fn loci() {
+        let dummy = vec![
+            LocusSummary::new(Locus::new("1".into(), 10), Strand::Unknown, Nucleotide::Unknown, LocusCounts::zeros()),
+            LocusSummary::new(Locus::new("2".into(), 20), Strand::Forward, Nucleotide::G, LocusCounts::new(1, 2, 3, 4)),
+        ];
+        let mut saveto = Vec::new();
+        super::loci(&mut saveto, dummy);
+
+        let result = String::from_utf8(saveto).unwrap();
+        let expected = "chr\tposition\tstrand\treference\tA\tC\tG\tT\n\
+                              1\t10\t.\tN\t0\t0\t0\t0\n\
+                              2\t20\t+\tG\t1\t2\t3\t4\n";
+        assert_eq!(&result, expected)
     }
 }

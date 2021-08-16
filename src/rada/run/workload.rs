@@ -76,11 +76,6 @@ impl Workload {
             let split: Vec<&str> = buf.trim_end().split('\t').take(4).collect();
             assert!(split.len() >= 3);
 
-            if split[0].len() > 6 {
-                buf.clear();
-                continue;
-            }
-
             let start = split[1].parse().expect("Failed to reads string start");
             let end = split[2].parse().expect("Failed to reads string start");
             let interval = Interval::new(split[0].to_owned(), Range { start, end });

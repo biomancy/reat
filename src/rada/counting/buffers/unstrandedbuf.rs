@@ -13,8 +13,7 @@ pub struct UnstrandedCountsBuffer<R: AlignedRead> {
 
 impl<R: AlignedRead> UnstrandedCountsBuffer<R> {
     pub fn new(reserve: u32) -> Self {
-        let mut buffer = Vec::new();
-        buffer.reserve(reserve as usize);
+        let buffer = Vec::with_capacity(reserve as usize);
         UnstrandedCountsBuffer { buffer, phantom: Default::default() }
     }
 }
@@ -33,10 +32,12 @@ impl<R: AlignedRead> CountsBuffer<R> for UnstrandedCountsBuffer<R> {
         &mut self.buffer
     }
 
+    #[inline]
     fn content(&self) -> CountsBufferContent {
         CountsBufferContent { forward: None, reverse: None, unstranded: Some(&self.buffer) }
     }
 
+    #[inline]
     fn len(&self) -> u32 {
         self.buffer.len() as u32
     }

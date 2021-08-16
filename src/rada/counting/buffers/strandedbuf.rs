@@ -1,10 +1,11 @@
+use std::marker::PhantomData;
+
 use bio_types::strand::ReqStrand;
 
+use crate::rada::read::AlignedRead;
 use crate::rada::stranding::deduct::StrandDeductor;
 
 use super::{CountsBuffer, CountsBufferContent, LocusCounts};
-use crate::rada::read::AlignedRead;
-use std::marker::PhantomData;
 
 #[derive(Clone)]
 pub struct StrandedCountsBuffer<R: AlignedRead, Deductor: StrandDeductor<R>> {
@@ -15,10 +16,9 @@ pub struct StrandedCountsBuffer<R: AlignedRead, Deductor: StrandDeductor<R>> {
 }
 
 impl<R: AlignedRead, Deductor: StrandDeductor<R>> StrandedCountsBuffer<R, Deductor> {
-    pub(crate) fn new(maxsize: u32, strand_deductor: Deductor) -> Self {
-        let (mut plstrand, mut mnstrand) = (Vec::new(), Vec::new());
-        plstrand.reserve(maxsize as usize);
-        mnstrand.reserve(maxsize as usize);
+    pub fn new(maxsize: u32, strand_deductor: Deductor) -> Self {
+        let maxsize = maxsize as usize;
+        let (plstrand, mnstrand) = (Vec::with_capacity(maxsize), Vec::with_capacity(maxsize));
         StrandedCountsBuffer { forward: plstrand, reverse: mnstrand, strand_deductor, phantom: Default::default() }
     }
 }
@@ -55,9 +55,10 @@ impl<R: AlignedRead, Deductor: StrandDeductor<R>> CountsBuffer<R> for StrandedCo
 mod tests {
     use std::ptr;
 
-    use super::*;
     use crate::rada::read::MockRead;
     use crate::rada::stranding::deduct::MockStrandDeductor;
+
+    use super::*;
 
     fn dummy(
         maxsize: u32,

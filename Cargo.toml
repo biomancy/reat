@@ -2,9 +2,14 @@
 name = "rada"
 version = "0.0.1"
 edition = "2018"
+authors = ["Aleksandr Fedorov <anfedorov@hse.ru>"]
+description = "Rapid RNA editing profiling"
+readme = "README.md"
+license = "MIT"
+repository = "https://github.com/rust-bio/rust-htslib.git"
 
 [dependencies]
-rust-htslib = "0.36.0"
+rust-htslib = "0.38.2"
 fstrings = "0.2.3"
 rayon = "1.5.1"
 thread_local = "1.1.3"

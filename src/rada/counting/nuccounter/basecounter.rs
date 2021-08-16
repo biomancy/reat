@@ -21,6 +21,7 @@ pub struct BaseNucCounter<R: AlignedRead, Filter: ReadsFilter<R>, Buffer: Counts
 }
 
 impl<R: AlignedRead, Filter: ReadsFilter<R>, Buffer: CountsBuffer<R>> BaseNucCounter<R, Filter, Buffer> {
+    #[inline]
     fn is_record_ok(&self, record: &mut R) -> bool {
         self.filter.is_read_ok(record) && record.contig() == self.roi.contig()
     }
@@ -86,10 +87,12 @@ impl<R: AlignedRead, Filter: ReadsFilter<R>, Buffer: CountsBuffer<R>> BaseNucCou
 impl<R: AlignedRead, Filter: ReadsFilter<R>, Buffer: CountsBuffer<R>> NucCounter<R>
     for BaseNucCounter<R, Filter, Buffer>
 {
+    #[inline]
     fn roi(&self) -> &Interval {
         &self.roi
     }
 
+    #[inline]
     fn process(&mut self, read: &mut R) {
         if !self.is_record_ok(read) {
             return;
@@ -103,6 +106,7 @@ impl<R: AlignedRead, Filter: ReadsFilter<R>, Buffer: CountsBuffer<R>> NucCounter
         self.buffer.reset(size);
     }
 
+    #[inline]
     fn content(&self) -> NucCounterContent {
         NucCounterContent { interval: self.roi.clone(), counts: self.buffer.content() }
     }

@@ -13,7 +13,7 @@ pub fn path(rawpath: &str) -> Result<(), String> {
 pub fn writable(rawpath: &str) -> Result<(), String> {
     let path = Path::new(&rawpath);
     if let Some(parent) = path.parent() {
-        if parent.exists() {
+        if parent.exists() && !parent.metadata().unwrap().permissions().readonly() {
             return Ok(());
         }
     }
@@ -43,5 +43,32 @@ where
             return Err(format!("Value {} is expected to be inside [{}, {}] range", val, low, upper));
         }
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod test {
+    #[test]
+    fn stranding() {
+        for symbol in ["u", "s", "f", "s/f", "f/s"] {
+            assert!(super::stranding(symbol).is_ok());
+        }
+        for symbol in [".", "r", "uf", "ff", "rr", "+", "-"] {
+            assert!(super::stranding(symbol).is_err())
+        }
+    }
+
+    #[test]
+    fn numeric() {
+        let validator = super::numeric(10, 12);
+        assert!(validator("9").is_err());
+        assert!(validator("10").is_ok());
+        assert!(validator("12").is_ok());
+        assert!(validator("13").is_err());
+
+        let validator = super::numeric(10, 10);
+        assert!(validator("9").is_err());
+        assert!(validator("10").is_ok());
+        assert!(validator("11").is_err());
     }
 }

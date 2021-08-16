@@ -5,7 +5,6 @@ use std::path::PathBuf;
 use bio_types::genome::Interval;
 use clap::ArgMatches;
 use indicatif::{MultiProgress, ProgressBar, ProgressFinish, ProgressStyle};
-use itertools::Itertools;
 use rayon::ThreadPoolBuilder;
 use rust_htslib::bam::Record;
 
@@ -32,63 +31,60 @@ struct ParsedArgs {
     sumfilter: SummaryFilterByMismatches,
     workload: Vec<Workload>,
     maxsize: u32,
+    threads: usize,
     saveto: PathBuf,
 }
 
 impl ParsedArgs {
-    fn new(args: &ArgMatches, mbar: &MultiProgress, factory: impl Fn() -> ProgressBar + Sync) -> ParsedArgs {
+    fn new(
+        args: &ArgMatches,
+        threads: usize,
+        mbar: &MultiProgress,
+        factory: impl Fn() -> ProgressBar + Sync,
+    ) -> ParsedArgs {
+        // Fast parse trivial options in the main thread
+        let bamfiles = parse::bamfiles(factory(), args);
+        let reference = parse::reference(factory(), args);
+        let stranding = parse::stranding(factory(), args);
+        let readfilter = parse::readfilter(factory(), args);
+        let refnucpred = parse::refnucpred(factory(), args);
+        let sumfilter = parse::sumfilter(factory(), args);
+        let saveto = parse::saveto(factory(), args);
+
         // TODO: is there any other way to please the borrow checker?
-        let mut bamfiles: Option<Vec<PathBuf>> = Default::default();
-        let mut reference: Option<PathBuf> = Default::default();
-        let mut stranding: Option<Stranding> = Default::default();
-        let mut readfilter: Option<ReadsFilterByQuality> = Default::default();
-        let mut refnucpred: Option<RefNucPredByHeurisitc> = Default::default();
         let mut strandpred: Option<NaiveSequentialStrandPredictor> = Default::default();
-        let mut sumfilter: Option<SummaryFilterByMismatches> = Default::default();
         let mut workload: Option<Vec<Workload>> = Default::default();
         let mut maxsize: Option<u32> = Default::default();
-        let mut saveto: Option<PathBuf> = Default::default();
 
-        let mut pbars = (0..9).map(|_| factory().with_message("....")).rev().collect_vec();
-
-        // TODO: ProgressBar can be only created inside main thread. Yet, docs claim otherwise... Am I missing something?
-        // TODO: Refactor
-        let (pbarbams, pbarwork) = (pbars.pop().unwrap(), pbars.pop().unwrap());
+        let (pbar_workload, pbar_stranding) = (factory(), factory());
         rayon::scope(|s| {
             s.spawn(|_| {
-                let bams = parse::bamfiles(pbarbams, args);
-                let (work, ms) = parse::workload(pbarwork, &bams, args);
-                bamfiles = Some(bams);
-                workload = Some(work);
-                maxsize = Some(ms);
+                let (w, m) = parse::workload(pbar_workload, &bamfiles, args);
+                workload = Some(w);
+                maxsize = Some(m)
             });
-            let pbar = pbars.pop().unwrap();
-            s.spawn(|_| reference = Some(parse::reference(pbar, args)));
-            let pbar = pbars.pop().unwrap();
-            s.spawn(|_| stranding = Some(parse::stranding(pbar, args)));
-            let pbar = pbars.pop().unwrap();
-            s.spawn(|_| readfilter = Some(parse::readfilter(pbar, args)));
-            let pbar = pbars.pop().unwrap();
-            s.spawn(|_| refnucpred = Some(parse::refnucpred(pbar, args)));
-            let pbar = pbars.pop().unwrap();
-            s.spawn(|_| strandpred = Some(parse::strandpred(pbar, args)));
-            let pbar = pbars.pop().unwrap();
-            s.spawn(|_| sumfilter = Some(parse::sumfilter(pbar, args)));
-            let pbar = pbars.pop().unwrap();
-            s.spawn(|_| saveto = Some(parse::saveto(pbar, args)));
-            mbar.join().expect("Failed to render progress bar");
+            s.spawn(|_| strandpred = Some(parse::strandpred(pbar_stranding, args)));
+
+            if threads != 1 {
+                mbar.join().expect("Failed to render progress bar");
+            }
         });
+        if threads == 1 {
+            mbar.join().expect("Failed to render progress bar");
+        }
+
         ParsedArgs {
-            bamfiles: bamfiles.unwrap(),
-            reference: reference.unwrap(),
-            stranding: stranding.unwrap(),
-            readfilter: readfilter.unwrap(),
-            refnucpred: refnucpred.unwrap(),
+            bamfiles,
+            reference,
+            stranding,
+            readfilter,
+            refnucpred,
             strandpred: strandpred.unwrap(),
-            sumfilter: sumfilter.unwrap(),
+            sumfilter,
             workload: workload.unwrap(),
             maxsize: maxsize.unwrap(),
-            saveto: saveto.unwrap(),
+            threads,
+            saveto,
         }
     }
 }
@@ -112,7 +108,7 @@ impl<'a> App<'a> {
         let threads = parse::threads(pbar(), matches);
         ThreadPoolBuilder::new().num_threads(threads).build_global().expect("Failed to initialize thread pool");
 
-        let args = ParsedArgs::new(matches, &mbar, pbar);
+        let args = ParsedArgs::new(matches, threads, &mbar, pbar);
         App { args, matches, mbar }
     }
 
@@ -122,20 +118,17 @@ impl<'a> App<'a> {
             .progress_chars("##-")
             .on_finish(ProgressFinish::AndLeave);
 
+        let saveto = &mut BufWriter::new(File::create(&self.args.saveto).unwrap());
+
         let roimode = self.matches.is_present(args::ROI);
-        let worksize = if roimode {
-            self.args.workload.len()
-        } else {
-            self.args.workload.len() * self.matches.value_of(args::BINSIZE).unwrap().parse::<usize>().unwrap()
-        };
+        let worksize = self.args.workload.len();
         let pbar = self.mbar.add(ProgressBar::new(worksize as u64).with_style(style));
-        pbar.set_draw_delta(100);
+        pbar.set_draw_delta((self.args.threads * 10) as u64);
 
+        let threads = self.args.threads;
+        let mbar = self.mbar;
+        let args = self.args;
         rayon::scope(|s| {
-            let args = self.args;
-
-            let saveto = BufWriter::new(File::create(&args.saveto).unwrap());
-
             if roimode {
                 s.spawn(|_| {
                     resformat::regions(
@@ -148,8 +141,8 @@ impl<'a> App<'a> {
                             args.refnucpred,
                             args.strandpred,
                             args.sumfilter,
-                            |x| pbar.inc(x.len() as u64),
-                            || pbar.finish_with_message("FADSAD"),
+                            |_| pbar.inc(1),
+                            |_| pbar.finish_with_message("Finished"),
                         ),
                     );
                 });
@@ -165,14 +158,19 @@ impl<'a> App<'a> {
                             args.refnucpred,
                             args.strandpred,
                             args.sumfilter,
-                            |x| pbar.inc(x.len() as u64),
-                            || pbar.finish_with_message("FADSAD"),
+                            |_| pbar.inc(1),
+                            |_| pbar.finish_with_message("Finished"),
                         ),
                     );
                 });
             }
-            self.mbar.join().expect("Failed to render progress bar");
-        })
+            if threads > 1 {
+                mbar.join().expect("Failed to render progress bar");
+            }
+        });
+        if threads == 1 {
+            mbar.join().expect("Failed to render progress bar");
+        }
     }
 
     pub fn run(self) {

@@ -95,7 +95,7 @@ jobs:
         with:
           name: Latest build
           tag_name: latest
-          body: This is a pre-release, auto-generated from the main branch for the last commit, which passed all unit and integration tests.
+          body: The pre-release is automatically generated from the last commit on the main branch that passed all unit and integration tests.
           prerelease: true
           fail_on_unmatched_files: true
           files: |

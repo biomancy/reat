@@ -1,0 +1,103 @@
+on:
+  push:
+    branches:
+      - main
+      - dev
+  pull_request:
+    branches:
+      - main
+      - dev
+
+name: CI
+
+jobs:
+  CI:
+    name: Check code formatting, run linting and tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v2
+
+      - name: Install stable toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          override: true
+          components: rustfmt, clippy
+
+      - name: Check code formatting (cargo fmt)
+        uses: actions-rs/cargo@v1
+        with:
+          command: fmt
+          args: --all -- --check
+
+      - name: Run cargo lints (cargo check)
+        uses: actions-rs/cargo@v1
+        with:
+          command: check
+
+      - name: Run clippy lints (cargo clippy)
+        uses: actions-rs/cargo@v1
+        with:
+          command: clippy
+
+      - name: Run tests (cargo test)
+        uses: actions-rs/cargo@v1
+        with:
+          command: test
+
+  codecov:
+    name: codecov
+    runs-on: ubuntu-latest
+    needs: CI
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    container:
+      image: xd009642/tarpaulin:develop-nightly
+      options: --security-opt seccomp=unconfined
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v2
+
+      - name: Generate code coverage
+        run: |
+          cargo +nightly tarpaulin --verbose --all-features --workspace --timeout 120 --out Xml
+
+      - name: Upload to codecov.io
+        uses: codecov/codecov-action@v2
+        with:
+          fail_ci_if_error: true
+          token: ${{ secrets.CODECOV_TOKEN }}
+
+  pre-release:
+    name: pre-release
+    runs-on: ubuntu-latest
+    needs: CI
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v2
+
+      - name: Install stable toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          override: true
+          components: rustfmt, clippy
+
+      - name: Build the binary
+        uses: actions-rs/cargo@v1
+        with:
+          command: build
+          args: --release
+
+      - name: Make pre-release
+        uses: softprops/action-gh-release@v1
+        with:
+          name: Latest build
+          tag_name: latest
+          body: This is a pre-release, auto-generated from the main branch for the last commit, which passed all unit and integration tests.
+          prerelease: true
+          fail_on_unmatched_files: true
+          files: |
+            target/release/rada
+            LICENSE

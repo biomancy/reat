@@ -20,6 +20,7 @@ pub const OUT_MIN_FREQ: &str = "out-min-freq";
 // Autoref
 pub const AUTOREF_MIN_COVERAGE: &str = "ref-min-cov";
 pub const AUTOREF_MIN_FREQ: &str = "ref-min-freq";
+pub const AUTOREF_HYPEREDITING: &str = "hyperedit";
 
 // Stranding
 pub const STRANDING_MIN_MISMATCHES: &str = "str-min-mismatches";
@@ -129,6 +130,11 @@ pub fn autoref<'a>() -> Vec<Arg<'a>> {
             .validator(validate::numeric(0f32, 1f32))
             .default_value("0.95")
             .about("Automatically correct reference sequence for loci with the most common nucleotide frequency ≥ cutoff"),
+        Arg::new(AUTOREF_HYPEREDITING)
+            .long(AUTOREF_HYPEREDITING)
+            .settings(&defaults())
+            .takes_value(false)
+            .about("Turn on the \"hyperediting\" mode, i.e. do not correct(replace) A with G and T with C. This will ensure that potentially hyper-editable sites are not accidentally lost.")
     ];
     args.into_iter().map(|x| x.help_heading(Some("Autoref"))).collect()
 }

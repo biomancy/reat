@@ -122,7 +122,7 @@ Here is a list of arguments(`rada --help`) supported by the Command Line Interfa
 ```
 Core:
     -i, --input <input>...
-            Path to the input BAM file(s). May contain a comma-separated list of files, in which case they are treated
+            Path to the input BAM file(s). May contain a space-separated list of files, in which case they are treated
             as technical replicates and pulled together.
 
     -r, --reference <reference>
@@ -180,6 +180,10 @@ Autoref:
             Automatically correct reference sequence for loci with the most common nucleotide frequency ≥ cutoff
             [default: 0.95]
 
+        --hyperedit
+            Turn on the "hyperediting" mode, i.e. do not correct(replace) A with G and T with C. This will ensure that
+            potentially hyper-editable sites are not accidentally lost.
+
 
 Stranding:
         --annotation <annotation>
@@ -231,11 +235,12 @@ With sufficient coverage, we can automatically adjust the reference sequence for
 **RADA** uses a simple heuristic for this: if coverage is sufficient and the frequency of the most abundant nucleotide
 exceeds the threshold, then the reference nucleotide is the most abundant nucleotide at that locus.
 
+Note that hyper-editing flag allows one to skip A->G and T->C corrections to explore potential hyperedited ROI/loci.
+
 # TODO:
 
 - Check grammar
 - Integration tests
-- Hyperediting mode (keep G's in the autoref)
 - Editing indices (alu editing index, Non-synonimous editing index)
 - Graph: (RAM usage per thread) vs (#threads)
 - Graph: (Speedup against REDItools) vs (#threads) + note about running time

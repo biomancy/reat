@@ -122,7 +122,7 @@ pub fn refnucpred(pbar: ProgressBar, matches: &ArgMatches) -> RefNucPredByHeuris
         matches.value_of(args::AUTOREF_MIN_COVERAGE).unwrap().parse().unwrap(),
         matches.value_of(args::AUTOREF_MIN_FREQ).unwrap().parse().unwrap(),
     );
-    let result = RefNucPredByHeurisitc::new(mincoverage, minfreq);
+    let result = RefNucPredByHeurisitc::new(mincoverage, minfreq, matches.is_present(args::AUTOREF_HYPEREDITING));
     pbar.finish_with_message(format!(
         "Reference prediction for loci with coverage >= {} and most common nucleotide frequency >= {}",
         result.mincoverage(),

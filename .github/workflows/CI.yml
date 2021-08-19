@@ -95,9 +95,8 @@ jobs:
         with:
           name: Latest build
           tag_name: latest
-          body: The pre-release is automatically generated from the last commit on the main branch that passed all unit and integration tests.
+          body: This pre-release is automatically generated from the last commit on the main branch that passed all unit and integration tests.
           prerelease: true
           fail_on_unmatched_files: true
           files: |
             target/release/rada
-            LICENSE

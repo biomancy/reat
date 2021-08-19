@@ -3,39 +3,53 @@
 
 ### RADA
 
-**RADA** is an RNA editing analysis package, designed with emphasis on performance, low memory footprint, and ease of
-use.
+**RADA** is an RNA editing analysis package designed with a focus on performance, low memory footprint, and ease of use.
 
-Refer to the wikipedia [article](https://en.wikipedia.org/wiki/RNA_editing) for a classification and basic overview of
-known editing events. **RADA** can handle all types of editing (i.e. A->I, C->U, etc), except for editing by insertions
-or deletions.
+Refer to the [Wikipedia](https://en.wikipedia.org/wiki/RNA_editing) for classification and basic overview of known
+editing events. **RADA** can handle all types of edits (eg, A->I, C->U, etc.), except for editing by insertions or
+deletions.
 
-**RADA** officially supports only Linux distributions running on an x86-64 machine. Working on ARM or Windows systems is
-not guaranteed.
+The target platform for **RADA** is an x86-64 computer running Linux; working on Windows or ARM is not guaranteed.
 
-Please, feel free to open issues concerning bugs, installation problems, feature requests or unintuitive behaviour.
-Quality, correctness, and ease of use matter a lot for us.
+Please, feel free to open issues regarding bugs, installation issues, feature requests, or unintuitive behavior.
+Quality, correctness, and ease of use are vital to us.
 
-### Not release yet
+### Not released yet
 
-**RADA** is under an active development and is not yet formally released. While having unit-tests whenever possible, the
-tool still lacks integration tests and users feedback. We will release in a few months, until then use at your own risk.
+**RADA** is under active development and is not yet been officially released. While having unit tests whenever possible,
+the tool still lacks integration tests and users feedback. We will release in a few months; until then, use at your own
+risk.
 
 ### Features
 
-See details section for more in-depth explanation of some options.
+* Summarizing editing for provided regions or separate loci
+* Running on multiple threads
+* Strand prediction for unstranded libraries
+* Autoref: automatic detection and accounting for single nucleotide variants (SNV)
+
+See [details](#details) section for more in-depth explanation of some features.
 
 ### Limitations
 
-This a list of known limitations, feel free to open an issue if one of them is critical for you:
+Here is a list of known limitations; feel free to open an issue if one of them is critical for you:
 
-* RNA editing by insertions and deletions is not supported
+* Potential RNA editing by insertions/deletions is ignored
 * No Python or R interface
-* Lack of official support for ARM and Windows builds
+* Lack of support for ARM and Windows/macOS builds
 
 ### Installation
 
-Usage of the rust _cargo_ package manager is the recommended way of installing **RADA**:
+#### Pre-built binaries
+
+For a quick start, you can try the pre-built **RADA** binary posted
+via [GitHub releases](https://github.com/alnfedorov/rada/releases). Besides the tagged versions, we also provide the
+latest tested build from the [main branch](https://github.com/alnfedorov/rada/releases/tag/latest).
+
+Note that you will have to add executable permissions to the file: `sudo chmod +x rada`.
+
+#### Cargo
+
+Rust package manager _cargo_ is the recommended way to build **RADA** from sources:
 
 ```shell
 cargo install --git https://github.com/alnfedorov/rada
@@ -44,36 +58,66 @@ rada --help
 
 Follow [this](https://www.rust-lang.org/tools/install) page to install rust toolchain if you don't have one.
 
-TODO: Docker container and prebuilt binaries.
-
 ### Basic usage
 
-**RADA** supports running in two modes: ROI based and loci based.
+**RADA** supports two modes: ROI-based and loci-based.
 
 #### ROI mode
 
-ROI stands for region of interest, a **RADA** mode when editing is summarised for each provided region. It is useful in
-a context of studying, for example, Alu repeats editing. Example:
+ROI stands for Region of Interest, a **RADA** mode in which edits are summarized for each provided genomic region. For
+instance, It is useful in the context of studying Alu repeats editing.
 
-```shell
+Example:
 
+* _BED-like file with ROIs_(repeats.bed):
+
+```text
+chrY	76783396	76783529	RSINE   .    -   ... # The rest of the columns are ignored
+... # Remaining regions omitted
 ```
 
-Output example:
+* _Command:_
+
+```shell
+rada --input techrep1.bam techrep2.bam --roi repeats.bed \
+     --reference GRCm38.fa --stranding "f/s" --threads $(nproc) \
+     --saveto /dev/stdout 
+```
+
+Output columns:
+
+* **chr, start, end, name** - ROI coordinate and name from the input file
+* **strand** - transcription strand; predicted for unstranded libraries and deducted from the design for stranded
+  experiments
+* **X->N** - Total number of events observed in a given ROI where a reference nucleotide X was replaced by N. That is,
+  A->A is a number of A matches, and A->G denotes the total number of observed A->I edits.
+
+Please note that if autoref feature is enabled, edits are summarised after correcting for any potential SNVs.
 
 #### Loci mode
 
-Loci-based **RADA** mode is a typical scenario of quantifying editing per-locus for the whole genome. Example:
+The **RADA** loci-based mode is a classic scenario for estimating RNA editing for each genomic locus.
+
+Example:
 
 ```shell
-
+rada --input rnaseq.bam  --binsize 50000 \
+     --reference hg38.fa --threads $(nproc) \
+     --stranding "u" --annotation gencode.gff3.gz \
+     --saveto /dev/stdout 
 ```
 
-Output example
+Output columns:
+
+* **chr,position** - coordinate of the locus
+* **strand** - transcription strand; predicted for unstranded libraries and deducted from the design for stranded
+  experiments
+* **X** - the total number of sequenced nucleotides X; X is one of \[A, C, G, T\].
+* **reference** - predicted reference nucleotide; just a reference assembly if autoref feature is disabled
 
 ### CLI arguments
 
-Running `rada --help` will give you the following list of supported arguments:
+Here is a list of arguments(`rada --help`) supported by the Command Line Interface (CLI):
 
 ```
 Core:
@@ -87,21 +131,20 @@ Core:
 
         --roi <roi>
             Path to a BED-like file with 4 columns (chr, start, end, name) in which the target regions of interest (ROI)
-            are declared. If specified, cumulative mismatches will be reported for each region of interest rather than
-            loci.
+            are declared. If specified, total mismatches will be reported for each region of interest rather than loci.
 
         --binsize <binsize>
             Summarize the mismatches for each locus, providing each worker thread with genome bins(job share) of
             approximately the specified size (in base pairs).
 
     -s, --stranding <stranding>
-            Strand-specificity of the experiment, i.e. matching the read strand and the transcript strand. Use "u" for
-            unstranded experiments; other available options based on the RSeQC nomenclature(see infer_experiment.py
-            docs): "s" (++,--), "f" (+-,-+), "sf" (1++,1--,2+-,2-+), "fs" (1+-,1-+,2++,2--).[possible values: u, s, f,
-            sf, fs]
+            Strand-specificity of the experiment, i.e. matching between the read strand and the transcript strand. Use
+            "u" for unstranded experiments; other available options based on the RSeQC nomenclature(see
+            infer_experiment.py docs): same:"s" (++,--), flip:"f" (+-,-+), same read1/flip read2:"sf" (1++,1--/2+-,2-+),
+            flip read1/same read2:"fs" (1+-,1-+/2++,2--).[possible values: u, s, f, s/f, f/s]
 
     -o, --saveto <saveto>
-            Path to the output tsv file. May end with ".gz", in which case the stream is automatically gzipped.
+            Path to the output tsv file. Use /dev/stdout to print result to the standard output.
 
     -t, --threads <threads>
             Maximum number of threads to spawn at once.[default: 1]
@@ -142,7 +185,7 @@ Stranding:
         --annotation <annotation>
             Genome annotation in the GFF3 format. Genomic features (exons and genes) are used to inference loci/ROI
             strand based on the most likely direction of transcription (see the GitHub documentation for details). It is
-            highly recommended to provide genome annotation for unstranded libraries, otherwise stranding will be highly
+            recommended to provide genome annotation for unstranded libraries, otherwise stranding will be highly
             inaccurate.
 
         --str-min-mismatches <str-min-mismatches>
@@ -151,25 +194,48 @@ Stranding:
             relevant for organisms without active ADAR-like enzymes.[default: 50]
 
         --str-min-freq <str-min-freq>
-            Automatically predict strand based on the observed A->I editing for locus/ROI with A->G frequency >=
-            threshold (freq = ∑ A->G / (∑ A->G + ∑ A->A)) [default: 0.05]
+            Automatically predict strand based on the observed A->I editing for locus/ROI with A->G freq >= threshold
+            (freq = ∑ A->G / (∑ A->G + ∑ A->A)) [default: 0.05]
 ```
 
 ### Details
 
-#### Stranding
+#### Strand prediction
 
-TODO
+To predict transcription strand for ROI/loci in unstranded experiments, **RADA** uses two strategies.
+
+First, ROI/loci strand will be derived from the overlapping genes/exons strand. This approach only works if the GFF3
+genome annotation is provided and can be summarized in the following table:
+
+| overlapping genes | overlapping exons | predicted strand |
+|:-----------------:|:-----------------:|:----------------:|
+|         +         |         +         |         +        |
+|         -         |         -         |         -        |
+|        +/-        |         +         |         +        |
+|        +/-        |         -         |         -        |
+|        +/-        |        +/-        |         ?        |
+
+That is, **RADA** checks overlapping genes first. If they are genes on the + and the - strand, exons are considered. In
+the worst-case scenario, an unknown(`.`) strand is returned.
+
+Second, for ROIs / loci for which **RADA** could not predict the strand from the annotation, **RADA** attempts to derive
+the strand based on the observed A->I editing.
+
+For the + strand transcripts, A-> I edits are A-> G mismatches, and for the - strand, T-> C mismatches. Note that in
+many cases, this heuristic fails (no A->I editing at all), and such ROIs / loci will be left unstranded in the final
+table.
 
 #### Autoref
 
-TODO
+With sufficient coverage, we can automatically adjust the reference sequence for observed SNVs based on RNA-seq data.
+**RADA** uses a simple heuristic for this: if coverage is sufficient and the frequency of the most abundant nucleotide
+exceeds the threshold, then the reference nucleotide is the most abundant nucleotide at that locus.
 
 # TODO:
 
 - Check grammar
-- Finish Docs
-- Hyperediting mode (keep G's in the refnucpred module)
+- Integration tests
+- Hyperediting mode (keep G's in the autoref)
 - Editing indices (alu editing index, Non-synonimous editing index)
 - Graph: (RAM usage per thread) vs (#threads)
 - Graph: (Speedup against REDItools) vs (#threads) + note about running time

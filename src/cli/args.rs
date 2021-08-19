@@ -42,7 +42,7 @@ pub fn core<'a>() -> Vec<Arg<'a>> {
             .settings(&reqdefaults())
             .multiple(true)
             .validator(validate::path)
-            .long_about("Path to the input BAM file(s). May contain a comma-separated list of files, in which case they are treated as technical replicates and pulled together."),
+            .long_about("Path to the input BAM file(s). May contain a space-separated list of files, in which case they are treated as technical replicates and pulled together."),
         Arg::new(REFERENCE)
             .short('r')
             .long(REFERENCE)
@@ -54,7 +54,7 @@ pub fn core<'a>() -> Vec<Arg<'a>> {
             .settings(&defaults())
             .required_unless_present(BINSIZE)
             .validator(validate::path)
-            .long_about("Path to a BED-like file with 4 columns (chr, start, end, name) in which the target regions of interest (ROI) are declared. If specified, cumulative mismatches will be reported for each region of interest rather than loci."),
+            .long_about("Path to a BED-like file with 4 columns (chr, start, end, name) in which the target regions of interest (ROI) are declared. If specified, total mismatches will be reported for each region of interest rather than loci."),
         Arg::new(BINSIZE)
             .long(BINSIZE)
             .settings(&defaults())
@@ -66,14 +66,14 @@ pub fn core<'a>() -> Vec<Arg<'a>> {
             .long(STRANDING)
             .settings(&reqdefaults())
             .validator(validate::stranding)
-            .possible_values(&["u", "s", "f", "sf", "fs"])
-            .long_about("Strand-specificity of the experiment, i.e. matching the read strand and the transcript strand. Use \"u\" for unstranded experiments; other available options based on the RSeQC nomenclature(see infer_experiment.py docs): \"s\" (++,--), \"f\" (+-,-+), \"sf\" (1++,1--,2+-,2-+), \"fs\" (1+-,1-+,2++,2--)."),
+            .possible_values(&["u", "s", "f", "s/f", "f/s"])
+            .long_about("Strand-specificity of the experiment, i.e. matching between the read strand and the transcript strand. Use \"u\" for unstranded experiments; other available options based on the RSeQC nomenclature(see infer_experiment.py docs): same:\"s\" (++,--), flip:\"f\" (+-,-+), same read1/flip read2:\"sf\" (1++,1--/2+-,2-+), flip read1/same read2:\"fs\" (1+-,1-+/2++,2--)."),
         Arg::new(SAVETO)
             .short('o')
             .long(SAVETO)
             .settings(&reqdefaults())
             .validator(validate::writable)
-            .long_about("Path to the output tsv file. May end with \".gz\", in which case the stream is automatically gzipped."),
+            .long_about("Path to the output tsv file. Use /dev/stdout to print result to the standard output."),
         Arg::new(THREADS)
             .short('t')
             .long(THREADS)
@@ -139,7 +139,7 @@ pub fn stranding<'a>() -> Vec<Arg<'a>> {
             .long(ANNOTATION)
             .settings(&defaults())
             .validator(validate::path)
-            .long_about("Genome annotation in the GFF3 format. Genomic features (exons and genes) are used to inference loci/ROI strand based on the most likely direction of transcription (see the GitHub documentation for details). It is highly recommended to provide genome annotation for unstranded libraries, otherwise stranding will be highly inaccurate."),
+            .long_about("Genome annotation in the GFF3 format. Genomic features (exons and genes) are used to inference loci/ROI strand based on the most likely direction of transcription (see the GitHub documentation for details). It is recommended to provide genome annotation for unstranded libraries, otherwise stranding will be highly inaccurate."),
         Arg::new(STRANDING_MIN_MISMATCHES)
             .long(STRANDING_MIN_MISMATCHES)
             .settings(&defaults())
@@ -151,7 +151,7 @@ pub fn stranding<'a>() -> Vec<Arg<'a>> {
             .settings(&defaults())
             .validator(validate::numeric(0f32, 1f32))
             .default_value("0.05")
-            .about("Automatically predict strand based on the observed A->I editing for locus/ROI with A->G frequency >= threshold (freq = ∑ A->G / (∑ A->G + ∑ A->A))"),
+            .about("Automatically predict strand based on the observed A->I editing for locus/ROI with A->G freq >= threshold (freq = ∑ A->G / (∑ A->G + ∑ A->A))"),
     ];
     args.into_iter().map(|x| x.help_heading(Some("Stranding"))).collect()
 }

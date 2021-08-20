@@ -2,12 +2,14 @@ use std::io::Write;
 
 use bio_types::genome::{AbstractInterval, AbstractLocus};
 
+use crate::rada::stats::IntervalBasedStat;
 use crate::rada::summary::{IntervalSummary, LocusSummary};
 
-const IO_ERROR: &str = "Failed to write to the output file.";
+const OUTPUT_IO_ERROR: &str = "Failed to write ROI/loci summary to the output TSV file.";
+const STATS_IO_ERROR: &str = "Failed to write statistics to the output TSV file.";
 
 pub fn loci(saveto: &mut impl Write, summary: Vec<LocusSummary>) {
-    writeln!(saveto, "chr\tposition\tstrand\treference\tA\tC\tG\tT").expect(IO_ERROR);
+    writeln!(saveto, "chr\tposition\tstrand\treference\tA\tC\tG\tT").expect(OUTPUT_IO_ERROR);
 
     for e in summary {
         writeln!(
@@ -22,23 +24,30 @@ pub fn loci(saveto: &mut impl Write, summary: Vec<LocusSummary>) {
             e.sequenced.G,
             e.sequenced.T
         )
-        .expect(IO_ERROR);
+        .expect(OUTPUT_IO_ERROR);
     }
 }
 
 pub fn regions(saveto: &mut impl Write, summary: Vec<IntervalSummary>) {
     writeln!(saveto, "chr\tstart\tend\tstrand\tname\tA->A\tA->C\tA->G\tA->T\tC->A\tC->C\tC->G\tC->T\tG->A\tG->C\tG->G\tG->T\tT->A\tT->C\tT->G\tT->T")
-    .expect(IO_ERROR);
+    .expect(OUTPUT_IO_ERROR);
 
     for e in summary {
         let (contig, range, strand) = (e.interval.contig(), e.interval.range(), e.strand.strand_symbol());
-        write!(saveto, "{}\t{}\t{}\t{}\t{}\t", contig, range.start, range.end, strand, e.name).expect(IO_ERROR);
+        write!(saveto, "{}\t{}\t{}\t{}\t{}\t", contig, range.start, range.end, strand, e.name).expect(OUTPUT_IO_ERROR);
         let m = e.mismatches;
-        write!(saveto, "{}\t{}\t{}\t{}\t", m.A.A, m.A.C, m.A.G, m.A.T).expect(IO_ERROR);
-        write!(saveto, "{}\t{}\t{}\t{}\t", m.C.A, m.C.C, m.C.G, m.C.T).expect(IO_ERROR);
-        write!(saveto, "{}\t{}\t{}\t{}\t", m.G.A, m.G.C, m.G.G, m.G.T).expect(IO_ERROR);
-        writeln!(saveto, "{}\t{}\t{}\t{}", m.T.A, m.T.C, m.T.G, m.T.T).expect(IO_ERROR);
+        write!(saveto, "{}\t{}\t{}\t{}\t", m.A.A, m.A.C, m.A.G, m.A.T).expect(OUTPUT_IO_ERROR);
+        write!(saveto, "{}\t{}\t{}\t{}\t", m.C.A, m.C.C, m.C.G, m.C.T).expect(OUTPUT_IO_ERROR);
+        write!(saveto, "{}\t{}\t{}\t{}\t", m.G.A, m.G.C, m.G.G, m.G.T).expect(OUTPUT_IO_ERROR);
+        writeln!(saveto, "{}\t{}\t{}\t{}", m.T.A, m.T.C, m.T.G, m.T.T).expect(OUTPUT_IO_ERROR);
     }
+}
+
+pub fn statistic<T: IntervalBasedStat>(files: &str, saveto: &mut impl Write, stat: &T, add_header: bool) {
+    if add_header {
+        writeln!(saveto, "files\t{}", T::header()).expect(STATS_IO_ERROR);
+    }
+    writeln!(saveto, "{}\t{}", files, stat.row()).expect(STATS_IO_ERROR);
 }
 
 #[cfg(test)]

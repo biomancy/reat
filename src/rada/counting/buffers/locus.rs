@@ -55,6 +55,11 @@ impl LocusCounts {
             (ReqNucleotide::T, &self.T)
         }
     }
+
+    #[inline]
+    pub fn complementary(&self) -> Self {
+        Self { A: self.T, C: self.G, G: self.C, T: self.A }
+    }
 }
 
 #[cfg(test)]

@@ -88,7 +88,7 @@ pub fn strandpred(pbar: ProgressBar, matches: &ArgMatches) -> NaiveSequentialStr
 
     pbar.set_draw_delta(10_000);
     let strand_by_features = matches
-        .value_of(args::ANNOTATION)
+        .value_of(args::STRANDING_ANNOTATION)
         .map(|x| Some(StrandByGenomicFeatures::from_gff3(x.as_ref(), |_| pbar.inc(1))))
         .unwrap_or(None);
     let result = NaiveSequentialStrandPredictor::new(strand_by_editing, strand_by_features);
@@ -180,4 +180,11 @@ pub fn threads(pbar: ProgressBar, matches: &ArgMatches) -> usize {
     let result = matches.value_of(args::THREADS).and_then(|x| x.parse().ok()).unwrap();
     pbar.finish_with_message(format!("Using thread pool with at most {} threads", result));
     result
+}
+
+pub fn editing_index(pbar: ProgressBar, matches: &ArgMatches) -> PathBuf {
+    pbar.set_message("Parsing EI output path...");
+    let ei = PathBuf::from_str(matches.value_of(args::STAT_EDITING_INDEX).unwrap()).unwrap();
+    pbar.finish_with_message(format!("Editing indices will be saved to {}", ei.display()));
+    ei
 }

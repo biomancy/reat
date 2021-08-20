@@ -6,11 +6,12 @@ use crate::rada::dna::ReqNucleotide;
 mod inner {
     #![allow(non_snake_case)]
 
-    use derive_more::Constructor;
+    use derive_more::{Add, AddAssign, Constructor};
 
     pub use crate::rada::counting::LocusCounts;
 
-    #[derive(Constructor, Eq, PartialEq, Debug)]
+    // These are counts with respect to the FORWARD strand
+    #[derive(Constructor, Copy, Clone, Eq, PartialEq, Debug, Add, AddAssign)]
     pub struct MismatchesSummary {
         pub A: LocusCounts,
         pub C: LocusCounts,
@@ -41,6 +42,16 @@ impl MismatchesSummary {
             + self.C.mismatches(&ReqNucleotide::C)
             + self.G.mismatches(&ReqNucleotide::G)
             + self.T.mismatches(&ReqNucleotide::T)
+    }
+
+    #[inline]
+    pub fn complementary(&self) -> Self {
+        MismatchesSummary {
+            A: self.T.complementary(),
+            C: self.G.complementary(),
+            G: self.C.complementary(),
+            T: self.A.complementary(),
+        }
     }
 }
 

@@ -94,7 +94,7 @@ Output columns:
   is, A->A is a number of A matches, and A->G denotes the total number of observed A->I edits.
 
 Note that **X->Y** notation always denotes matches/mismatches relative to the forward strand. For example, T->C
-mismatches for reverse strand ROI are, in fact, A->G edits within ROI in a pool of sequenced RNAs.
+mismatches for REVERSE strand ROI are, in fact, A->G edits within ROI in a pool of sequenced RNAs.
 
 If autoref feature is enabled, edits are summarised after correcting for any potential SNVs.
 
@@ -103,7 +103,7 @@ If autoref feature is enabled, edits are summarised after correcting for any pot
 For a given set of regions, one can always calculate an editing index (EI) for all possible matches and mismatches.
 
 For example, formally EI for mismatches A->G is defined as follows: EI(A->G) = P(transcribed ROI is A->G edited) = (
-forward(A->G) + reverse(T->C)) / (forward(A->A + A->C + A->G + A->T) + reverse(T->A + T->C + T->G + T->T)). In other
+forward(A->G) + REVERSE(T->C)) / (forward(A->A + A->C + A->G + A->T) + REVERSE(T->A + T->C + T->G + T->T)). In other
 words, it is the probability that a given A in the provided ROI will be A->G edited after the transcription.
 
 Note that the EI is strand independent as it is defined for the transcribed regions of RNA. For example, to edit A-> I,

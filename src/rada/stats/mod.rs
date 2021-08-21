@@ -19,9 +19,8 @@ pub trait IntervalBasedStat: Add<Output = Self> + Default {
 
 #[cfg(test)]
 mock! {
-    // Structure to mock
     pub IntervalBasedStat {}
-    // First trait to implement on C
+
     impl Add<MockIntervalBasedStat> for IntervalBasedStat {
         type Output = MockIntervalBasedStat;
 

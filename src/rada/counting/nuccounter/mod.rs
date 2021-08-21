@@ -9,6 +9,7 @@ use crate::rada::read::AlignedRead;
 
 mod basecounter;
 
+#[derive(Clone)]
 pub struct NucCounterContent<'a> {
     pub interval: Interval,
     pub counts: CountsBufferContent<'a>,

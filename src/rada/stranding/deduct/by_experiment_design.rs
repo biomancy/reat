@@ -29,8 +29,8 @@ impl StrandSpecificExperimentDesign {
         match self {
             StrandSpecificExperimentDesign::Same => "s",
             StrandSpecificExperimentDesign::Flip => "f",
-            StrandSpecificExperimentDesign::Same1Flip2 => "sf",
-            StrandSpecificExperimentDesign::Flip1Same2 => "fs",
+            StrandSpecificExperimentDesign::Same1Flip2 => "s/f",
+            StrandSpecificExperimentDesign::Flip1Same2 => "f/s",
         }
     }
 }
@@ -79,6 +79,15 @@ mod tests {
     use crate::rada::read::MockRead;
 
     use super::*;
+
+    #[test]
+    fn symbol_and_format() {
+        use StrandSpecificExperimentDesign::*;
+        for (symbol, design) in [("s", Same), ("f", Flip), ("s/f", Same1Flip2), ("f/s", Flip1Same2)] {
+            assert_eq!(design.symbol(), symbol);
+            assert_eq!(format!("{}", design), symbol);
+        }
+    }
 
     #[test]
     fn flip() {

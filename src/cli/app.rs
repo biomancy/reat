@@ -1,10 +1,11 @@
-use std::fs::File;
-use std::io::BufWriter;
+use std::fs::{File, OpenOptions};
+use std::io::{BufWriter, Write};
 use std::path::PathBuf;
 
 use bio_types::genome::Interval;
 use clap::ArgMatches;
 use indicatif::{MultiProgress, ProgressBar, ProgressFinish, ProgressStyle};
+use itertools::Itertools;
 use rayon::ThreadPoolBuilder;
 use rust_htslib::bam::Record;
 
@@ -16,8 +17,11 @@ use crate::rada::filtering::reads::ReadsFilterByQuality;
 use crate::rada::filtering::summary::SummaryFilterByMismatches;
 use crate::rada::refnuc::RefNucPredByHeurisitc;
 use crate::rada::run::workload::Workload;
+use crate::rada::run::{BaseRunCtx, LociRunCtx, ROIRunCtx};
+use crate::rada::stats::EditingIndex;
 use crate::rada::stranding::deduct::DeductStrandByDesign;
 use crate::rada::stranding::predict::NaiveSequentialStrandPredictor;
+use crate::rada::summary::IntervalSummary;
 
 use super::parse;
 
@@ -33,6 +37,7 @@ struct ParsedArgs {
     maxsize: u32,
     threads: usize,
     saveto: PathBuf,
+    ei: Option<PathBuf>,
 }
 
 impl ParsedArgs {
@@ -50,6 +55,8 @@ impl ParsedArgs {
         let refnucpred = parse::refnucpred(factory(), args);
         let sumfilter = parse::sumfilter(factory(), args);
         let saveto = parse::saveto(factory(), args);
+
+        let ei = if args.is_present(args::ROI) { Some(parse::editing_index(factory(), args)) } else { None };
 
         // TODO: is there any other way to please the borrow checker?
         let mut strandpred: Option<NaiveSequentialStrandPredictor> = Default::default();
@@ -85,6 +92,7 @@ impl ParsedArgs {
             maxsize: maxsize.unwrap(),
             threads,
             saveto,
+            ei,
         }
     }
 }
@@ -112,6 +120,55 @@ impl<'a> App<'a> {
         App { args, matches, mbar }
     }
 
+    fn _run_roi(
+        workload: Vec<Workload>,
+        ei: Option<PathBuf>,
+        ctx: impl ROIRunCtx + Send + Clone,
+        pbar: ProgressBar,
+        saveto: &mut impl Write,
+    ) {
+        let oniter = |_: &[IntervalSummary]| pbar.inc(1);
+        let onfinish = |_: &[IntervalSummary]| pbar.finish_with_message("Finished");
+        match ei {
+            None => {
+                resformat::regions(
+                    saveto,
+                    rada::run::regions(workload, ctx, Option::<EditingIndex>::None, oniter, onfinish).0,
+                );
+            }
+            Some(eifile) => {
+                let files = ctx.htsfiles().iter().map(|x| x.file_name().unwrap().to_str().unwrap()).join(",");
+                let (summary, eivalues) =
+                    rada::run::regions(workload, ctx, Some(EditingIndex::default()), oniter, onfinish);
+
+                resformat::regions(saveto, summary);
+
+                match eifile.exists() {
+                    true => {
+                        let eifile = &mut BufWriter::new(OpenOptions::new().append(true).open(&eifile).unwrap());
+                        resformat::statistic(&files, eifile, &eivalues.unwrap(), false);
+                    }
+                    false => {
+                        let eifile = &mut BufWriter::new(File::create(&eifile).unwrap());
+                        resformat::statistic(&files, eifile, &eivalues.unwrap(), true);
+                    }
+                }
+            }
+        }
+    }
+
+    fn _run_loci(
+        workload: Vec<Workload>,
+        ctx: impl LociRunCtx + Send + Clone,
+        pbar: ProgressBar,
+        saveto: &mut impl Write,
+    ) {
+        resformat::loci(
+            saveto,
+            rada::run::loci(workload, ctx, |_| pbar.inc(1), |_| pbar.finish_with_message("Finished")),
+        );
+    }
+
     fn _run(self, counter: impl NucCounter<Record> + Send + Clone) {
         let style = ProgressStyle::default_bar()
             .template("[{elapsed_precise}] {bar:60.cyan/blue} {pos:>7}/{len:7} {msg}")
@@ -120,49 +177,24 @@ impl<'a> App<'a> {
 
         let saveto = &mut BufWriter::new(File::create(&self.args.saveto).unwrap());
 
-        let roimode = self.matches.is_present(args::ROI);
-        let worksize = self.args.workload.len();
-        let pbar = self.mbar.add(ProgressBar::new(worksize as u64).with_style(style));
-        pbar.set_draw_delta((self.args.threads * 10) as u64);
-
-        let threads = self.args.threads;
-        let mbar = self.mbar;
         let args = self.args;
+        // Borrow checker can't handle a complex args usage. But it works with plain old variables
+        let (threads, mbar, workload, ei) = (args.threads, self.mbar, args.workload, args.ei);
+
+        let pbar = mbar.add(ProgressBar::new(workload.len() as u64).with_style(style));
+        pbar.set_draw_delta((threads * 10) as u64);
+
+        let ctx =
+            BaseRunCtx::new(&args.bamfiles, &args.reference, counter, args.refnucpred, args.strandpred, args.sumfilter);
+
+        let roimode = self.matches.is_present(args::ROI);
         rayon::scope(|s| {
             if roimode {
                 s.spawn(|_| {
-                    resformat::regions(
-                        saveto,
-                        rada::run::regions(
-                            args.workload,
-                            &args.bamfiles,
-                            &args.reference,
-                            counter,
-                            args.refnucpred,
-                            args.strandpred,
-                            args.sumfilter,
-                            |_| pbar.inc(1),
-                            |_| pbar.finish_with_message("Finished"),
-                        ),
-                    );
+                    Self::_run_roi(workload, ei, ctx, pbar, saveto);
                 });
             } else {
-                s.spawn(|_| {
-                    resformat::loci(
-                        saveto,
-                        rada::run::loci(
-                            args.workload,
-                            &args.bamfiles,
-                            &args.reference,
-                            counter,
-                            args.refnucpred,
-                            args.strandpred,
-                            args.sumfilter,
-                            |_| pbar.inc(1),
-                            |_| pbar.finish_with_message("Finished"),
-                        ),
-                    );
-                });
+                s.spawn(|_| Self::_run_loci(workload, ctx, pbar, saveto));
             }
             if threads > 1 {
                 mbar.join().expect("Failed to render progress bar");

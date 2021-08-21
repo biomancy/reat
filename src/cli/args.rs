@@ -20,11 +20,15 @@ pub const OUT_MIN_FREQ: &str = "out-min-freq";
 // Autoref
 pub const AUTOREF_MIN_COVERAGE: &str = "ref-min-cov";
 pub const AUTOREF_MIN_FREQ: &str = "ref-min-freq";
+pub const AUTOREF_HYPEREDITING: &str = "hyperedit";
 
 // Stranding
 pub const STRANDING_MIN_MISMATCHES: &str = "str-min-mismatches";
 pub const STRANDING_MIN_FREQ: &str = "str-min-freq";
-pub const ANNOTATION: &str = "annotation";
+pub const STRANDING_ANNOTATION: &str = "annotation";
+
+// Stats
+pub const STAT_EDITING_INDEX: &str = "ei";
 
 fn reqdefaults() -> Vec<ArgSettings> {
     vec![ArgSettings::Required, ArgSettings::TakesValue]
@@ -128,15 +132,20 @@ pub fn autoref<'a>() -> Vec<Arg<'a>> {
             .settings(&defaults())
             .validator(validate::numeric(0f32, 1f32))
             .default_value("0.95")
-            .about("Automatically correct reference sequence for loci with the most common nucleotide frequency ≥ cutoff"),
+            .long_about("Automatically correct reference sequence for loci with the most common nucleotide frequency ≥ cutoff"),
+        Arg::new(AUTOREF_HYPEREDITING)
+            .long(AUTOREF_HYPEREDITING)
+            .settings(&defaults())
+            .takes_value(false)
+            .long_about("Turn on the \"hyperediting\" mode, i.e. do not correct(replace) A with G and T with C. This will ensure that potentially hyper-editable sites are not accidentally lost.")
     ];
     args.into_iter().map(|x| x.help_heading(Some("Autoref"))).collect()
 }
 
 pub fn stranding<'a>() -> Vec<Arg<'a>> {
     let args = vec![
-        Arg::new(ANNOTATION)
-            .long(ANNOTATION)
+        Arg::new(STRANDING_ANNOTATION)
+            .long(STRANDING_ANNOTATION)
             .settings(&defaults())
             .validator(validate::path)
             .long_about("Genome annotation in the GFF3 format. Genomic features (exons and genes) are used to inference loci/ROI strand based on the most likely direction of transcription (see the GitHub documentation for details). It is recommended to provide genome annotation for unstranded libraries, otherwise stranding will be highly inaccurate."),
@@ -151,9 +160,21 @@ pub fn stranding<'a>() -> Vec<Arg<'a>> {
             .settings(&defaults())
             .validator(validate::numeric(0f32, 1f32))
             .default_value("0.05")
-            .about("Automatically predict strand based on the observed A->I editing for locus/ROI with A->G freq >= threshold (freq = ∑ A->G / (∑ A->G + ∑ A->A))"),
+            .long_about("Automatically predict strand based on the observed A->I editing for locus/ROI with A->G freq >= threshold (freq = ∑ A->G / (∑ A->G + ∑ A->A))"),
     ];
     args.into_iter().map(|x| x.help_heading(Some("Stranding"))).collect()
+}
+
+pub fn stats<'a>() -> Vec<Arg<'a>> {
+    let args = vec![
+        Arg::new(STAT_EDITING_INDEX)
+            .long(STAT_EDITING_INDEX)
+            .settings(&defaults())
+            .validator(validate::writable)
+            .requires(ROI)
+            .long_about("File for saving Editing Indexes (EI). If the file already exists, the EI results for the current experiments will be appended to it.")
+    ];
+    args.into_iter().map(|x| x.help_heading(Some("Statistics"))).collect()
 }
 
 pub fn all<'a>() -> Vec<Arg<'a>> {
@@ -162,5 +183,6 @@ pub fn all<'a>() -> Vec<Arg<'a>> {
         .chain(filtering().into_iter())
         .chain(autoref().into_iter())
         .chain(stranding().into_iter())
+        .chain(stats().into_iter())
         .collect()
 }

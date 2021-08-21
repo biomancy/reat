@@ -17,6 +17,7 @@ pub struct BaseNucCounter<R: AlignedRead, Filter: ReadsFilter<R>, Buffer: Counts
     filter: Filter,
     buffer: Buffer,
     roi: Interval,
+    empty: bool,
     phantom: PhantomData<R>,
 }
 
@@ -28,7 +29,7 @@ impl<R: AlignedRead, Filter: ReadsFilter<R>, Buffer: CountsBuffer<R>> BaseNucCou
 
     pub fn new(filter: Filter, mut buffer: Buffer, roi: Interval) -> Self {
         buffer.reset((roi.range().end - roi.range().start) as u32);
-        BaseNucCounter { filter, buffer, roi, phantom: Default::default() }
+        BaseNucCounter { filter, buffer, roi, empty: true, phantom: Default::default() }
     }
 
     fn implprocess(&mut self, read: &mut R) -> &[LocusCounts] {
@@ -98,17 +99,25 @@ impl<R: AlignedRead, Filter: ReadsFilter<R>, Buffer: CountsBuffer<R>> NucCounter
             return;
         }
         self.implprocess(read);
+        self.empty = false;
     }
 
+    #[inline]
     fn reset(&mut self, roi: Interval) {
         let size = (roi.range().end - roi.range().start) as u32;
         self.roi = roi;
         self.buffer.reset(size);
+        self.empty = true;
     }
 
     #[inline]
     fn content(&self) -> NucCounterContent {
         NucCounterContent { interval: self.roi.clone(), counts: self.buffer.content() }
+    }
+
+    #[inline]
+    fn empty(&self) -> bool {
+        self.empty
     }
 }
 

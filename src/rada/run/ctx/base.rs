@@ -1,4 +1,3 @@
-use std::marker::PhantomData;
 use std::path::{Path, PathBuf};
 
 use bio_types::genome::{AbstractInterval, Interval};
@@ -9,26 +8,27 @@ use rust_htslib::{bam, faidx};
 
 use crate::rada::counting::{CountsBufferContent, LocusCounts, NucCounter, NucCounterContent};
 use crate::rada::dna::Nucleotide;
-use crate::rada::read::AlignedRead;
+use crate::rada::filtering::summary::{IntervalSummaryFilter, LocusSummaryFilter};
 use crate::rada::refnuc::RefNucPredictor;
+use crate::rada::run::ctx::{LociRunCtx, ROIRunCtx, RunCtx};
+use crate::rada::stranding::predict::{IntervalStrandPredictor, LocusStrandPredictor};
 
-// Dummy FastaReader
-pub struct FastaReader(faidx::Reader);
+// Dummy FastaReader that is safe to Send
+pub struct FastaReader(faidx::Reader, PathBuf);
 unsafe impl Send for FastaReader {}
 
-pub struct Context<R: AlignedRead, Counter: NucCounter<R>, RefNucPred: RefNucPredictor, StrandPred, SummaryFilter> {
-    pub htsreaders: Vec<bam::IndexedReader>,
-    pub refreader: FastaReader,
+pub struct BaseRunCtx<Counter: NucCounter<Record>, RefNucPred: RefNucPredictor, StrandPred, Filter> {
+    htsreaders: Vec<bam::IndexedReader>,
+    htsfiles: Vec<PathBuf>,
+    refreader: FastaReader,
     counter: Counter,
-    pub refnucpred: RefNucPred,
-    pub strandpred: StrandPred,
-    pub filter: SummaryFilter,
-    has_some_data: bool,
-    phantom: PhantomData<fn() -> R>,
+    refnucpred: RefNucPred,
+    strandpred: StrandPred,
+    filter: Filter,
 }
 
-impl<Counter: NucCounter<Record>, RefNucPred: RefNucPredictor, StrandPred, SummaryFilter>
-    Context<Record, Counter, RefNucPred, StrandPred, SummaryFilter>
+impl<Counter: NucCounter<Record>, RefNucPred: RefNucPredictor, StrandPred, Filter>
+    BaseRunCtx<Counter, RefNucPred, StrandPred, Filter>
 {
     pub fn new(
         htsfiles: &[PathBuf],
@@ -36,7 +36,7 @@ impl<Counter: NucCounter<Record>, RefNucPred: RefNucPredictor, StrandPred, Summa
         counter: Counter,
         refnucpred: RefNucPred,
         strandpred: StrandPred,
-        filter: SummaryFilter,
+        filter: Filter,
     ) -> Self {
         let htsreaders: Vec<bam::IndexedReader> = htsfiles
             .iter()
@@ -44,47 +44,16 @@ impl<Counter: NucCounter<Record>, RefNucPred: RefNucPredictor, StrandPred, Summa
                 bam::IndexedReader::from_path(&hts).unwrap_or_else(|_| panic!("Failed to open file {}", hts.display()))
             })
             .collect();
-        let reference = faidx::Reader::from_path(reference)
+        let refreader = faidx::Reader::from_path(reference)
             .unwrap_or_else(|_| panic!("Failed to open file {}", reference.display()));
-        Context {
+        BaseRunCtx {
             htsreaders,
-            refreader: FastaReader(reference),
+            htsfiles: htsfiles.to_vec(),
+            refreader: FastaReader(refreader, reference.into()),
             counter,
             refnucpred,
             strandpred,
             filter,
-            has_some_data: false,
-            phantom: Default::default(),
-        }
-    }
-
-    pub fn nuccount(&mut self, interval: &Interval) {
-        self.counter.reset(interval.clone());
-        self.has_some_data = false;
-
-        for htsreader in &mut self.htsreaders {
-            if !htsreader.header().target_names().contains(&interval.contig().as_bytes()) {
-                continue;
-            }
-
-            htsreader
-                .fetch((interval.contig(), interval.range().start, interval.range().end))
-                .unwrap_or_else(|_| panic!("Failed to fetch reads for {:?} (HTS file corrupted?)", interval));
-
-            let mut record = Record::new();
-            while let Some(r) = htsreader.read(&mut record) {
-                r.expect("Failed to parse record information (HTS file corrupted?)");
-                self.counter.process(&mut record);
-            }
-            self.has_some_data = true;
-        }
-    }
-
-    pub fn nuccontent(&self) -> Option<NucCounterContent> {
-        if self.has_some_data {
-            Some(self.counter.content())
-        } else {
-            None
         }
     }
 
@@ -126,7 +95,7 @@ impl<Counter: NucCounter<Record>, RefNucPred: RefNucPredictor, StrandPred, Summa
         Self::implpredseq(&self.refnucpred, reference, counts)
     }
 
-    pub fn reference(&self, interval: &Interval) -> Vec<Nucleotide> {
+    pub fn assembly(&self, interval: &Interval) -> Vec<Nucleotide> {
         let (start, end) = (interval.range().start as usize, interval.range().end as usize);
         let reference = self
             .refreader
@@ -137,6 +106,106 @@ impl<Counter: NucCounter<Record>, RefNucPred: RefNucPredictor, StrandPred, Summa
         debug_assert_eq!(reference.len(), end - start);
 
         reference.iter().map(|e| Nucleotide::from(*e)).collect()
+    }
+}
+
+impl<Counter: NucCounter<Record>, RefNucPred: RefNucPredictor, StrandPred, Filter> RunCtx
+    for BaseRunCtx<Counter, RefNucPred, StrandPred, Filter>
+{
+    fn count(&mut self, interval: &Interval) {
+        self.counter.reset(interval.clone());
+
+        for htsreader in &mut self.htsreaders {
+            if !htsreader.header().target_names().contains(&interval.contig().as_bytes()) {
+                continue;
+            }
+
+            htsreader
+                .fetch((interval.contig(), interval.range().start, interval.range().end))
+                .unwrap_or_else(|_| panic!("Failed to fetch reads for {:?} (HTS file corrupted?)", interval));
+
+            let mut record = Record::new();
+            while let Some(r) = htsreader.read(&mut record) {
+                r.expect("Failed to parse record information (HTS file corrupted?)");
+                self.counter.process(&mut record);
+            }
+        }
+    }
+
+    fn finalize(&self) -> Option<(NucCounterContent, Vec<Nucleotide>)> {
+        if self.counter.empty() {
+            None
+        } else {
+            let nuccontent = self.counter.content();
+            let assembly = self.assembly(&nuccontent.interval);
+            let sequence = self.predseq(&assembly, &nuccontent.counts);
+            Some((nuccontent, sequence))
+        }
+    }
+
+    fn htsfiles(&self) -> &[PathBuf] {
+        &self.htsfiles
+    }
+}
+
+impl<Counter, RefNucPred, StrandPred, Filter> Clone for BaseRunCtx<Counter, RefNucPred, StrandPred, Filter>
+where
+    Counter: NucCounter<Record> + Clone,
+    RefNucPred: RefNucPredictor + Clone,
+    StrandPred: Clone,
+    Filter: Clone,
+{
+    fn clone(&self) -> Self {
+        Self::new(
+            &self.htsfiles,
+            &self.refreader.1,
+            self.counter.clone(),
+            self.refnucpred.clone(),
+            self.strandpred.clone(),
+            self.filter.clone(),
+        )
+    }
+}
+
+impl<Counter, RefNucPred, StrandPred, Filter> ROIRunCtx for BaseRunCtx<Counter, RefNucPred, StrandPred, Filter>
+where
+    Counter: NucCounter<Record> + Clone,
+    RefNucPred: RefNucPredictor + Clone,
+    StrandPred: IntervalStrandPredictor,
+    Filter: IntervalSummaryFilter,
+{
+    type StrandPred = StrandPred;
+    type Filter = Filter;
+
+    #[inline]
+    fn strandpred(&self) -> &Self::StrandPred {
+        &self.strandpred
+    }
+
+    #[inline]
+    fn filter(&self) -> &Self::Filter {
+        &self.filter
+    }
+}
+
+impl<Counter, RefNucPred, StrandPred, Filter> LociRunCtx for BaseRunCtx<Counter, RefNucPred, StrandPred, Filter>
+where
+    Counter: NucCounter<Record> + Clone,
+    RefNucPred: RefNucPredictor + Clone,
+    StrandPred: LocusStrandPredictor,
+    Filter: LocusSummaryFilter,
+{
+    type StrandPred = StrandPred;
+    type Filter = Filter;
+
+    #[inline]
+    fn strandpred(&self) -> &Self::StrandPred {
+        &self.strandpred
+    }
+
+    #[inline]
+    fn filter(&self) -> &Self::Filter {
+        &self.filter
     }
 }
 
@@ -151,13 +220,8 @@ mod tests {
 
     use super::*;
 
-    type DummyContext = Context<
-        Record,
-        MockNucCounter<Record>,
-        MockRefNucPredictor,
-        MockIntervalStrandPredictor,
-        MockIntervalSummaryFilter,
-    >;
+    type DummyContext =
+        BaseRunCtx<MockNucCounter<Record>, MockRefNucPredictor, MockIntervalStrandPredictor, MockIntervalSummaryFilter>;
 
     #[test]
     fn predsequence() {

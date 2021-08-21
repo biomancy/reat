@@ -1,8 +1,9 @@
-pub use context::Context;
+pub use ctx::{BaseRunCtx, LociRunCtx, ROIRunCtx};
 pub use loci::run as loci;
 pub use regions::run as regions;
 
-mod context;
+mod ctx;
 mod loci;
 mod regions;
+mod thread_cache;
 pub mod workload;

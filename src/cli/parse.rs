@@ -32,12 +32,19 @@ pub fn sumfilter(pbar: ProgressBar, matches: &ArgMatches) -> SummaryFilterByMism
 
 pub fn readfilter(pbar: ProgressBar, matches: &ArgMatches) -> ReadsFilterByQuality {
     pbar.set_message("Parsing reads filter options...");
-    let (mapq, phread) = (
+    let (mapq, allow_mapq_255, phread) = (
         matches.value_of(args::MAPQ).unwrap().parse().unwrap(),
+        matches.is_present(args::ALLOW_MAPQ_255),
         matches.value_of(args::PHREAD).unwrap().parse().unwrap(),
     );
-    let result = ReadsFilterByQuality::new(mapq, phread);
-    pbar.finish_with_message(format!("Reads filter options: mapq >= {}, phread >= {}", result.mapq(), result.phread()));
+    let result = ReadsFilterByQuality::new(mapq, allow_mapq_255, phread);
+    let msg = format!("Reads filter options: mapq >= {}, phread >= {}. ", result.mapq(), result.phread());
+    if allow_mapq_255 {
+        pbar.finish_with_message(msg + "Mapq = 255 is allowed.");
+    } else {
+        pbar.finish_with_message(msg + "Mapq = 255 is NOT allowed.");
+    }
+
     result
 }
 

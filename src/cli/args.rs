@@ -13,6 +13,7 @@ pub const SAVETO: &str = "saveto";
 
 // Filtering
 pub const MAPQ: &str = "mapq";
+pub const ALLOW_MAPQ_255: &str = "mapq-255";
 pub const PHREAD: &str = "phread";
 pub const OUT_MIN_MISMATCHES: &str = "out-min-mismatches";
 pub const OUT_MIN_FREQ: &str = "out-min-freq";
@@ -96,7 +97,12 @@ pub fn filtering<'a>() -> Vec<Arg<'a>> {
             .settings(&defaults())
             .validator(validate::numeric(0u8, 254u8))
             .default_value("1")
-            .long_about("Count only reads with mapq ≥ threshold. Note that reads with mapq = 255 are always skipped(mapq is not available according to the SAM spec)."),
+            .long_about("Count only reads with mapq ≥ threshold. Note that reads with mapq = 255 are skipped by default(mapq is not available according to the SAM spec)."),
+        Arg::new(ALLOW_MAPQ_255)
+            .long(ALLOW_MAPQ_255)
+            .settings(&defaults())
+            .takes_value(false)
+            .long_about("Count reads with mapq=255. Useful for aligners that do not fully conform to the SAM specification (e.g. STAR with default parameters)"),
         Arg::new(PHREAD)
             .long(PHREAD)
             .settings(&defaults())

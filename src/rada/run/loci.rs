@@ -17,7 +17,7 @@ use crate::rada::summary::LocusSummary;
 pub fn run<
     Context: LociRunCtx + Send + Clone,
     OnIteration: Fn(&[LocusSummary]) + Sync,
-    OnFinish: FnOnce(&[LocusSummary]),
+    OnFinish: FnOnce(&[LocusSummary], usize),
 >(
     workload: Vec<Workload>,
     ctx: Context,
@@ -27,7 +27,7 @@ pub fn run<
     let ctxstore: ThreadLocal<RefCell<Context>> = ThreadLocal::new();
     let ctxbuilder = Mutex::new(move || RefCell::new(ctx.clone()));
 
-    let result: Vec<LocusSummary> = workload
+    let results: Vec<LocusSummary> = workload
         .into_par_iter()
         .map(|w| {
             let ctx = ctxstore.get_or(|| ctxbuilder.lock().unwrap()());
@@ -37,8 +37,11 @@ pub fn run<
         })
         .flatten()
         .collect();
-    onfinish(&result);
-    result
+
+    let reads_counted = ctxstore.into_iter().map(|x| x.into_inner().reads_counted()).sum();
+    onfinish(&results, reads_counted);
+
+    results
 }
 
 fn _run(w: &Workload, ctx: &mut impl LociRunCtx) -> Vec<LocusSummary> {

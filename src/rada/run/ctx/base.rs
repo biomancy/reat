@@ -21,6 +21,7 @@ pub struct BaseRunCtx<Counter: NucCounter<Record>, RefNucPred: RefNucPredictor, 
     htsreaders: Vec<bam::IndexedReader>,
     htsfiles: Vec<PathBuf>,
     refreader: FastaReader,
+    reads_counted: usize,
     counter: Counter,
     refnucpred: RefNucPred,
     strandpred: StrandPred,
@@ -50,6 +51,7 @@ impl<Counter: NucCounter<Record>, RefNucPred: RefNucPredictor, StrandPred, Filte
             htsreaders,
             htsfiles: htsfiles.to_vec(),
             refreader: FastaReader(refreader, reference.into()),
+            reads_counted: 0,
             counter,
             refnucpred,
             strandpred,
@@ -130,6 +132,7 @@ impl<Counter: NucCounter<Record>, RefNucPred: RefNucPredictor, StrandPred, Filte
                 self.counter.process(&mut record);
             }
         }
+        self.reads_counted += self.counter.reads_counted()
     }
 
     fn finalize(&self) -> Option<(NucCounterContent, Vec<Nucleotide>)> {
@@ -145,6 +148,10 @@ impl<Counter: NucCounter<Record>, RefNucPred: RefNucPredictor, StrandPred, Filte
 
     fn htsfiles(&self) -> &[PathBuf] {
         &self.htsfiles
+    }
+
+    fn reads_counted(&self) -> usize {
+        self.reads_counted
     }
 }
 

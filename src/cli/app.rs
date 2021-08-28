@@ -21,7 +21,7 @@ use crate::rada::run::{BaseRunCtx, LociRunCtx, ROIRunCtx};
 use crate::rada::stats::EditingIndex;
 use crate::rada::stranding::deduct::DeductStrandByDesign;
 use crate::rada::stranding::predict::NaiveSequentialStrandPredictor;
-use crate::rada::summary::IntervalSummary;
+use crate::rada::summary::{IntervalSummary, LocusSummary};
 
 use super::parse;
 
@@ -56,7 +56,8 @@ impl ParsedArgs {
         let sumfilter = parse::sumfilter(factory(), args);
         let saveto = parse::saveto(factory(), args);
 
-        let ei = if args.is_present(args::ROI) { Some(parse::editing_index(factory(), args)) } else { None };
+        let ei =
+            if args.is_present(args::STAT_EDITING_INDEX) { Some(parse::editing_index(factory(), args)) } else { None };
 
         // TODO: is there any other way to please the borrow checker?
         let mut strandpred: Option<NaiveSequentialStrandPredictor> = Default::default();
@@ -128,7 +129,13 @@ impl<'a> App<'a> {
         saveto: &mut impl Write,
     ) {
         let oniter = |_: &[IntervalSummary]| pbar.inc(1);
-        let onfinish = |_: &[IntervalSummary]| pbar.finish_with_message("Finished");
+        let onfinish = |intervals: &[IntervalSummary], reads: usize| {
+            pbar.finish_with_message(format!(
+                "Finished with {} regions, total counted reads: {}",
+                intervals.len(),
+                reads
+            ))
+        };
         match ei {
             None => {
                 resformat::regions(
@@ -163,10 +170,14 @@ impl<'a> App<'a> {
         pbar: ProgressBar,
         saveto: &mut impl Write,
     ) {
-        resformat::loci(
-            saveto,
-            rada::run::loci(workload, ctx, |_| pbar.inc(1), |_| pbar.finish_with_message("Finished")),
-        );
+        let onfinish = |intervals: &[LocusSummary], reads: usize| {
+            pbar.finish_with_message(format!(
+                "Finished with {} genomic bins; total counted reads: {}",
+                intervals.len(),
+                reads
+            ))
+        };
+        resformat::loci(saveto, rada::run::loci(workload, ctx, |_| pbar.inc(1), onfinish));
     }
 
     fn _run(self, counter: impl NucCounter<Record> + Send + Clone) {

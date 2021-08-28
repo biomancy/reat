@@ -2,7 +2,6 @@ use std::cmp::min;
 use std::marker::PhantomData;
 
 use bio_types::genome::{AbstractInterval, Interval};
-
 use rust_htslib::bam::record::Cigar;
 
 use crate::rada::counting::LocusCounts;
@@ -17,7 +16,7 @@ pub struct BaseNucCounter<R: AlignedRead, Filter: ReadsFilter<R>, Buffer: Counts
     filter: Filter,
     buffer: Buffer,
     roi: Interval,
-    empty: bool,
+    reads_counted: usize,
     phantom: PhantomData<R>,
 }
 
@@ -29,7 +28,7 @@ impl<R: AlignedRead, Filter: ReadsFilter<R>, Buffer: CountsBuffer<R>> BaseNucCou
 
     pub fn new(filter: Filter, mut buffer: Buffer, roi: Interval) -> Self {
         buffer.reset((roi.range().end - roi.range().start) as u32);
-        BaseNucCounter { filter, buffer, roi, empty: true, phantom: Default::default() }
+        BaseNucCounter { filter, buffer, roi, reads_counted: 0, phantom: Default::default() }
     }
 
     fn implprocess(&mut self, read: &mut R) -> &[LocusCounts] {
@@ -99,7 +98,11 @@ impl<R: AlignedRead, Filter: ReadsFilter<R>, Buffer: CountsBuffer<R>> NucCounter
             return;
         }
         self.implprocess(read);
-        self.empty = false;
+        self.reads_counted += 1;
+    }
+
+    fn reads_counted(&self) -> usize {
+        self.reads_counted
     }
 
     #[inline]
@@ -107,17 +110,12 @@ impl<R: AlignedRead, Filter: ReadsFilter<R>, Buffer: CountsBuffer<R>> NucCounter
         let size = (roi.range().end - roi.range().start) as u32;
         self.roi = roi;
         self.buffer.reset(size);
-        self.empty = true;
+        self.reads_counted = 0;
     }
 
     #[inline]
     fn content(&self) -> NucCounterContent {
         NucCounterContent { interval: self.roi.clone(), counts: self.buffer.content() }
-    }
-
-    #[inline]
-    fn empty(&self) -> bool {
-        self.empty
     }
 }
 

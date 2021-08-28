@@ -17,7 +17,7 @@ pub fn run<
     Context: ROIRunCtx + Send + Clone,
     StatBuilder: IntervalBasedStat + Send + Clone,
     OnIteration: Fn(&[IntervalSummary]) + Sync,
-    OnFinish: FnOnce(&[IntervalSummary]),
+    OnFinish: FnOnce(&[IntervalSummary], usize),
 >(
     workload: Vec<Workload>,
     context: Context,
@@ -44,10 +44,12 @@ pub fn run<
         })
         .flatten()
         .collect();
-    onfinish(&results);
 
     let stats: Option<StatBuilder> =
         statstore.map(|store| store.content().map(|x| x.into_inner()).fold(StatBuilder::default(), |a, b| a + b));
+
+    let reads_counted = ctxstore.content().map(|x| x.into_inner().reads_counted()).sum();
+    onfinish(&results, reads_counted);
 
     (results, stats)
 }

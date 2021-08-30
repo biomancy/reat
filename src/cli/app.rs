@@ -11,17 +11,17 @@ use rust_htslib::bam::Record;
 
 use crate::cli::stranding::Stranding;
 use crate::cli::{args, resformat};
-use crate::rada;
-use crate::rada::counting::{BaseNucCounter, NucCounter, StrandedCountsBuffer, UnstrandedCountsBuffer};
-use crate::rada::filtering::reads::ReadsFilterByQuality;
-use crate::rada::filtering::summary::SummaryFilterByMismatches;
-use crate::rada::refnuc::RefNucPredByHeurisitc;
-use crate::rada::run::workload::Workload;
-use crate::rada::run::{BaseRunCtx, LociRunCtx, ROIRunCtx};
-use crate::rada::stats::EditingIndex;
-use crate::rada::stranding::deduct::DeductStrandByDesign;
-use crate::rada::stranding::predict::NaiveSequentialStrandPredictor;
-use crate::rada::summary::{IntervalSummary, LocusSummary};
+use crate::core;
+use crate::core::counting::{BaseNucCounter, NucCounter, StrandedCountsBuffer, UnstrandedCountsBuffer};
+use crate::core::filtering::reads::ReadsFilterByQuality;
+use crate::core::filtering::summary::SummaryFilterByMismatches;
+use crate::core::refnuc::RefNucPredByHeurisitc;
+use crate::core::run::workload::Workload;
+use crate::core::run::{BaseRunCtx, LociRunCtx, ROIRunCtx};
+use crate::core::stats::EditingIndex;
+use crate::core::stranding::deduct::DeductStrandByDesign;
+use crate::core::stranding::predict::NaiveSequentialStrandPredictor;
+use crate::core::summary::{IntervalSummary, LocusSummary};
 
 use super::parse;
 
@@ -140,13 +140,13 @@ impl<'a> App<'a> {
             None => {
                 resformat::regions(
                     saveto,
-                    rada::run::regions(workload, ctx, Option::<EditingIndex>::None, oniter, onfinish).0,
+                    core::run::regions(workload, ctx, Option::<EditingIndex>::None, oniter, onfinish).0,
                 );
             }
             Some(eifile) => {
                 let files = ctx.htsfiles().iter().map(|x| x.file_name().unwrap().to_str().unwrap()).join(",");
                 let (summary, eivalues) =
-                    rada::run::regions(workload, ctx, Some(EditingIndex::default()), oniter, onfinish);
+                    core::run::regions(workload, ctx, Some(EditingIndex::default()), oniter, onfinish);
 
                 resformat::regions(saveto, summary);
 
@@ -177,7 +177,7 @@ impl<'a> App<'a> {
                 reads
             ))
         };
-        resformat::loci(saveto, rada::run::loci(workload, ctx, |_| pbar.inc(1), onfinish));
+        resformat::loci(saveto, core::run::loci(workload, ctx, |_| pbar.inc(1), onfinish));
     }
 
     fn _run(self, counter: impl NucCounter<Record> + Send + Clone) {

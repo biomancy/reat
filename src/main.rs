@@ -1,7 +1,6 @@
 use clap::{crate_authors, crate_name, crate_version, App, AppSettings};
 
-mod cli;
-mod rada;
+use rada::cli;
 
 fn main() {
     let matches = App::new(crate_name!())

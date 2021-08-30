@@ -2,8 +2,8 @@ use std::io::Write;
 
 use bio_types::genome::{AbstractInterval, AbstractLocus};
 
-use crate::rada::stats::IntervalBasedStat;
-use crate::rada::summary::{IntervalSummary, LocusSummary};
+use crate::core::stats::IntervalBasedStat;
+use crate::core::summary::{IntervalSummary, LocusSummary};
 
 const OUTPUT_IO_ERROR: &str = "Failed to write ROI/loci summary to the output TSV file.";
 const STATS_IO_ERROR: &str = "Failed to write statistics to the output TSV file.";
@@ -55,8 +55,8 @@ mod test {
     use bio_types::genome::{Interval, Locus};
     use bio_types::strand::Strand;
 
-    use crate::rada::counting::LocusCounts;
-    use crate::rada::dna::Nucleotide;
+    use crate::core::counting::LocusCounts;
+    use crate::core::dna::Nucleotide;
 
     use super::*;
 

@@ -16,7 +16,7 @@ pub struct BaseNucCounter<R: AlignedRead, Filter: ReadsFilter<R>, Buffer: Counts
     filter: Filter,
     buffer: Buffer,
     roi: Interval,
-    reads_counted: usize,
+    reads_counted: u32,
     phantom: PhantomData<R>,
 }
 
@@ -101,7 +101,7 @@ impl<R: AlignedRead, Filter: ReadsFilter<R>, Buffer: CountsBuffer<R>> NucCounter
         self.reads_counted += 1;
     }
 
-    fn reads_counted(&self) -> usize {
+    fn reads_counted(&self) -> u32 {
         self.reads_counted
     }
 

@@ -21,7 +21,7 @@ pub trait RunCtx {
     fn count(&mut self, interval: &Interval);
     fn finalize(&self) -> Option<(NucCounterContent, Vec<Nucleotide>)>;
     fn htsfiles(&self) -> &[PathBuf];
-    fn reads_counted(&self) -> usize;
+    fn reads_counted(&self) -> u32;
 }
 
 pub trait ROIRunCtx: RunCtx {
@@ -48,7 +48,7 @@ mock! {
         fn count(&mut self, interval: &Interval);
         fn finalize<'a>(&'a self) -> Option<(NucCounterContent<'a>, Vec<Nucleotide>)>;
         fn htsfiles(&self) -> &[PathBuf];
-        fn reads_counted(&self) -> usize;
+        fn reads_counted(&self) -> u32;
     }
 
     impl ROIRunCtx for ROIRunCtx {
@@ -68,7 +68,7 @@ mock! {
         fn count(&mut self, interval: &Interval);
         fn finalize<'a>(&'a self) -> Option<(NucCounterContent<'a>, Vec<Nucleotide>)>;
         fn htsfiles(&self) -> &[PathBuf];
-        fn reads_counted(&self) -> usize;
+        fn reads_counted(&self) -> u32;
     }
 
     impl LociRunCtx for LociRunCtx {

@@ -21,7 +21,7 @@ pub struct BaseRunCtx<Counter: NucCounter<Record>, RefNucPred: RefNucPredictor, 
     htsreaders: Vec<bam::IndexedReader>,
     htsfiles: Vec<PathBuf>,
     refreader: FastaReader,
-    reads_counted: usize,
+    reads_counted: u32,
     counter: Counter,
     refnucpred: RefNucPred,
     strandpred: StrandPred,
@@ -150,7 +150,7 @@ impl<Counter: NucCounter<Record>, RefNucPred: RefNucPredictor, StrandPred, Filte
         &self.htsfiles
     }
 
-    fn reads_counted(&self) -> usize {
+    fn reads_counted(&self) -> u32 {
         self.reads_counted
     }
 }

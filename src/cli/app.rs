@@ -129,7 +129,7 @@ impl<'a> App<'a> {
         saveto: &mut impl Write,
     ) {
         let oniter = |_: &[ROISummary]| pbar.inc(1);
-        let onfinish = |intervals: &[ROISummary], reads: usize| {
+        let onfinish = |intervals: &[ROISummary], reads: u32| {
             pbar.finish_with_message(format!(
                 "Finished with {} regions, total counted reads: {}",
                 intervals.len(),
@@ -170,7 +170,7 @@ impl<'a> App<'a> {
         pbar: ProgressBar,
         saveto: &mut impl Write,
     ) {
-        let onfinish = |intervals: &[LocusSummary], reads: usize| {
+        let onfinish = |intervals: &[LocusSummary], reads: u32| {
             pbar.finish_with_message(format!(
                 "Finished with {} genomic bins; total counted reads: {}",
                 intervals.len(),

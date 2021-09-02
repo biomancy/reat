@@ -19,7 +19,7 @@ pub struct NucCounterContent<'a> {
 pub trait NucCounter<R: AlignedRead> {
     fn roi(&self) -> &Interval;
     fn process(&mut self, read: &mut R);
-    fn reads_counted(&self) -> usize;
+    fn reads_counted(&self) -> u32;
     fn reset(&mut self, roi: Interval);
     fn content(&'_ self) -> NucCounterContent<'_>;
     fn empty(&self) -> bool {

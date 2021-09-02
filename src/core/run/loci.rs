@@ -17,7 +17,7 @@ use crate::core::summary::LocusSummary;
 pub fn run<
     Context: LociRunCtx + Send + Clone,
     OnIteration: Fn(&[LocusSummary]) + Sync,
-    OnFinish: FnOnce(&[LocusSummary], usize),
+    OnFinish: FnOnce(&[LocusSummary], u32),
 >(
     workload: Vec<Workload>,
     ctx: Context,

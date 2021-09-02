@@ -17,7 +17,7 @@ pub fn run<
     Context: ROIRunCtx + Send + Clone,
     StatBuilder: IntervalBasedStat + Send + Clone,
     OnIteration: Fn(&[ROISummary]) + Sync,
-    OnFinish: FnOnce(&[ROISummary], usize),
+    OnFinish: FnOnce(&[ROISummary], u32),
 >(
     workload: Vec<Workload>,
     context: Context,

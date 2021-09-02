@@ -78,9 +78,10 @@ pub fn core<'a>() -> Vec<Arg<'a>> {
         Arg::new(SAVETO)
             .short('o')
             .long(SAVETO)
-            .settings(&reqdefaults())
+            .settings(&defaults())
             .validator(validate::writable)
-            .long_about("Path to the output tsv file. Use /dev/stdout to print result to the standard output."),
+            .default_value("/dev/stdout")
+            .long_about("Path to the output tsv file. By default, the results are printed to stdout."),
         Arg::new(THREADS)
             .short('t')
             .long(THREADS)

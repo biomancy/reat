@@ -1,7 +1,7 @@
 use derive_getters::Getters;
 use derive_more::Constructor;
 
-use crate::core::counting::LocusCounts;
+use crate::core::counting::NucCounts;
 use crate::core::dna::{Nucleotide, ReqNucleotide};
 
 use super::RefNucPredictor;
@@ -14,7 +14,7 @@ pub struct RefNucPredByHeurisitc {
 }
 
 impl RefNucPredictor for RefNucPredByHeurisitc {
-    fn predict(&self, assembly: &Nucleotide, sequenced: &LocusCounts) -> Nucleotide {
+    fn predict(&self, assembly: &Nucleotide, sequenced: &NucCounts) -> Nucleotide {
         let coverage = sequenced.coverage();
 
         // if coverage is sufficient
@@ -44,7 +44,7 @@ mod tests {
 
     #[test]
     fn predict() {
-        let sequenced = LocusCounts { A: 1, C: 2, G: 3, T: 4 };
+        let sequenced = NucCounts { A: 1, C: 2, G: 3, T: 4 };
         let assembly = Nucleotide::A;
         for (mincoverage, freqthr, result) in [
             (100, 0.0, assembly),
@@ -61,13 +61,13 @@ mod tests {
 
     #[test]
     fn skip_hyper_editing() {
-        let sequenced = LocusCounts { A: 1, C: 0, G: 99, T: 0 };
+        let sequenced = NucCounts { A: 1, C: 0, G: 99, T: 0 };
         for (expect, toskip) in [(Nucleotide::A, true), (Nucleotide::G, false)] {
             let dummy = RefNucPredByHeurisitc { mincoverage: 0, freqthr: 0f32, skip_hyperediting: toskip };
             assert_eq!(dummy.predict(&Nucleotide::A, &sequenced), expect);
         }
 
-        let sequenced = LocusCounts { A: 0, C: 3, G: 0, T: 1 };
+        let sequenced = NucCounts { A: 0, C: 3, G: 0, T: 1 };
         for (expect, toskip) in [(Nucleotide::T, true), (Nucleotide::C, false)] {
             let dummy = RefNucPredByHeurisitc { mincoverage: 0, freqthr: 0f32, skip_hyperediting: toskip };
             assert_eq!(dummy.predict(&Nucleotide::T, &sequenced), expect);

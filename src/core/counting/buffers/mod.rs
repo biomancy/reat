@@ -2,7 +2,7 @@
 use mockall::{automock, predicate::*};
 
 use crate::core::read::AlignedRead;
-pub use locus::LocusCounts;
+pub use locus::NucCounts;
 pub use strandedbuf::StrandedCountsBuffer;
 pub use unstrandedbuf::UnstrandedCountsBuffer;
 
@@ -12,9 +12,9 @@ mod unstrandedbuf;
 
 #[derive(Copy, Clone)]
 pub struct CountsBufferContent<'a> {
-    pub forward: Option<&'a [LocusCounts]>,
-    pub reverse: Option<&'a [LocusCounts]>,
-    pub unstranded: Option<&'a [LocusCounts]>,
+    pub forward: Option<&'a [NucCounts]>,
+    pub reverse: Option<&'a [NucCounts]>,
+    pub unstranded: Option<&'a [NucCounts]>,
 }
 
 impl<'a> CountsBufferContent<'a> {
@@ -29,7 +29,7 @@ impl<'a> CountsBufferContent<'a> {
 pub trait CountsBuffer<R: AlignedRead> {
     fn reset(&mut self, len: u32);
     // record must NOT be mutable here, yet some const(!) methods in rust_htslib require mutable(!) instance
-    fn buffer_for(&mut self, record: &mut R) -> &mut [LocusCounts];
+    fn buffer_for(&mut self, record: &mut R) -> &mut [NucCounts];
     fn content(&'_ self) -> CountsBufferContent<'_>;
     fn len(&self) -> u32;
 }

@@ -2,33 +2,28 @@ pub use inner::*;
 
 use crate::core::dna::ReqNucleotide;
 
-// See LocusCounts note
+// See NucCounts note
 mod inner {
     #![allow(non_snake_case)]
 
     use derive_more::{Add, AddAssign, Constructor};
 
-    pub use crate::core::counting::LocusCounts;
+    pub use crate::core::counting::NucCounts;
 
     // These are counts with respect to the FORWARD strand
     #[derive(Constructor, Copy, Clone, Eq, PartialEq, Debug, Add, AddAssign)]
     pub struct MismatchesSummary {
-        pub A: LocusCounts,
-        pub C: LocusCounts,
-        pub G: LocusCounts,
-        pub T: LocusCounts,
+        pub A: NucCounts,
+        pub C: NucCounts,
+        pub G: NucCounts,
+        pub T: NucCounts,
     }
 }
 
 impl MismatchesSummary {
     #[inline]
     pub fn zeros() -> Self {
-        MismatchesSummary {
-            A: LocusCounts::zeros(),
-            C: LocusCounts::zeros(),
-            G: LocusCounts::zeros(),
-            T: LocusCounts::zeros(),
-        }
+        MismatchesSummary { A: NucCounts::zeros(), C: NucCounts::zeros(), G: NucCounts::zeros(), T: NucCounts::zeros() }
     }
 
     #[inline]
@@ -65,7 +60,7 @@ impl Default for MismatchesSummary {
 mod tests {
     use super::*;
 
-    fn fillall(value: u32, counts: &mut LocusCounts) {
+    fn fillall(value: u32, counts: &mut NucCounts) {
         counts.A = value;
         counts.C = value;
         counts.G = value;

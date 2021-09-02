@@ -3,11 +3,11 @@ use std::marker::PhantomData;
 use crate::core::counting::buffers::CountsBufferContent;
 use crate::core::read::AlignedRead;
 
-use super::{CountsBuffer, LocusCounts};
+use super::{CountsBuffer, NucCounts};
 
 #[derive(Clone)]
 pub struct UnstrandedCountsBuffer<R: AlignedRead> {
-    buffer: Vec<LocusCounts>,
+    buffer: Vec<NucCounts>,
     phantom: PhantomData<R>,
 }
 
@@ -22,13 +22,13 @@ impl<R: AlignedRead> CountsBuffer<R> for UnstrandedCountsBuffer<R> {
     fn reset(&mut self, newlen: u32) {
         let newlen = newlen as usize;
         if self.buffer.len() != newlen {
-            self.buffer.resize(newlen, LocusCounts::zeros());
+            self.buffer.resize(newlen, NucCounts::zeros());
         }
-        self.buffer.fill(LocusCounts::zeros());
+        self.buffer.fill(NucCounts::zeros());
     }
 
     #[inline]
-    fn buffer_for(&mut self, _: &mut R) -> &mut [LocusCounts] {
+    fn buffer_for(&mut self, _: &mut R) -> &mut [NucCounts] {
         &mut self.buffer
     }
 

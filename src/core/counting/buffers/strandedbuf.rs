@@ -5,12 +5,12 @@ use bio_types::strand::ReqStrand;
 use crate::core::read::AlignedRead;
 use crate::core::stranding::deduct::StrandDeductor;
 
-use super::{CountsBuffer, CountsBufferContent, LocusCounts};
+use super::{CountsBuffer, CountsBufferContent, NucCounts};
 
 #[derive(Clone)]
 pub struct StrandedCountsBuffer<R: AlignedRead, Deductor: StrandDeductor<R>> {
-    forward: Vec<LocusCounts>,
-    reverse: Vec<LocusCounts>,
+    forward: Vec<NucCounts>,
+    reverse: Vec<NucCounts>,
     strand_deductor: Deductor,
     phantom: PhantomData<R>,
 }
@@ -27,15 +27,15 @@ impl<R: AlignedRead, Deductor: StrandDeductor<R>> CountsBuffer<R> for StrandedCo
     fn reset(&mut self, newlen: u32) {
         let newlen = newlen as usize;
         if self.forward.len() != newlen {
-            self.forward.resize(newlen, LocusCounts::zeros());
-            self.reverse.resize(newlen, LocusCounts::zeros());
+            self.forward.resize(newlen, NucCounts::zeros());
+            self.reverse.resize(newlen, NucCounts::zeros());
         }
-        self.forward.fill(LocusCounts::zeros());
-        self.reverse.fill(LocusCounts::zeros());
+        self.forward.fill(NucCounts::zeros());
+        self.reverse.fill(NucCounts::zeros());
     }
 
     #[inline]
-    fn buffer_for(&mut self, record: &mut R) -> &mut [LocusCounts] {
+    fn buffer_for(&mut self, record: &mut R) -> &mut [NucCounts] {
         match self.strand_deductor.deduce(record) {
             ReqStrand::Forward => &mut self.forward,
             ReqStrand::Reverse => &mut self.reverse,

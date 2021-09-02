@@ -5,12 +5,12 @@ use mockall::mock;
 
 pub use editing_index::EditingIndex;
 
-use crate::core::summary::IntervalSummary;
+use crate::core::summary::ROISummary;
 
 mod editing_index;
 
 pub trait IntervalBasedStat: Add<Output = Self> + Default {
-    fn process(&mut self, summary: &IntervalSummary);
+    fn process(&mut self, summary: &ROISummary);
 
     // TODO in the future it could be something like a trait
     fn header() -> &'static str;
@@ -28,7 +28,7 @@ mock! {
     }
 
     impl IntervalBasedStat for IntervalBasedStat {
-        fn process(&mut self, summary: &IntervalSummary);
+        fn process(&mut self, summary: &ROISummary);
 
         fn header() -> &'static str;
         fn row(&self) -> String;

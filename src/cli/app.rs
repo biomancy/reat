@@ -21,7 +21,7 @@ use crate::core::run::{BaseRunCtx, LociRunCtx, ROIRunCtx};
 use crate::core::stats::EditingIndex;
 use crate::core::stranding::deduct::DeductStrandByDesign;
 use crate::core::stranding::predict::SequentialStrandPredictor;
-use crate::core::summary::{IntervalSummary, LocusSummary};
+use crate::core::summary::{LocusSummary, ROISummary};
 
 use super::parse;
 
@@ -128,8 +128,8 @@ impl<'a> App<'a> {
         pbar: ProgressBar,
         saveto: &mut impl Write,
     ) {
-        let oniter = |_: &[IntervalSummary]| pbar.inc(1);
-        let onfinish = |intervals: &[IntervalSummary], reads: usize| {
+        let oniter = |_: &[ROISummary]| pbar.inc(1);
+        let onfinish = |intervals: &[ROISummary], reads: usize| {
             pbar.finish_with_message(format!(
                 "Finished with {} regions, total counted reads: {}",
                 intervals.len(),

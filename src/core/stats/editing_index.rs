@@ -1,7 +1,7 @@
 use bio_types::strand::Strand;
 use derive_more::{Add, AddAssign};
 
-use crate::core::summary::{IntervalSummary, MismatchesSummary};
+use crate::core::summary::{MismatchesSummary, ROISummary};
 
 use super::IntervalBasedStat;
 
@@ -11,7 +11,7 @@ pub struct EditingIndex {
 }
 
 impl IntervalBasedStat for EditingIndex {
-    fn process(&mut self, summary: &IntervalSummary) {
+    fn process(&mut self, summary: &ROISummary) {
         match summary.strand {
             Strand::Forward => {
                 self.accumulator += summary.mismatches;
@@ -69,6 +69,7 @@ impl IntervalBasedStat for EditingIndex {
 #[cfg(test)]
 mod test {
     use super::*;
+    use crate::core::counting::NucCounts;
     use bio_types::genome::Interval;
 
     #[test]
@@ -108,10 +109,11 @@ mod test {
         forward.T.G = 15;
         forward.T.T = 16;
 
-        dummy.process(&IntervalSummary {
+        dummy.process(&ROISummary {
             interval: Interval::new("".into(), 1..2),
             strand: Strand::Forward,
             name: "".into(),
+            sequenced: NucCounts::new(1, 1, 1, 1),
             mismatches: forward,
         });
 
@@ -140,10 +142,11 @@ mod test {
         reverse.T.G = 16;
         reverse.T.T = 17;
 
-        dummy.process(&IntervalSummary {
+        dummy.process(&ROISummary {
             interval: Interval::new("".into(), 1..2),
             strand: Strand::Reverse,
             name: "".into(),
+            sequenced: NucCounts::new(1, 1, 1, 1),
             mismatches: reverse,
         });
 

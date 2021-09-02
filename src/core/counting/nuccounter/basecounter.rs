@@ -4,7 +4,7 @@ use std::marker::PhantomData;
 use bio_types::genome::{AbstractInterval, Interval};
 use rust_htslib::bam::record::Cigar;
 
-use crate::core::counting::LocusCounts;
+use crate::core::counting::NucCounts;
 use crate::core::filtering::reads::ReadsFilter;
 use crate::core::read::AlignedRead;
 
@@ -31,7 +31,7 @@ impl<R: AlignedRead, Filter: ReadsFilter<R>, Buffer: CountsBuffer<R>> BaseNucCou
         BaseNucCounter { filter, buffer, roi, reads_counted: 0, phantom: Default::default() }
     }
 
-    fn implprocess(&mut self, read: &mut R) -> &[LocusCounts] {
+    fn implprocess(&mut self, read: &mut R) -> &[NucCounts] {
         let counts = self.buffer.buffer_for(read);
         let sequence = read.seq();
 
@@ -127,7 +127,7 @@ mod tests {
     use rust_htslib::bam::record::Cigar::*;
     use rust_htslib::bam::record::CigarString;
 
-    use crate::core::counting::{CountsBufferContent, LocusCounts};
+    use crate::core::counting::{CountsBufferContent, NucCounts};
     use crate::core::filtering::reads::MockReadsFilter;
     use crate::core::read::MockRead;
 
@@ -140,7 +140,7 @@ mod tests {
         seq: &str,
         okbase: Vec<bool>,
         cigar: Vec<Cigar>,
-        expected: &[LocusCounts],
+        expected: &[NucCounts],
     ) {
         // vec![Cigar::Match(100), Cigar::SoftClip(10)]
         let roi = Interval::new("".into(), roi);
@@ -148,7 +148,7 @@ mod tests {
 
         let mut buffer = MockCountsBuffer::<MockRead>::new();
         buffer.expect_reset().once().return_const(());
-        buffer.expect_buffer_for().once().returning(move |_| vec![LocusCounts::zeros()].repeat(roisize as usize));
+        buffer.expect_buffer_for().once().returning(move |_| vec![NucCounts::zeros()].repeat(roisize as usize));
 
         let mut filter = MockReadsFilter::new();
         for isok in okbase {
@@ -171,11 +171,11 @@ mod tests {
     #[test]
     #[allow(non_snake_case)]
     fn implprocess() {
-        let A = || LocusCounts::new(1, 0, 0, 0);
-        let C = || LocusCounts::new(0, 1, 0, 0);
-        let G = || LocusCounts::new(0, 0, 1, 0);
-        let T = || LocusCounts::new(0, 0, 0, 1);
-        let Z = || LocusCounts::zeros();
+        let A = || NucCounts::new(1, 0, 0, 0);
+        let C = || NucCounts::new(0, 1, 0, 0);
+        let G = || NucCounts::new(0, 0, 1, 0);
+        let T = || NucCounts::new(0, 0, 0, 1);
+        let Z = || NucCounts::zeros();
 
         // Query consuming operations only
         let M = |x| Match(x);

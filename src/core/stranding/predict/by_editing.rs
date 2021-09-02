@@ -2,7 +2,7 @@ use bio_types::genome::{Interval, Locus};
 use bio_types::strand::Strand;
 use derive_more::Constructor;
 
-use crate::core::counting::LocusCounts;
+use crate::core::counting::NucCounts;
 use crate::core::dna::Nucleotide;
 use crate::core::stranding::predict::{IntervalStrandPredictor, LocusStrandPredictor};
 use crate::core::summary::MismatchesSummary;
@@ -58,7 +58,7 @@ impl IntervalStrandPredictor for StrandByAtoIEditing {
 }
 
 impl LocusStrandPredictor for StrandByAtoIEditing {
-    fn predict(&self, _: &Locus, refnuc: &Nucleotide, sequenced: &LocusCounts) -> Strand {
+    fn predict(&self, _: &Locus, refnuc: &Nucleotide, sequenced: &NucCounts) -> Strand {
         match refnuc {
             Nucleotide::A => {
                 if self.is_ok(sequenced.A, sequenced.G) {
@@ -92,8 +92,8 @@ mod tests {
         let locus = Locus::new(String::from(""), 123);
 
         // Not relevant nucleotides
-        let a2g = LocusCounts::new(10, 0, 10, 0);
-        let t2c = LocusCounts::new(0, 10, 0, 10);
+        let a2g = NucCounts::new(10, 0, 10, 0);
+        let t2c = NucCounts::new(0, 10, 0, 10);
         let dummy = StrandByAtoIEditing::new(1, 0.1);
         for refnuc in [Nucleotide::C, Nucleotide::G, Nucleotide::Unknown] {
             assert!(LocusStrandPredictor::predict(&dummy, &locus, &refnuc, &a2g).is_unknown());
@@ -105,10 +105,10 @@ mod tests {
         for (result, matches, mismatches) in
             [(&Strand::Forward, 8, 8), (&Strand::Unknown, 100, 4), (&Strand::Unknown, 1, 7), (&Strand::Forward, 10, 10)]
         {
-            let a2g = LocusCounts::new(matches, 0, mismatches, 0);
+            let a2g = NucCounts::new(matches, 0, mismatches, 0);
             assert!(LocusStrandPredictor::predict(&dummy, &locus, &Nucleotide::A, &a2g).same(result));
 
-            let t2c = LocusCounts::new(0, mismatches, 0, matches);
+            let t2c = NucCounts::new(0, mismatches, 0, matches);
             assert!(LocusStrandPredictor::predict(&dummy, &locus, &Nucleotide::T, &t2c).same(&result.neg()));
         }
     }

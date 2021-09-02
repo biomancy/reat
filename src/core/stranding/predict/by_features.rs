@@ -11,7 +11,7 @@ use bio_types::strand::{ReqStrand, Strand};
 use flate2::bufread::GzDecoder;
 use itertools::Itertools;
 
-use crate::core::counting::LocusCounts;
+use crate::core::counting::NucCounts;
 use crate::core::dna::Nucleotide;
 use crate::core::summary::MismatchesSummary;
 
@@ -115,7 +115,7 @@ impl IntervalStrandPredictor for StrandByGenomicFeatures {
 }
 
 impl LocusStrandPredictor for StrandByGenomicFeatures {
-    fn predict(&self, locus: &Locus, _: &Nucleotide, _: &LocusCounts) -> Strand {
+    fn predict(&self, locus: &Locus, _: &Nucleotide, _: &NucCounts) -> Strand {
         self.infer_strand(&Interval::new(locus.contig().to_string(), locus.pos()..locus.pos() + 1))
     }
 }

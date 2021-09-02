@@ -1,4 +1,4 @@
-pub use buffers::{CountsBuffer, CountsBufferContent, LocusCounts, StrandedCountsBuffer, UnstrandedCountsBuffer};
+pub use buffers::{CountsBuffer, CountsBufferContent, NucCounts, StrandedCountsBuffer, UnstrandedCountsBuffer};
 pub use nuccounter::{BaseNucCounter, NucCounter, NucCounterContent};
 
 #[cfg(test)]

@@ -8,7 +8,7 @@ use crate::core::filtering::summary::IntervalSummaryFilter;
 use crate::core::run::workload::Workload;
 use crate::core::stats::IntervalBasedStat;
 use crate::core::stranding::predict::IntervalStrandPredictor;
-use crate::core::summary::IntervalSummary;
+use crate::core::summary::ROISummary;
 
 use super::ctx::ROIRunCtx;
 use super::thread_cache::ThreadCache;
@@ -16,21 +16,21 @@ use super::thread_cache::ThreadCache;
 pub fn run<
     Context: ROIRunCtx + Send + Clone,
     StatBuilder: IntervalBasedStat + Send + Clone,
-    OnIteration: Fn(&[IntervalSummary]) + Sync,
-    OnFinish: FnOnce(&[IntervalSummary], usize),
+    OnIteration: Fn(&[ROISummary]) + Sync,
+    OnFinish: FnOnce(&[ROISummary], usize),
 >(
     workload: Vec<Workload>,
     context: Context,
     stat: Option<StatBuilder>,
     hook: OnIteration,
     onfinish: OnFinish,
-) -> (Vec<IntervalSummary>, Option<StatBuilder>) {
+) -> (Vec<ROISummary>, Option<StatBuilder>) {
     let ctxstore = ThreadCache::new(move || RefCell::new(context.clone()));
 
     let statstore =
         if stat.is_some() { Some(ThreadCache::new(move || RefCell::new(stat.clone().unwrap()))) } else { None };
 
-    let results: Vec<IntervalSummary> = workload
+    let results: Vec<ROISummary> = workload
         .into_par_iter()
         .map(|w| {
             let ctx = ctxstore.get();
@@ -54,7 +54,7 @@ pub fn run<
     (results, stats)
 }
 
-fn _run(w: &Workload, ctx: &mut impl ROIRunCtx, stat: Option<&mut impl IntervalBasedStat>) -> Vec<IntervalSummary> {
+fn _run(w: &Workload, ctx: &mut impl ROIRunCtx, stat: Option<&mut impl IntervalBasedStat>) -> Vec<ROISummary> {
     // Count nucleotides and infer the reference sequence
     ctx.count(&w.interval);
     let result = ctx.finalize();
@@ -72,7 +72,7 @@ fn _run(w: &Workload, ctx: &mut impl ROIRunCtx, stat: Option<&mut impl IntervalB
     ] {
         if let Some(counts) = counts {
             let mut summary =
-                IntervalSummary::from_counts(content.interval.clone(), w.name.clone(), strand, &sequence, counts);
+                ROISummary::from_counts(content.interval.clone(), w.name.clone(), strand, &sequence, counts);
             if summary.mismatches.coverage() == 0 {
                 continue;
             }
@@ -98,7 +98,7 @@ mod test {
     use mockall::predicate::*;
     use mockall::Sequence;
 
-    use crate::core::counting::{CountsBufferContent, LocusCounts, NucCounterContent};
+    use crate::core::counting::{CountsBufferContent, NucCounterContent, NucCounts};
     use crate::core::dna::Nucleotide;
     use crate::core::filtering::summary::MockIntervalSummaryFilter;
     use crate::core::run::ctx::MockROIRunCtx;
@@ -107,15 +107,14 @@ mod test {
 
     use super::*;
 
-    const FORWARD: &'static [LocusCounts] =
-        &[LocusCounts { A: 1, C: 2, G: 12, T: 0 }, LocusCounts { A: 0, C: 10, G: 0, T: 0 }];
-    const REVERSE: &'static [LocusCounts] =
-        &[LocusCounts { A: 1, C: 0, G: 0, T: 0 }, LocusCounts { A: 0, C: 0, G: 0, T: 1 }];
-    const UNSTRANDED: &'static [LocusCounts] = &[
-        LocusCounts { A: 1, C: 0, G: 0, T: 0 },
-        LocusCounts { A: 0, C: 1, G: 0, T: 0 },
-        LocusCounts { A: 0, C: 0, G: 2, T: 0 },
-        LocusCounts { A: 0, C: 0, G: 2, T: 3 },
+    const FORWARD: &'static [NucCounts] =
+        &[NucCounts { A: 1, C: 2, G: 12, T: 0 }, NucCounts { A: 0, C: 10, G: 0, T: 0 }];
+    const REVERSE: &'static [NucCounts] = &[NucCounts { A: 1, C: 0, G: 0, T: 0 }, NucCounts { A: 0, C: 0, G: 0, T: 1 }];
+    const UNSTRANDED: &'static [NucCounts] = &[
+        NucCounts { A: 1, C: 0, G: 0, T: 0 },
+        NucCounts { A: 0, C: 1, G: 0, T: 0 },
+        NucCounts { A: 0, C: 0, G: 2, T: 0 },
+        NucCounts { A: 0, C: 0, G: 2, T: 3 },
     ];
 
     fn mock_strandpred(returning: Strand) -> MockIntervalStrandPredictor {

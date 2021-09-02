@@ -6,7 +6,7 @@ use bio_types::genome::{Interval, Locus};
 use bio_types::strand::Strand;
 use derive_more::Constructor;
 
-use crate::core::counting::LocusCounts;
+use crate::core::counting::NucCounts;
 use crate::core::dna::Nucleotide;
 use crate::core::stranding::predict::{StrandByAtoIEditing, StrandByGenomicFeatures};
 use crate::core::summary::MismatchesSummary;
@@ -29,7 +29,7 @@ impl SequentialStrandPredictor {
 }
 
 impl LocusStrandPredictor for SequentialStrandPredictor {
-    fn predict(&self, locus: &Locus, refnuc: &Nucleotide, sequenced: &LocusCounts) -> Strand {
+    fn predict(&self, locus: &Locus, refnuc: &Nucleotide, sequenced: &NucCounts) -> Strand {
         let mut strand = Strand::Unknown;
 
         if let Some(p) = self.by_features.as_ref() {

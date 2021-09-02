@@ -2,7 +2,7 @@ use derive_getters::Getters;
 use derive_more::Constructor;
 
 use crate::core::dna::Nucleotide;
-use crate::core::summary::{IntervalSummary, LocusSummary};
+use crate::core::summary::{LocusSummary, ROISummary};
 
 use super::{IntervalSummaryFilter, LocusSummaryFilter};
 
@@ -14,7 +14,7 @@ pub struct SummaryFilterByMismatches {
 
 impl IntervalSummaryFilter for SummaryFilterByMismatches {
     #[inline]
-    fn is_ok(&self, summary: &IntervalSummary) -> bool {
+    fn is_ok(&self, summary: &ROISummary) -> bool {
         let (cov, mismatch) = (summary.mismatches.coverage(), summary.mismatches.mismatches());
         mismatch >= self.minmismatches && mismatch as f32 / cov as f32 >= self.minfreq
     }
@@ -38,16 +38,17 @@ mod tests {
     use bio_types::genome::{Interval, Locus};
     use bio_types::strand::Strand;
 
-    use crate::core::counting::LocusCounts;
+    use crate::core::counting::NucCounts;
 
     use super::*;
 
     #[test]
     fn is_ok_interval() {
-        let mut dummy = IntervalSummary {
+        let mut dummy = ROISummary {
             interval: Interval::new("".into(), 1..2),
             strand: Strand::Forward,
             name: "".to_string(),
+            sequenced: NucCounts::zeros(),
             mismatches: Default::default(),
         };
 
@@ -77,7 +78,7 @@ mod tests {
             Locus::new("".into(), 1),
             Strand::Unknown,
             Nucleotide::A,
-            LocusCounts { A: 1, C: 2, G: 3, T: 4 },
+            NucCounts { A: 1, C: 2, G: 3, T: 4 },
         );
 
         for (expected, minmismatches, minfreq) in

@@ -6,7 +6,7 @@ use rust_htslib::bam::record::Record;
 use rust_htslib::bam::Read;
 use rust_htslib::{bam, faidx};
 
-use crate::core::counting::{CountsBufferContent, LocusCounts, NucCounter, NucCounterContent};
+use crate::core::counting::{CountsBufferContent, NucCounter, NucCounterContent, NucCounts};
 use crate::core::dna::Nucleotide;
 use crate::core::filtering::summary::{IntervalSummaryFilter, LocusSummaryFilter};
 use crate::core::refnuc::RefNucPredictor;
@@ -64,10 +64,10 @@ impl<Counter: NucCounter<Record>, RefNucPred: RefNucPredictor, StrandPred, Filte
         reference: &[Nucleotide],
         counts: &CountsBufferContent,
     ) -> Vec<Nucleotide> {
-        let sumup = |a: &[LocusCounts], b: &[LocusCounts]| izip!(a, b).map(|(a, b)| *a + *b).collect();
+        let sumup = |a: &[NucCounts], b: &[NucCounts]| izip!(a, b).map(|(a, b)| *a + *b).collect();
 
-        let storage: Vec<LocusCounts>;
-        let sequenced: &[LocusCounts] = match (counts.forward, counts.reverse, counts.unstranded) {
+        let storage: Vec<NucCounts>;
+        let sequenced: &[NucCounts] = match (counts.forward, counts.reverse, counts.unstranded) {
             (Some(f), None, None) => f,
             (None, Some(r), None) => r,
             (None, None, Some(u)) => u,
@@ -234,7 +234,7 @@ mod tests {
     fn predsequence() {
         let mut refnucpred = MockRefNucPredictor::new();
         let reference = vec![Nucleotide::A, Nucleotide::C, Nucleotide::G];
-        let counts = LocusCounts { A: 1, C: 2, G: 3, T: 4 };
+        let counts = NucCounts { A: 1, C: 2, G: 3, T: 4 };
         let sequenced = vec![counts].repeat(3);
         let content = Some(sequenced.as_slice());
 

@@ -1,7 +1,7 @@
-pub use interval::IntervalSummary;
 pub use locus::LocusSummary;
 pub use mismatches::MismatchesSummary;
+pub use roi::ROISummary;
 
-mod interval;
 mod locus;
 mod mismatches;
+mod roi;

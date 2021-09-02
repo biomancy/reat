@@ -1,6 +1,6 @@
 use std::cmp::max;
 
-pub use inner::LocusCounts;
+pub use inner::NucCounts;
 
 use crate::core::dna::ReqNucleotide;
 
@@ -12,7 +12,7 @@ mod inner {
     use derive_more::{Add, AddAssign, Constructor, Mul};
 
     #[derive(Clone, Copy, Eq, PartialEq, Debug, Add, AddAssign, Mul, Constructor)]
-    pub struct LocusCounts {
+    pub struct NucCounts {
         pub A: u32,
         pub C: u32,
         pub G: u32,
@@ -20,10 +20,10 @@ mod inner {
     }
 }
 
-impl LocusCounts {
+impl NucCounts {
     #[inline]
-    pub const fn zeros() -> LocusCounts {
-        LocusCounts { A: 0, T: 0, G: 0, C: 0 }
+    pub const fn zeros() -> NucCounts {
+        NucCounts { A: 0, T: 0, G: 0, C: 0 }
     }
 
     #[inline]
@@ -68,14 +68,14 @@ mod tests {
 
     #[test]
     fn coverage() {
-        let dummy = LocusCounts { A: 1, C: 2, G: 3, T: 0 };
+        let dummy = NucCounts { A: 1, C: 2, G: 3, T: 0 };
         assert_eq!(dummy.coverage(), 6);
-        assert_eq!(LocusCounts::zeros().coverage(), 0);
+        assert_eq!(NucCounts::zeros().coverage(), 0);
     }
 
     #[test]
     fn mismatches() {
-        let dummy = LocusCounts { A: 1, C: 2, G: 3, T: 4 };
+        let dummy = NucCounts { A: 1, C: 2, G: 3, T: 4 };
         assert_eq!(dummy.mismatches(&ReqNucleotide::A), 9);
         assert_eq!(dummy.mismatches(&ReqNucleotide::C), 8);
         assert_eq!(dummy.mismatches(&ReqNucleotide::G), 7);
@@ -84,7 +84,7 @@ mod tests {
 
     #[test]
     fn mostfreq_maximum() {
-        let mut dummy = LocusCounts { A: 10, C: 2, G: 3, T: 5 };
+        let mut dummy = NucCounts { A: 10, C: 2, G: 3, T: 5 };
         assert_eq!(dummy.mostfreq(), (ReqNucleotide::A, &10));
         dummy.A = 1;
         assert_eq!(dummy.mostfreq(), (ReqNucleotide::T, &5));
@@ -97,7 +97,7 @@ mod tests {
 
     #[test]
     fn mostfreq_compet_maximum() {
-        let mut dummy = LocusCounts { A: 1, C: 1, G: 1, T: 1 };
+        let mut dummy = NucCounts { A: 1, C: 1, G: 1, T: 1 };
         // ordered when buffers are equal
         assert_eq!(dummy.mostfreq(), (ReqNucleotide::A, &1));
         dummy.A = 0;
@@ -110,9 +110,9 @@ mod tests {
 
     #[test]
     fn add() {
-        let mut a = LocusCounts { A: 0, C: 1, G: 2, T: 3 };
-        let b = LocusCounts { A: 1, C: 2, G: 3, T: 4 };
-        let result = LocusCounts { A: 1, C: 3, G: 5, T: 7 };
+        let mut a = NucCounts { A: 0, C: 1, G: 2, T: 3 };
+        let b = NucCounts { A: 1, C: 2, G: 3, T: 4 };
+        let result = NucCounts { A: 1, C: 3, G: 5, T: 7 };
         assert_eq!(a + b, result);
         a += b;
         assert_eq!(a, result);

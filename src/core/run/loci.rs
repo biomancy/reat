@@ -86,7 +86,7 @@ mod test {
     use mockall::predicate::*;
     use mockall::Sequence;
 
-    use crate::core::counting::{CountsBufferContent, LocusCounts, NucCounterContent};
+    use crate::core::counting::{CountsBufferContent, NucCounterContent, NucCounts};
     use crate::core::dna::Nucleotide;
     use crate::core::filtering::summary::MockLocusSummaryFilter;
     use crate::core::run::ctx::MockLociRunCtx;
@@ -94,15 +94,14 @@ mod test {
 
     use super::*;
 
-    const FORWARD: &'static [LocusCounts] =
-        &[LocusCounts { A: 1, C: 2, G: 12, T: 0 }, LocusCounts { A: 0, C: 10, G: 0, T: 0 }];
-    const REVERSE: &'static [LocusCounts] =
-        &[LocusCounts { A: 1, C: 0, G: 0, T: 0 }, LocusCounts { A: 0, C: 0, G: 0, T: 1 }];
-    const UNSTRANDED: &'static [LocusCounts] = &[
-        LocusCounts { A: 1, C: 0, G: 0, T: 0 },
-        LocusCounts { A: 0, C: 1, G: 0, T: 0 },
-        LocusCounts { A: 0, C: 0, G: 2, T: 0 },
-        LocusCounts { A: 0, C: 0, G: 2, T: 3 },
+    const FORWARD: &'static [NucCounts] =
+        &[NucCounts { A: 1, C: 2, G: 12, T: 0 }, NucCounts { A: 0, C: 10, G: 0, T: 0 }];
+    const REVERSE: &'static [NucCounts] = &[NucCounts { A: 1, C: 0, G: 0, T: 0 }, NucCounts { A: 0, C: 0, G: 0, T: 1 }];
+    const UNSTRANDED: &'static [NucCounts] = &[
+        NucCounts { A: 1, C: 0, G: 0, T: 0 },
+        NucCounts { A: 0, C: 1, G: 0, T: 0 },
+        NucCounts { A: 0, C: 0, G: 2, T: 0 },
+        NucCounts { A: 0, C: 0, G: 2, T: 3 },
     ];
 
     fn mock_strandpred(returning: Strand) -> MockLocusStrandPredictor {

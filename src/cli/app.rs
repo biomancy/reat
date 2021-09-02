@@ -4,7 +4,7 @@ use std::path::PathBuf;
 
 use bio_types::genome::Interval;
 use clap::ArgMatches;
-use indicatif::{MultiProgress, ProgressBar, ProgressDrawTarget, ProgressFinish, ProgressStyle};
+use indicatif::{MultiProgress, ProgressBar, ProgressFinish, ProgressStyle};
 use itertools::Itertools;
 use rayon::ThreadPoolBuilder;
 use rust_htslib::bam::Record;
@@ -13,14 +13,14 @@ use crate::cli::stranding::Stranding;
 use crate::cli::{args, resformat};
 use crate::core;
 use crate::core::counting::{BaseNucCounter, NucCounter, StrandedCountsBuffer, UnstrandedCountsBuffer};
-use crate::core::filtering::reads::ReadsFilterByQuality;
+use crate::core::filtering::reads::{ReadsFilterByFlags, ReadsFilterByQuality, SequentialReadsFilter};
 use crate::core::filtering::summary::SummaryFilterByMismatches;
 use crate::core::refnuc::RefNucPredByHeurisitc;
 use crate::core::run::workload::Workload;
 use crate::core::run::{BaseRunCtx, LociRunCtx, ROIRunCtx};
 use crate::core::stats::EditingIndex;
 use crate::core::stranding::deduct::DeductStrandByDesign;
-use crate::core::stranding::predict::NaiveSequentialStrandPredictor;
+use crate::core::stranding::predict::SequentialStrandPredictor;
 use crate::core::summary::{IntervalSummary, LocusSummary};
 
 use super::parse;
@@ -29,9 +29,9 @@ struct ParsedArgs {
     bamfiles: Vec<PathBuf>,
     reference: PathBuf,
     stranding: Stranding,
-    readfilter: ReadsFilterByQuality,
+    readfilter: SequentialReadsFilter<Record, ReadsFilterByQuality, ReadsFilterByFlags>,
     refnucpred: RefNucPredByHeurisitc,
-    strandpred: NaiveSequentialStrandPredictor,
+    strandpred: SequentialStrandPredictor,
     sumfilter: SummaryFilterByMismatches,
     workload: Vec<Workload>,
     maxsize: u32,
@@ -60,7 +60,7 @@ impl ParsedArgs {
             if args.is_present(args::STAT_EDITING_INDEX) { Some(parse::editing_index(factory(), args)) } else { None };
 
         // TODO: is there any other way to please the borrow checker?
-        let mut strandpred: Option<NaiveSequentialStrandPredictor> = Default::default();
+        let mut strandpred: Option<SequentialStrandPredictor> = Default::default();
         let mut workload: Option<Vec<Workload>> = Default::default();
         let mut maxsize: Option<u32> = Default::default();
 
@@ -197,7 +197,6 @@ impl<'a> App<'a> {
 
         let ctx =
             BaseRunCtx::new(&args.bamfiles, &args.reference, counter, args.refnucpred, args.strandpred, args.sumfilter);
-
         let roimode = self.matches.is_present(args::ROI);
         rayon::scope(|s| {
             if roimode {
@@ -220,14 +219,17 @@ impl<'a> App<'a> {
         let dummy = Interval::new("".into(), 1..2);
         match self.args.stranding {
             Stranding::Unstranded => {
-                let counter =
-                    BaseNucCounter::new(self.args.readfilter, UnstrandedCountsBuffer::new(self.args.maxsize), dummy);
+                let counter = BaseNucCounter::new(
+                    self.args.readfilter.clone(),
+                    UnstrandedCountsBuffer::new(self.args.maxsize),
+                    dummy,
+                );
                 self._run(counter);
             }
             Stranding::Stranded(design) => {
                 let deductor = DeductStrandByDesign::new(design);
                 let counter = BaseNucCounter::new(
-                    self.args.readfilter,
+                    self.args.readfilter.clone(),
                     StrandedCountsBuffer::new(self.args.maxsize, deductor),
                     dummy,
                 );

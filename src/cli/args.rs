@@ -14,6 +14,8 @@ pub const SAVETO: &str = "saveto";
 // Filtering
 pub const MAPQ: &str = "mapq";
 pub const ALLOW_MAPQ_255: &str = "mapq-255";
+pub const INCLUDE_FLAGS: &str = "in-flags";
+pub const EXCLUDE_FLAGS: &str = "ex-flags";
 pub const PHREAD: &str = "phread";
 pub const OUT_MIN_MISMATCHES: &str = "out-min-mismatches";
 pub const OUT_MIN_FREQ: &str = "out-min-freq";
@@ -103,6 +105,18 @@ pub fn filtering<'a>() -> Vec<Arg<'a>> {
             .settings(&defaults())
             .takes_value(false)
             .long_about("Count reads with mapq=255. Useful for aligners that do not fully conform to the SAM specification (e.g. STAR with default parameters)"),
+        Arg::new(INCLUDE_FLAGS)
+            .long(INCLUDE_FLAGS)
+            .settings(&defaults())
+            .validator(validate::numeric(0u16, 4095u16))
+            .default_value("0")
+            .long_about("Include only reads for which all the specified BAM flags are set. For example, a value of 3 will result in skipping reads that were not mapped in proper pairs. Use zero(0) to disable this filter."),
+        Arg::new(EXCLUDE_FLAGS)
+            .long(EXCLUDE_FLAGS)
+            .settings(&defaults())
+            .validator(validate::numeric(0u16, 4095u16))
+            .default_value("2820")
+            .long_about("Exclude reads for which any of the specified BAM flags are set. For example, a value of 2820 will result in skipping unmapped reads, supplementary and not primary alignments, and reads that fail platform/vendor quality checks. Use zero(0) to disable this filter."),
         Arg::new(PHREAD)
             .long(PHREAD)
             .settings(&defaults())

@@ -3,7 +3,7 @@ use bio_types::strand::Strand;
 
 pub use by_editing::StrandByAtoIEditing;
 pub use by_features::StrandByGenomicFeatures;
-pub use naive_sequential::NaiveSequentialStrandPredictor;
+pub use sequential::SequentialStrandPredictor;
 
 use crate::core::counting::LocusCounts;
 use crate::core::dna::Nucleotide;
@@ -11,7 +11,7 @@ use crate::core::summary::MismatchesSummary;
 
 mod by_editing;
 mod by_features;
-mod naive_sequential;
+mod sequential;
 
 #[cfg(test)]
 use mockall::{automock, predicate::*};

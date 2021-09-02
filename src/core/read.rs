@@ -29,6 +29,7 @@ pub trait AlignedRead: SequencedRead {
     fn mapq(&self) -> u8;
     fn pos(&self) -> i64;
     fn contig(&self) -> &str;
+    fn flags(&self) -> u16;
 }
 
 #[cfg(test)]
@@ -39,6 +40,7 @@ mock! {
         fn mapq(&self) -> u8;
         fn pos(&self) -> i64;
         fn contig(&self) -> &str;
+        fn flags(&self) -> u16;
     }
 
     impl SequencedRead for Read {
@@ -100,5 +102,9 @@ impl AlignedRead for Record {
 
     fn contig(&self) -> &str {
         genome::AbstractInterval::contig(self)
+    }
+
+    fn flags(&self) -> u16 {
+        self.flags()
     }
 }

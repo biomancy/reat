@@ -4,14 +4,15 @@ use std::str::FromStr;
 use clap::ArgMatches;
 use indicatif::ProgressBar;
 use itertools::Itertools;
+use rust_htslib::bam::Record;
 
 use crate::cli::stranding::Stranding;
-use crate::core::filtering::reads::ReadsFilterByQuality;
+use crate::core::filtering::reads::{ReadsFilterByFlags, ReadsFilterByQuality, SequentialReadsFilter};
 use crate::core::filtering::summary::SummaryFilterByMismatches;
 use crate::core::refnuc::RefNucPredByHeurisitc;
 use crate::core::run::workload::Workload;
 use crate::core::stranding::deduct::StrandSpecificExperimentDesign;
-use crate::core::stranding::predict::{NaiveSequentialStrandPredictor, StrandByAtoIEditing, StrandByGenomicFeatures};
+use crate::core::stranding::predict::{SequentialStrandPredictor, StrandByAtoIEditing, StrandByGenomicFeatures};
 
 use super::args;
 
@@ -30,22 +31,38 @@ pub fn sumfilter(pbar: ProgressBar, matches: &ArgMatches) -> SummaryFilterByMism
     result
 }
 
-pub fn readfilter(pbar: ProgressBar, matches: &ArgMatches) -> ReadsFilterByQuality {
+pub fn readfilter(
+    pbar: ProgressBar,
+    matches: &ArgMatches,
+) -> SequentialReadsFilter<Record, ReadsFilterByQuality, ReadsFilterByFlags> {
     pbar.set_message("Parsing reads filter options...");
     let (mapq, allow_mapq_255, phread) = (
         matches.value_of(args::MAPQ).unwrap().parse().unwrap(),
         matches.is_present(args::ALLOW_MAPQ_255),
         matches.value_of(args::PHREAD).unwrap().parse().unwrap(),
     );
-    let result = ReadsFilterByQuality::new(mapq, allow_mapq_255, phread);
-    let msg = format!("Reads filter options: mapq >= {}, phread >= {}. ", result.mapq(), result.phread());
+    let byquality = ReadsFilterByQuality::new(mapq, allow_mapq_255, phread);
+
+    let (include, exclude) = (
+        matches.value_of(args::INCLUDE_FLAGS).unwrap().parse().unwrap(),
+        matches.value_of(args::EXCLUDE_FLAGS).unwrap().parse().unwrap(),
+    );
+    let byflags = ReadsFilterByFlags::new(include, exclude);
+
+    let msg = format!(
+        "Reads filter options: require flags {}, disallow flags {}, mapq >= {}, phread >= {}. ",
+        byflags.include(),
+        byflags.exclude(),
+        byquality.mapq(),
+        byquality.phread()
+    );
     if allow_mapq_255 {
         pbar.finish_with_message(msg + "Mapq = 255 is allowed.");
     } else {
         pbar.finish_with_message(msg + "Mapq = 255 is NOT allowed.");
     }
 
-    result
+    SequentialReadsFilter::new(byquality, byflags)
 }
 
 pub fn saveto(pbar: ProgressBar, matches: &ArgMatches) -> PathBuf {
@@ -75,7 +92,7 @@ pub fn stranding(pbar: ProgressBar, matches: &ArgMatches) -> Stranding {
     stranding
 }
 
-pub fn strandpred(pbar: ProgressBar, matches: &ArgMatches) -> NaiveSequentialStrandPredictor {
+pub fn strandpred(pbar: ProgressBar, matches: &ArgMatches) -> SequentialStrandPredictor {
     pbar.set_message("Parsing strand prediction parameters...");
 
     let stranding = Stranding::from_str(matches.value_of(args::STRANDING).unwrap()).unwrap();
@@ -84,7 +101,7 @@ pub fn strandpred(pbar: ProgressBar, matches: &ArgMatches) -> NaiveSequentialStr
             "Strand prediction is disabled -> working with \"{}\" stranded library",
             stranding
         ));
-        return NaiveSequentialStrandPredictor::new(None, None);
+        return SequentialStrandPredictor::new(None, None);
     }
 
     let (minmismatches, minfreq) = (
@@ -98,7 +115,7 @@ pub fn strandpred(pbar: ProgressBar, matches: &ArgMatches) -> NaiveSequentialStr
         .value_of(args::STRANDING_ANNOTATION)
         .map(|x| Some(StrandByGenomicFeatures::from_gff3(x.as_ref(), |_| pbar.inc(1))))
         .unwrap_or(None);
-    let result = NaiveSequentialStrandPredictor::new(strand_by_editing, strand_by_features);
+    let result = SequentialStrandPredictor::new(strand_by_editing, strand_by_features);
 
     let msg = "Strand prediction";
     match (result.by_features(), result.by_editing()) {

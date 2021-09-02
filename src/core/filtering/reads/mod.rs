@@ -1,11 +1,15 @@
 #[cfg(test)]
 use mockall::{automock, predicate::*};
 
+pub use by_flags::ReadsFilterByFlags;
 pub use by_quality::ReadsFilterByQuality;
+pub use sequential::SequentialReadsFilter;
 
 use crate::core::read::AlignedRead;
 
+mod by_flags;
 mod by_quality;
+mod sequential;
 
 #[cfg_attr(test, automock)]
 pub trait ReadsFilter<R: AlignedRead> {

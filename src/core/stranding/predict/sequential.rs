@@ -13,15 +13,13 @@ use crate::core::summary::MismatchesSummary;
 
 use super::{IntervalStrandPredictor, LocusStrandPredictor};
 
-// TODO: Create macro for a generic structure with 1-12 predictors
-
 #[derive(Constructor, Clone)]
-pub struct NaiveSequentialStrandPredictor {
+pub struct SequentialStrandPredictor {
     by_editing: Option<StrandByAtoIEditing>,
     by_features: Option<StrandByGenomicFeatures>,
 }
 
-impl NaiveSequentialStrandPredictor {
+impl SequentialStrandPredictor {
     pub fn by_editing(&self) -> &Option<StrandByAtoIEditing> {
         &self.by_editing
     }
@@ -30,7 +28,7 @@ impl NaiveSequentialStrandPredictor {
     }
 }
 
-impl LocusStrandPredictor for NaiveSequentialStrandPredictor {
+impl LocusStrandPredictor for SequentialStrandPredictor {
     fn predict(&self, locus: &Locus, refnuc: &Nucleotide, sequenced: &LocusCounts) -> Strand {
         let mut strand = Strand::Unknown;
 
@@ -47,7 +45,7 @@ impl LocusStrandPredictor for NaiveSequentialStrandPredictor {
     }
 }
 
-impl IntervalStrandPredictor for NaiveSequentialStrandPredictor {
+impl IntervalStrandPredictor for SequentialStrandPredictor {
     fn predict(&self, interval: &Interval, mismatches: &MismatchesSummary) -> Strand {
         let mut strand = Strand::Unknown;
 

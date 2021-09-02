@@ -45,7 +45,7 @@ impl IntervalBasedStat for EditingIndex {
     fn row(&self) -> String {
         let res = &self.accumulator;
         format!(
-            "{:.3}\t{:.3}\t{:.3}\t{:.3}\t{:.3}\t{:.3}\t{:.3}\t{:.3}\t{:.3}\t{:.3}\t{:.3}\t{:.3}\t{:.3}\t{:.3}\t{:.3}\t{:.3}",
+            "{:.6}\t{:.6}\t{:.6}\t{:.6}\t{:.6}\t{:.6}\t{:.6}\t{:.6}\t{:.6}\t{:.6}\t{:.6}\t{:.6}\t{:.6}\t{:.6}\t{:.6}\t{:.6}",
             res.A.A as f32 / res.A.coverage() as f32,
             res.T.T as f32 / res.T.coverage() as f32,
             res.G.G as f32 / res.G.coverage() as f32,
@@ -150,7 +150,7 @@ mod test {
         assert_eq!(
             dummy.row(),
             format!(
-                "{:.3}\t{:.3}\t{:.3}\t{:.3}\t{:.3}\t{:.3}\t{:.3}\t{:.3}\t{:.3}\t{:.3}\t{:.3}\t{:.3}\t{:.3}\t{:.3}\t{:.3}\t{:.3}",
+                "{:.6}\t{:.6}\t{:.6}\t{:.6}\t{:.6}\t{:.6}\t{:.6}\t{:.6}\t{:.6}\t{:.6}\t{:.6}\t{:.6}\t{:.6}\t{:.6}\t{:.6}\t{:.6}",
                 (10 + 17) as f32 / (19 + 62) as f32,
                 (16 + 2) as f32 / (58 + 14) as f32,
                 (11 + 7) as f32 / (42 + 30) as f32,

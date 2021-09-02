@@ -4,7 +4,7 @@ use std::path::PathBuf;
 
 use bio_types::genome::Interval;
 use clap::ArgMatches;
-use indicatif::{MultiProgress, ProgressBar, ProgressFinish, ProgressStyle};
+use indicatif::{MultiProgress, ProgressBar, ProgressDrawTarget, ProgressFinish, ProgressStyle};
 use itertools::Itertools;
 use rayon::ThreadPoolBuilder;
 use rust_htslib::bam::Record;

@@ -293,3 +293,7 @@ Note that hyper-editing flag allows one to skip A->G and T->C corrections to exp
 - Editing indices (alu editing index, Non-synonimous editing index)
 - Graph: (RAM usage per thread) vs (#threads)
 - Graph: (Speedup against REDItools) vs (#threads) + note about run time
+- Handle errors properly!
+
+- Optimization: group nearby regions together and fetch reads for all the regions inside the batch
+- Сoverage details for each region(cov per nucleotide, total overlapped fragments)

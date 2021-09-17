@@ -27,7 +27,31 @@ impl NucCounts {
     }
 
     #[inline]
-    pub fn coverage(&self) -> u32 {
+    #[allow(non_snake_case)]
+    pub const fn A(A: u32) -> NucCounts {
+        NucCounts { A, T: 0, G: 0, C: 0 }
+    }
+
+    #[inline]
+    #[allow(non_snake_case)]
+    pub const fn T(T: u32) -> NucCounts {
+        NucCounts { A: 0, T, G: 0, C: 0 }
+    }
+
+    #[inline]
+    #[allow(non_snake_case)]
+    pub const fn G(G: u32) -> NucCounts {
+        NucCounts { A: 0, T: 0, G, C: 0 }
+    }
+
+    #[inline]
+    #[allow(non_snake_case)]
+    pub const fn C(C: u32) -> NucCounts {
+        NucCounts { A: 0, T: 0, G: 0, C }
+    }
+
+    #[inline]
+    pub const fn coverage(&self) -> u32 {
         self.A + self.T + self.G + self.C
     }
 

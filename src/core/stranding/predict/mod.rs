@@ -17,11 +17,11 @@ mod sequential;
 use mockall::{automock, predicate::*};
 
 #[cfg_attr(test, automock)]
-pub trait IntervalStrandPredictor {
+pub trait ROIStrandPredictor {
     fn predict(&self, interval: &Interval, mismatches: &MismatchesSummary) -> Strand;
 }
 
-impl IntervalStrandPredictor for Box<dyn IntervalStrandPredictor> {
+impl ROIStrandPredictor for Box<dyn ROIStrandPredictor> {
     fn predict(&self, interval: &Interval, mismatches: &MismatchesSummary) -> Strand {
         self.as_ref().predict(interval, mismatches)
     }
@@ -38,4 +38,4 @@ impl LocusStrandPredictor for Box<dyn LocusStrandPredictor> {
     }
 }
 
-pub trait StrandPredictor: IntervalStrandPredictor + LocusStrandPredictor {}
+pub trait StrandPredictor: ROIStrandPredictor + LocusStrandPredictor {}

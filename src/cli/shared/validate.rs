@@ -1,6 +1,8 @@
 use std::path::Path;
 use std::str::FromStr;
 
+use crate::cli::shared::stranding::Stranding;
+
 pub fn path(rawpath: &str) -> Result<(), String> {
     let path = Path::new(&rawpath);
     if !path.exists() {
@@ -23,7 +25,7 @@ pub fn writable(rawpath: &str) -> Result<(), String> {
 }
 
 pub fn stranding(stranding: &str) -> Result<(), String> {
-    match super::stranding::Stranding::from_str(stranding) {
+    match Stranding::from_str(stranding) {
         Ok(_) => Ok(()),
         Err(x) => Err(x),
     }

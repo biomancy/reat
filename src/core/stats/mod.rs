@@ -1,7 +1,7 @@
 use std::ops::Add;
 
 #[cfg(test)]
-use mockall::mock;
+use mockall::automock;
 
 pub use editing_index::EditingIndex;
 
@@ -9,28 +9,11 @@ use crate::core::summary::ROISummary;
 
 mod editing_index;
 
-pub trait IntervalBasedStat: Add<Output = Self> + Default {
+// #[cfg_attr(test, automock)]
+pub trait ROIBasedStat: Sized {
     fn process(&mut self, summary: &ROISummary);
-
-    // TODO in the future it could be something like a trait
+    fn combine(stats: &[Self]) -> Self;
+    // TODO in the future it could be a trait (e.g. TableDisplay)
     fn header() -> &'static str;
     fn row(&self) -> String;
-}
-
-#[cfg(test)]
-mock! {
-    pub IntervalBasedStat {}
-
-    impl Add<MockIntervalBasedStat> for IntervalBasedStat {
-        type Output = MockIntervalBasedStat;
-
-        fn add(self, rhs: MockIntervalBasedStat) -> MockIntervalBasedStat;
-    }
-
-    impl IntervalBasedStat for IntervalBasedStat {
-        fn process(&mut self, summary: &ROISummary);
-
-        fn header() -> &'static str;
-        fn row(&self) -> String;
-    }
 }

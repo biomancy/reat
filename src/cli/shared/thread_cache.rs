@@ -25,7 +25,7 @@ where
         self.thrlocal.get_or(|| self.mutex.lock().unwrap()())
     }
 
-    pub fn content(self) -> <ThreadLocal<RefCell<Type>> as IntoIterator>::IntoIter {
+    pub fn dissolve(self) -> <ThreadLocal<RefCell<Type>> as IntoIterator>::IntoIter {
         self.thrlocal.into_iter()
     }
 }

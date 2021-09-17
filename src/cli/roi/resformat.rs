@@ -2,35 +2,15 @@ use std::io::Write;
 
 use bio_types::genome::{AbstractInterval, AbstractLocus};
 
-use crate::core::stats::IntervalBasedStat;
+use crate::core::stats::ROIBasedStat;
 use crate::core::summary::{LocusSummary, ROISummary};
 
-const OUTPUT_IO_ERROR: &str = "Failed to write ROI/loci summary to the output TSV file.";
+const OUTPUT_IO_ERROR: &str = "Failed to write ROI summary to the output TSV file.";
 const STATS_IO_ERROR: &str = "Failed to write statistics to the output TSV file.";
-
-pub fn loci(saveto: &mut impl Write, summary: Vec<LocusSummary>) {
-    writeln!(saveto, "chr\tposition\tstrand\treference\tA\tC\tG\tT").expect(OUTPUT_IO_ERROR);
-
-    for e in summary {
-        writeln!(
-            saveto,
-            "{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}",
-            e.locus.contig(),
-            e.locus.pos(),
-            e.strand.strand_symbol(),
-            e.refnuc,
-            e.sequenced.A,
-            e.sequenced.C,
-            e.sequenced.G,
-            e.sequenced.T
-        )
-        .expect(OUTPUT_IO_ERROR);
-    }
-}
 
 pub fn regions(saveto: &mut impl Write, summary: Vec<ROISummary>) {
     writeln!(saveto, "chr\tstart\tend\tstrand\tname\t#A\t#T\t#G\t#C\tA->A\tA->C\tA->G\tA->T\tC->A\tC->C\tC->G\tC->T\tG->A\tG->C\tG->G\tG->T\tT->A\tT->C\tT->G\tT->T")
-    .expect(OUTPUT_IO_ERROR);
+        .expect(OUTPUT_IO_ERROR);
 
     for e in summary {
         let (contig, range, strand) = (e.interval.contig(), e.interval.range(), e.strand.strand_symbol());
@@ -45,7 +25,7 @@ pub fn regions(saveto: &mut impl Write, summary: Vec<ROISummary>) {
     }
 }
 
-pub fn statistic<T: IntervalBasedStat>(files: &str, saveto: &mut impl Write, stat: &T, add_header: bool) {
+pub fn statistic<T: ROIBasedStat>(files: &str, saveto: &mut impl Write, stat: &T, add_header: bool) {
     if add_header {
         writeln!(saveto, "files\t{}", T::header()).expect(STATS_IO_ERROR);
     }
@@ -102,22 +82,6 @@ mod test {
                               1\t2\t3\t4\t\
                               5\t6\t7\t8\t\
                               0\t0\t0\t0\n";
-        assert_eq!(&result, expected)
-    }
-
-    #[test]
-    fn loci() {
-        let dummy = vec![
-            LocusSummary::new(Locus::new("1".into(), 10), Strand::Unknown, Nucleotide::Unknown, NucCounts::zeros()),
-            LocusSummary::new(Locus::new("2".into(), 20), Strand::Forward, Nucleotide::G, NucCounts::new(1, 2, 3, 4)),
-        ];
-        let mut saveto = Vec::new();
-        super::loci(&mut saveto, dummy);
-
-        let result = String::from_utf8(saveto).unwrap();
-        let expected = "chr\tposition\tstrand\treference\tA\tC\tG\tT\n\
-                              1\t10\t.\tN\t0\t0\t0\t0\n\
-                              2\t20\t+\tG\t1\t2\t3\t4\n";
         assert_eq!(&result, expected)
     }
 }

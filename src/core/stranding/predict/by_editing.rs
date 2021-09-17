@@ -4,7 +4,7 @@ use derive_more::Constructor;
 
 use crate::core::counting::NucCounts;
 use crate::core::dna::Nucleotide;
-use crate::core::stranding::predict::{IntervalStrandPredictor, LocusStrandPredictor};
+use crate::core::stranding::predict::{LocusStrandPredictor, ROIStrandPredictor};
 use crate::core::summary::MismatchesSummary;
 
 use super::StrandPredictor;
@@ -26,7 +26,7 @@ impl StrandByAtoIEditing {
 
 impl StrandPredictor for StrandByAtoIEditing {}
 
-impl IntervalStrandPredictor for StrandByAtoIEditing {
+impl ROIStrandPredictor for StrandByAtoIEditing {
     fn predict(&self, _: &Interval, mismatches: &MismatchesSummary) -> Strand {
         let a2g = self.is_ok(mismatches.A.A, mismatches.A.G);
         let t2c = self.is_ok(mismatches.T.T, mismatches.T.C);
@@ -125,12 +125,12 @@ mod tests {
             let mut summary = MismatchesSummary::zeros();
             summary.A.A = matches;
             summary.A.G = mismatches;
-            assert!(IntervalStrandPredictor::predict(&dummy, &interval, &summary).same(&result));
+            assert!(ROIStrandPredictor::predict(&dummy, &interval, &summary).same(&result));
 
             let mut summary = MismatchesSummary::zeros();
             summary.T.T = matches;
             summary.T.C = mismatches;
-            assert!(IntervalStrandPredictor::predict(&dummy, &interval, &summary).same(&result.neg()));
+            assert!(ROIStrandPredictor::predict(&dummy, &interval, &summary).same(&result.neg()));
         }
 
         // Both strands pass the threshold
@@ -144,7 +144,7 @@ mod tests {
             summary.T.T = matches;
             summary.T.C = t2c;
 
-            assert!(IntervalStrandPredictor::predict(&dummy, &interval, &summary).same(&result));
+            assert!(ROIStrandPredictor::predict(&dummy, &interval, &summary).same(&result));
         }
     }
 }

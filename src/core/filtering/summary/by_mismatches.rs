@@ -4,7 +4,7 @@ use derive_more::Constructor;
 use crate::core::dna::Nucleotide;
 use crate::core::summary::{LocusSummary, ROISummary};
 
-use super::{IntervalSummaryFilter, LocusSummaryFilter};
+use super::{LocusSummaryFilter, ROISummaryFilter};
 
 #[derive(Constructor, Getters, Debug, PartialEq, Copy, Clone)]
 pub struct SummaryFilterByMismatches {
@@ -12,7 +12,7 @@ pub struct SummaryFilterByMismatches {
     minfreq: f32,
 }
 
-impl IntervalSummaryFilter for SummaryFilterByMismatches {
+impl ROISummaryFilter for SummaryFilterByMismatches {
     #[inline]
     fn is_ok(&self, summary: &ROISummary) -> bool {
         let (cov, mismatch) = (summary.mismatches.coverage(), summary.mismatches.mismatches());
@@ -68,7 +68,7 @@ mod tests {
             [(false, 14, 0f32), (true, 13, 0f32), (true, 12, 0f32), (true, 13, 0.48f32), (false, 13, 0.5f32)]
         {
             let filter = SummaryFilterByMismatches::new(minmismatches, minfreq);
-            assert_eq!(IntervalSummaryFilter::is_ok(&filter, &dummy), expected);
+            assert_eq!(ROISummaryFilter::is_ok(&filter, &dummy), expected);
         }
     }
 

@@ -11,7 +11,7 @@ use crate::core::dna::Nucleotide;
 use crate::core::stranding::predict::{StrandByAtoIEditing, StrandByGenomicFeatures};
 use crate::core::summary::MismatchesSummary;
 
-use super::{IntervalStrandPredictor, LocusStrandPredictor};
+use super::{LocusStrandPredictor, ROIStrandPredictor};
 
 #[derive(Constructor, Clone)]
 pub struct SequentialStrandPredictor {
@@ -45,18 +45,18 @@ impl LocusStrandPredictor for SequentialStrandPredictor {
     }
 }
 
-impl IntervalStrandPredictor for SequentialStrandPredictor {
+impl ROIStrandPredictor for SequentialStrandPredictor {
     fn predict(&self, interval: &Interval, mismatches: &MismatchesSummary) -> Strand {
         let mut strand = Strand::Unknown;
 
         if let Some(p) = self.by_features.as_ref() {
-            strand = IntervalStrandPredictor::predict(p, interval, mismatches);
+            strand = ROIStrandPredictor::predict(p, interval, mismatches);
         }
         if !strand.is_unknown() {
             return strand;
         }
         if let Some(p) = self.by_editing.as_ref() {
-            strand = IntervalStrandPredictor::predict(p, interval, mismatches);
+            strand = ROIStrandPredictor::predict(p, interval, mismatches);
         }
         strand
     }

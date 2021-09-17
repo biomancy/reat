@@ -1,35 +1,41 @@
+use std::ops::Range;
+
+use bio_types::genome::Interval;
 #[cfg(test)]
-use mockall::{automock, predicate::*};
+use mockall::automock;
 
-use crate::core::read::AlignedRead;
-pub use locus::NucCounts;
-pub use strandedbuf::StrandedCountsBuffer;
-pub use unstrandedbuf::UnstrandedCountsBuffer;
+pub use crate::core::counting::nuccounts::NucCounts;
+use crate::core::workload::ROIWorkload;
 
-mod locus;
-mod strandedbuf;
-mod unstrandedbuf;
+mod flatbuf;
+mod roibuf;
 
-#[derive(Copy, Clone)]
-pub struct CountsBufferContent<'a> {
-    pub forward: Option<&'a [NucCounts]>,
-    pub reverse: Option<&'a [NucCounts]>,
-    pub unstranded: Option<&'a [NucCounts]>,
+pub use flatbuf::FlatBuffer;
+pub use roibuf::ROIBuffer;
+
+#[derive(Eq, PartialEq, Clone, Debug)]
+pub struct RawCounts<'a> {
+    pub nuc: &'a [NucCounts],
+    pub coverage: u32,
 }
 
-impl<'a> CountsBufferContent<'a> {
-    pub fn total_counts(&self) -> usize {
-        self.forward.map_or(0, |x| x.len())
-            + self.reverse.map_or(0, |x| x.len())
-            + self.unstranded.map_or(0, |x| x.len())
-    }
+#[derive(Eq, PartialEq, Debug)]
+pub struct IntervalCounts<'a> {
+    pub roi: &'a Interval,
+    pub name: &'a str,
+    pub cnts: RawCounts<'a>,
 }
 
 #[cfg_attr(test, automock)]
-pub trait CountsBuffer<R: AlignedRead> {
-    fn reset(&mut self, len: u32);
-    // record must NOT be mutable here, yet some const(!) methods in rust_htslib require mutable(!) instance
-    fn buffer_for(&mut self, record: &mut R) -> &mut [NucCounts];
-    fn content(&'_ self) -> CountsBufferContent<'_>;
-    fn len(&self) -> u32;
+pub trait CountsBuffer {
+    // Content of the buffer
+    fn interval(&self) -> &Interval;
+    fn rois(&self) -> &[Interval];
+    fn buffer(&self) -> &[NucCounts];
+    // Counting methods
+    fn buffer_mut(&mut self) -> &mut [NucCounts];
+    fn add_matched(&mut self, blocks: &[Range<u32>]);
+    // ROI results & reset
+    fn results<'a>(&'a self) -> Vec<IntervalCounts<'a>>;
+    fn reset(&mut self, info: ROIWorkload);
 }

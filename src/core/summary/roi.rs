@@ -3,6 +3,7 @@ use bio_types::strand::Strand;
 
 use crate::core::counting::NucCounts;
 use crate::core::dna::Nucleotide;
+use crate::core::runner::RunResult;
 use crate::core::summary::MismatchesSummary;
 
 pub struct ROISummary {
@@ -11,6 +12,12 @@ pub struct ROISummary {
     pub name: String,
     pub sequenced: NucCounts,
     pub mismatches: MismatchesSummary,
+}
+
+impl From<RunResult<'_>> for ROISummary {
+    fn from(run: RunResult) -> Self {
+        ROISummary::from_counts(run.interval.clone(), run.name.into(), run.strand, run.reference, run.cnts.nuc)
+    }
 }
 
 impl ROISummary {

@@ -8,7 +8,7 @@ pub use by_mismatches::SummaryFilterByMismatches;
 use mockall::{automock, predicate::*};
 
 #[cfg_attr(test, automock)]
-pub trait IntervalSummaryFilter {
+pub trait ROISummaryFilter {
     fn is_ok(&self, summary: &ROISummary) -> bool;
 }
 

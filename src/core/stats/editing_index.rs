@@ -3,14 +3,14 @@ use derive_more::{Add, AddAssign};
 
 use crate::core::summary::{MismatchesSummary, ROISummary};
 
-use super::IntervalBasedStat;
+use super::ROIBasedStat;
 
 #[derive(Copy, Clone, Default, Add, AddAssign)]
 pub struct EditingIndex {
     accumulator: MismatchesSummary,
 }
 
-impl IntervalBasedStat for EditingIndex {
+impl ROIBasedStat for EditingIndex {
     fn process(&mut self, summary: &ROISummary) {
         match summary.strand {
             Strand::Forward => {
@@ -21,6 +21,10 @@ impl IntervalBasedStat for EditingIndex {
             }
             Strand::Unknown => {}
         }
+    }
+
+    fn combine(stats: &[Self]) -> Self {
+        stats.into_iter().fold(Self::default(), |a, b| a + *b)
     }
 
     fn header() -> &'static str {

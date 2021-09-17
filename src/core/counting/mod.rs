@@ -1,8 +1,5 @@
-pub use buffers::{CountsBuffer, CountsBufferContent, NucCounts, StrandedCountsBuffer, UnstrandedCountsBuffer};
-pub use nuccounter::{BaseNucCounter, NucCounter, NucCounterContent};
+pub mod buffers;
+pub mod nuccounter;
+mod nuccounts;
 
-#[cfg(test)]
-pub use nuccounter::MockNucCounter;
-
-mod buffers;
-mod nuccounter;
+pub use nuccounts::NucCounts;

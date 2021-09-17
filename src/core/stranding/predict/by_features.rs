@@ -15,7 +15,7 @@ use crate::core::counting::NucCounts;
 use crate::core::dna::Nucleotide;
 use crate::core::summary::MismatchesSummary;
 
-use super::{IntervalStrandPredictor, LocusStrandPredictor, StrandPredictor};
+use super::{LocusStrandPredictor, ROIStrandPredictor, StrandPredictor};
 
 #[derive(Clone)]
 pub struct StrandByGenomicFeatures {
@@ -108,7 +108,7 @@ impl StrandByGenomicFeatures {
     }
 }
 
-impl IntervalStrandPredictor for StrandByGenomicFeatures {
+impl ROIStrandPredictor for StrandByGenomicFeatures {
     fn predict(&self, interval: &Interval, _: &MismatchesSummary) -> Strand {
         self.infer_strand(interval)
     }

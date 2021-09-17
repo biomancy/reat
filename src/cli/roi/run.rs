@@ -27,10 +27,7 @@ use super::resformat;
 
 pub fn run(args: &ArgMatches, mut core: CoreArgs, factory: impl Fn() -> ProgressBar) {
     let args = ROIArgs::new(&core, args, &factory);
-    let statbuilder = match args.ei {
-        None => None,
-        Some(_) => Some(EditingIndex::default()),
-    };
+    let statbuilder = args.ei.as_ref().map(|_| EditingIndex::default());
 
     // Callbacks to track progress
     let pbar = factory();

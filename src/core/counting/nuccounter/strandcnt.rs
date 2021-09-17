@@ -40,7 +40,7 @@ impl<R: AlignedRead, Deductor: StrandDeductor<R>, Counter: NucCounter<R>> NucCou
     #[inline]
     fn rois(&self) -> &[Interval] {
         debug_assert_eq!(self.forward.rois(), self.reverse.rois());
-        &self.forward.rois()
+        self.forward.rois()
     }
 
     fn counted(&mut self) -> &[NucCounts] {
@@ -56,7 +56,7 @@ impl<R: AlignedRead, Deductor: StrandDeductor<R>, Counter: NucCounter<R>> NucCou
     }
 
     fn count(&mut self, read: &mut R) {
-        match self.deductor.deduce(&read) {
+        match self.deductor.deduce(read) {
             ReqStrand::Forward => self.forward.count(read),
             ReqStrand::Reverse => self.reverse.count(read),
         }

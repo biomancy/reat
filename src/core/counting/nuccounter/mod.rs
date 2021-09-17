@@ -1,12 +1,12 @@
 use bio_types::genome::Interval;
 #[cfg(test)]
-use mockall::{automock};
+use mockall::automock;
 
 pub use basecnt::BaseNucCounter;
 pub use strandcnt::StrandedNucCounter;
 
-use crate::core::counting::buffers::{NucCounts};
-use crate::core::counting::buffers::{RawCounts};
+use crate::core::counting::buffers::NucCounts;
+use crate::core::counting::buffers::RawCounts;
 use crate::core::read::AlignedRead;
 use crate::core::workload::ROIWorkload;
 use bio_types::strand::Strand;
@@ -28,7 +28,7 @@ pub trait NucCounter<R: AlignedRead> {
     fn interval(&self) -> &Interval;
     fn rois(&self) -> &[Interval];
     // Number of counted nucleotides for the forward strand
-    fn counted<'a>(&'a mut self) -> &[NucCounts];
+    fn counted(&mut self) -> &[NucCounts];
     // The total number of mapped reads that passed all filters and were counted in at least 1 position
     fn mapped(&self) -> u32;
     fn empty(&self) -> bool {
@@ -37,6 +37,7 @@ pub trait NucCounter<R: AlignedRead> {
     // Count read R
     fn count(&mut self, read: &mut R);
     // Finalize counting and return results. May be called more than once(i.e. iteratively)
+    #[allow(clippy::needless_lifetimes)]
     fn results<'a>(&'a self) -> Vec<CountingResult<'a>>;
     // Reset buffers
     fn reset(&mut self, workload: ROIWorkload);

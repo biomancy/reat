@@ -5,6 +5,7 @@ use mockall::{mock, predicate::*};
 use rust_htslib::bam::record::CigarStringView;
 use rust_htslib::bam::Record;
 
+#[allow(clippy::len_without_is_empty)]
 pub trait SequencedRead {
     fn name(&self) -> &[u8];
     fn strand(&self) -> &ReqStrand;

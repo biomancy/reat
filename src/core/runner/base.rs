@@ -44,8 +44,8 @@ impl<Counter: NucCounter<Record>, RefNucPred: RefNucPredictor> BaseRunner<Counte
             .unwrap_or_else(|_| panic!("Failed to open file {}", reference.display()));
         Self {
             htsreaders,
-            htsfiles: htsfiles,
-            refreader: FastaReader { faidx: refreader, path: reference.into() },
+            htsfiles,
+            refreader: FastaReader { faidx: refreader, path: reference },
             mapped: 0,
             counter,
             refnucpred,
@@ -68,7 +68,7 @@ impl<Counter: NucCounter<Record>, RefNucPred: RefNucPredictor> BaseRunner<Counte
         let counted = self.counter.counted();
         debug_assert_eq!(reference.len(), counted.len());
         let refpred = &self.refnucpred;
-        let iter = zip(reference.into_iter(), counted.into_iter())
+        let iter = zip(reference, counted)
             .map(|(a, b)| (Nucleotide::from(*a), b))
             .map(|(refnuc, seqnuc)| refpred.predict(&refnuc, seqnuc));
         self.cachenuc.extend(iter);

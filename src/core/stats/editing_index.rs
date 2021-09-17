@@ -24,7 +24,7 @@ impl ROIBasedStat for EditingIndex {
     }
 
     fn combine(stats: &[Self]) -> Self {
-        stats.into_iter().fold(Self::default(), |a, b| a + *b)
+        stats.iter().fold(Self::default(), |a, b| a + *b)
     }
 
     fn header() -> &'static str {

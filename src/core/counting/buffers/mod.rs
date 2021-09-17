@@ -27,6 +27,7 @@ pub struct IntervalCounts<'a> {
 }
 
 #[cfg_attr(test, automock)]
+
 pub trait CountsBuffer {
     // Content of the buffer
     fn interval(&self) -> &Interval;
@@ -36,6 +37,7 @@ pub trait CountsBuffer {
     fn buffer_mut(&mut self) -> &mut [NucCounts];
     fn add_matched(&mut self, blocks: &[Range<u32>]);
     // ROI results & reset
+    #[allow(clippy::needless_lifetimes)]
     fn results<'a>(&'a self) -> Vec<IntervalCounts<'a>>;
     fn reset(&mut self, info: ROIWorkload);
 }

@@ -1,5 +1,3 @@
-
-
 use clap::{crate_authors, crate_name, crate_version, App, AppSettings, ArgMatches};
 use indicatif::{MultiProgress, ProgressBar, ProgressFinish, ProgressStyle};
 use rayon::ThreadPoolBuilder;
@@ -41,7 +39,8 @@ fn main() {
     pbar.set_message("Running...");
 
     // Parse core arguments and determine subcommand
-    let (args, func): (&ArgMatches, Box<dyn FnOnce(&ArgMatches, CoreArgs) -> () + Send>) = match app.subcommand() {
+    #[allow(clippy::type_complexity)]
+    let (args, func): (&ArgMatches, Box<dyn FnOnce(&ArgMatches, CoreArgs) + Send>) = match app.subcommand() {
         Some(("rois", matches)) => (matches, Box::new(|matches, core| cli::roi::run(matches, core, factory))),
         Some(("loci", matches)) => (matches, Box::new(|matches, core| cli::loci::run(matches, core, factory))),
         _ => panic!("Subcommand is not specified."),

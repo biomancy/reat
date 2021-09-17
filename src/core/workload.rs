@@ -51,6 +51,7 @@ pub struct ROIWorkload {
     rois: Vec<ROI>,
 }
 
+#[allow(clippy::len_without_is_empty)]
 impl ROIWorkload {
     pub fn new(interval: Interval, rois: Vec<ROI>) -> ROIWorkload {
         debug_assert!(rois.iter().map(|x| &x.interval).all(|x| {
@@ -58,7 +59,7 @@ impl ROIWorkload {
                 && x.range().start >= interval.range().start
                 && x.range().end <= interval.range().end
         }));
-        ROIWorkload { interval: interval, rois }
+        ROIWorkload { interval, rois }
     }
 
     fn infer_buffer_bin(seed: &Interval, binsize: u32) -> Interval {
@@ -201,6 +202,7 @@ impl ROIWorkload {
         workloads
     }
 
+    #[inline]
     pub fn len(&self) -> u64 {
         self.interval.range().end - self.interval.range().start
     }

@@ -1,14 +1,12 @@
 use std::cell::RefCell;
 use std::ops::DerefMut;
 
-
 use bio_types::genome::{AbstractInterval, Locus};
 
 use clap::ArgMatches;
 use indicatif::ProgressBar;
-use itertools::{zip};
+use itertools::zip;
 use rayon::prelude::*;
-
 
 use crate::cli::loci::args::LociArgs;
 use crate::cli::loci::resformat;
@@ -100,6 +98,7 @@ fn doiter(
 ) -> Vec<LocusSummary> {
     rnr.run(w)
         .into_iter()
+        .filter(|x| x.cnts.coverage > 0)
         .map(|x| {
             let startpos = x.interval.range().start;
             let contig = x.interval.contig();

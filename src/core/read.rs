@@ -81,7 +81,7 @@ impl SequencedRead for Record {
 
     #[inline]
     fn qual(&self) -> &[u8] {
-        self.qual()
+        Record::qual(&self)
     }
 
     #[inline]

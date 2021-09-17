@@ -2,7 +2,6 @@ use clap::{Arg, ArgSettings};
 
 use super::validate;
 
-
 pub fn reqdefaults() -> Vec<ArgSettings> {
     vec![ArgSettings::Required, ArgSettings::TakesValue]
 }
@@ -136,7 +135,7 @@ pub mod autoref {
                 .long(MIN_COVERAGE)
                 .settings(&defaults())
                 .validator(validate::numeric(0u32, u32::MAX))
-                .default_value("20")
+                .default_value("10")
                 .long_about("Automatically correct reference sequence for loci with coverage ≥ the threshold. In short, there is no reason to use the assembly nucleotide \"T \" if we have sequenced 100% \"A \". This heuristic is especially useful in regions of low complexity(or simple repeats), where such SNPs can affect the editing estimation."),
             Arg::new(MIN_FREQ)
                 .long(MIN_FREQ)
@@ -226,13 +225,12 @@ use std::path::PathBuf;
 
 use clap::ArgMatches;
 
-use indicatif::{ProgressBar};
+use indicatif::ProgressBar;
 use rust_htslib::bam::Record;
 
 use crate::cli::shared::stranding::Stranding;
 use crate::core::filtering::reads::{ReadsFilterByFlags, ReadsFilterByQuality, SequentialReadsFilter};
 use crate::core::refnuc::RefNucPredByHeurisitc;
-
 
 use super::parse;
 use std::fs::File;

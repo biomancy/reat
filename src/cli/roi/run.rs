@@ -1,12 +1,9 @@
-use std::borrow::BorrowMut;
-use std::cell::{Ref, RefCell};
-use std::fs::File;
-use std::io::BufWriter;
+use std::cell::RefCell;
+
 use std::ops::DerefMut;
 
-use bio_types::strand::Strand;
 use clap::ArgMatches;
-use indicatif::{MultiProgress, ProgressBar};
+use indicatif::ProgressBar;
 use itertools::Itertools;
 use rayon::prelude::*;
 

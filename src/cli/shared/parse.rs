@@ -1,6 +1,6 @@
 use std::fs::File;
 use std::io::BufWriter;
-use std::path::{Path, PathBuf};
+use std::path::{PathBuf};
 use std::str::FromStr;
 
 use clap::ArgMatches;
@@ -8,14 +8,14 @@ use indicatif::ProgressBar;
 use itertools::Itertools;
 use rust_htslib::bam::Record;
 
-use crate::cli::roi;
+
 use crate::cli::shared::stranding::Stranding;
 use crate::core::filtering::reads::{ReadsFilterByFlags, ReadsFilterByQuality, SequentialReadsFilter};
 use crate::core::filtering::summary::SummaryFilterByMismatches;
 use crate::core::refnuc::RefNucPredByHeurisitc;
 use crate::core::stranding::deduct::StrandSpecificExperimentDesign;
 use crate::core::stranding::predict::{SequentialStrandPredictor, StrandByAtoIEditing, StrandByGenomicFeatures};
-use crate::core::workload::ROIWorkload;
+
 
 use super::args;
 

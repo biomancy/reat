@@ -1,4 +1,4 @@
-use std::marker::PhantomData;
+
 use std::ops::Range;
 
 use bio_types::genome::{AbstractInterval, Interval};

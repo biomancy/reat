@@ -1,12 +1,12 @@
 use bio_types::genome::Interval;
 #[cfg(test)]
-use mockall::{automock, mock};
+use mockall::{automock};
 
 pub use basecnt::BaseNucCounter;
 pub use strandcnt::StrandedNucCounter;
 
-use crate::core::counting::buffers::{CountsBuffer, NucCounts};
-use crate::core::counting::buffers::{IntervalCounts, RawCounts};
+use crate::core::counting::buffers::{NucCounts};
+use crate::core::counting::buffers::{RawCounts};
 use crate::core::read::AlignedRead;
 use crate::core::workload::ROIWorkload;
 use bio_types::strand::Strand;

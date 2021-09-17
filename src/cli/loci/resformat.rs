@@ -1,9 +1,7 @@
 use std::io::Write;
 
-use bio_types::genome::{AbstractInterval, AbstractLocus};
-
-use crate::core::stats::ROIBasedStat;
-use crate::core::summary::{LocusSummary, ROISummary};
+use crate::core::summary::LocusSummary;
+use bio_types::genome::AbstractLocus;
 
 const OUTPUT_IO_ERROR: &str = "Failed to write loci summary to the output TSV file.";
 
@@ -29,7 +27,7 @@ pub fn loci(saveto: &mut impl Write, summary: Vec<LocusSummary>) {
 
 #[cfg(test)]
 mod test {
-    use bio_types::genome::{Interval, Locus};
+    use bio_types::genome::Locus;
     use bio_types::strand::Strand;
 
     use crate::core::counting::NucCounts;

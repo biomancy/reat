@@ -1,4 +1,4 @@
-use std::sync::Arc;
+
 
 use clap::{crate_authors, crate_name, crate_version, App, AppSettings, ArgMatches};
 use indicatif::{MultiProgress, ProgressBar, ProgressFinish, ProgressStyle};

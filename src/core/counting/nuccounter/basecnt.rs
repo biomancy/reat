@@ -1,13 +1,12 @@
-use std::cmp::{max, min};
+use std::cmp::min;
 use std::marker::PhantomData;
-use std::ops::{Index, Range};
+use std::ops::Range;
 
 use bio_types::genome::{AbstractInterval, Interval};
 use bio_types::strand::Strand;
-use itertools::Itertools;
+
 use rust_htslib::bam::record::Cigar;
 
-use crate::core::counting::buffers::IntervalCounts;
 use crate::core::counting::buffers::NucCounts;
 use crate::core::counting::nuccounter::{CountingResult, NucCounter};
 use crate::core::filtering::reads::ReadsFilter;
@@ -85,7 +84,6 @@ impl<R: AlignedRead, Filter: ReadsFilter<R>, Buffer: CountsBuffer> BaseNucCounte
                     }
                     if let Some(m) = prevmatched {
                         self.matched.push(m..roipos as u32);
-                        prevmatched = None;
                     }
                 }
                 Cigar::Del(ops) | Cigar::RefSkip(ops) => {
@@ -152,7 +150,6 @@ impl<R: AlignedRead, Filter: ReadsFilter<R>, Buffer: CountsBuffer> NucCounter<R>
 mod tests {
     use std::ops::Range;
 
-    use mockall::predicate;
     use rust_htslib::bam::record::Cigar::*;
     use rust_htslib::bam::record::CigarString;
 

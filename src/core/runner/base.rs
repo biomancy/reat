@@ -1,22 +1,18 @@
-use std::cell::{RefCell, RefMut};
-use std::marker::PhantomData;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
-use bio_types::genome::{AbstractInterval, Interval};
-use bio_types::strand::Strand;
-use itertools::{izip, zip};
+use bio_types::genome::AbstractInterval;
+
+use itertools::zip;
 use rust_htslib::bam::record::Record;
 use rust_htslib::bam::Read;
 use rust_htslib::{bam, faidx};
 
-use crate::core::counting::buffers::CountsBuffer;
-use crate::core::counting::nuccounter::{NucCounter, StrandedNucCounter};
-use crate::core::counting::NucCounts;
+use crate::core::counting::nuccounter::NucCounter;
+
 use crate::core::dna::Nucleotide;
-use crate::core::filtering::summary::{LocusSummaryFilter, ROISummaryFilter};
+
 use crate::core::refnuc::RefNucPredictor;
 use crate::core::runner::{RunResult, Runner};
-use crate::core::stranding::predict::{LocusStrandPredictor, ROIStrandPredictor};
 use crate::core::workload::ROIWorkload;
 
 // Dummy FastaReader that is safe to Send

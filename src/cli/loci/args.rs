@@ -1,19 +1,19 @@
-use std::io::BufWriter;
-use std::path::PathBuf;
+
+
 
 use clap::ArgMatches;
-use clap::{Arg, ArgSettings};
-use derive_getters::Dissolve;
-use indicatif::{MultiProgress, ProgressBar};
-use rust_htslib::bam::Record;
+use clap::{Arg};
+
+use indicatif::{ProgressBar};
+
 
 use crate::cli::shared;
-use crate::cli::shared::args::{defaults, reqdefaults};
-use crate::cli::shared::stranding::Stranding;
+use crate::cli::shared::args::{defaults};
+
 use crate::cli::shared::validate;
-use crate::core::filtering::reads::{ReadsFilterByFlags, ReadsFilterByQuality, SequentialReadsFilter};
+
 use crate::core::filtering::summary::SummaryFilterByMismatches;
-use crate::core::refnuc::RefNucPredByHeurisitc;
+
 use crate::core::stranding::predict::SequentialStrandPredictor;
 use crate::core::workload::ROIWorkload;
 

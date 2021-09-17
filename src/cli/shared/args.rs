@@ -1,7 +1,7 @@
 use clap::{Arg, ArgSettings};
 
 use super::validate;
-use crate::cli::shared;
+
 
 pub fn reqdefaults() -> Vec<ArgSettings> {
     vec![ArgSettings::Required, ArgSettings::TakesValue]
@@ -225,14 +225,14 @@ pub fn all<'a>() -> Vec<Arg<'a>> {
 use std::path::PathBuf;
 
 use clap::ArgMatches;
-use derive_getters::Dissolve;
-use indicatif::{MultiProgress, ProgressBar};
+
+use indicatif::{ProgressBar};
 use rust_htslib::bam::Record;
 
 use crate::cli::shared::stranding::Stranding;
 use crate::core::filtering::reads::{ReadsFilterByFlags, ReadsFilterByQuality, SequentialReadsFilter};
 use crate::core::refnuc::RefNucPredByHeurisitc;
-use crate::core::workload::ROIWorkload;
+
 
 use super::parse;
 use std::fs::File;

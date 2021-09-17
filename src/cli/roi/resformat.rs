@@ -1,9 +1,9 @@
 use std::io::Write;
 
-use bio_types::genome::{AbstractInterval, AbstractLocus};
+use bio_types::genome::AbstractInterval;
 
 use crate::core::stats::ROIBasedStat;
-use crate::core::summary::{LocusSummary, ROISummary};
+use crate::core::summary::ROISummary;
 
 const OUTPUT_IO_ERROR: &str = "Failed to write ROI summary to the output TSV file.";
 const STATS_IO_ERROR: &str = "Failed to write statistics to the output TSV file.";
@@ -36,7 +36,7 @@ pub fn statistic<T: ROIBasedStat>(rname: &str, saveto: &mut impl Write, stat: &T
 
 #[cfg(test)]
 mod test {
-    use bio_types::genome::{Interval, Locus};
+    use bio_types::genome::Interval;
     use bio_types::strand::Strand;
 
     use crate::core::counting::NucCounts;

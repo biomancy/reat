@@ -1,4 +1,3 @@
-use std::marker::PhantomData;
 use std::ops::Range;
 
 use bio::data_structures::interval_tree::IntervalTree;
@@ -106,13 +105,13 @@ mod tests {
     #[test]
     fn reset() {
         let mut dummy = ROIBuffer::new(10);
-        let reset = ROIWorkload::new(
-            Interval::new("".into(), 0..123),
-            vec![ROI { interval: Interval::new("".into(), 10..15), name: "1".into() }],
-        );
 
         for x in [20, 10, 5] {
-            dummy.reset(reset.clone());
+            let reset = ROIWorkload::new(
+                Interval::new("".into(), 0..x),
+                vec![ROI { interval: Interval::new("".into(), 0..x - 3), name: "1".into() }],
+            );
+            dummy.reset(reset);
             // previous changes must be cleaned
             assert!(dummy.buffer().iter().all(|x| x.coverage() == 0), "{:?}", dummy.buffer());
             // new dummy changes

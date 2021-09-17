@@ -7,7 +7,7 @@ use clap::ArgMatches;
 use indicatif::ProgressBar;
 
 use crate::cli::shared;
-use crate::core::filtering::summary::SummaryFilterByMismatches;
+
 use crate::core::workload::ROIWorkload;
 
 use super::args;

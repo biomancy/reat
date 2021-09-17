@@ -1,22 +1,15 @@
-use std::cell::RefCell;
-use std::cmp::{max, min};
 use std::marker::PhantomData;
-use std::ops::{Index, Range};
 
-use bio_types::genome::{AbstractInterval, Interval};
+use bio_types::genome::Interval;
 use bio_types::strand::{ReqStrand, Strand};
-use itertools::{chain, zip, Itertools};
-use rust_htslib::bam::record::Cigar;
+use itertools::zip;
 
-use crate::core::counting::buffers::IntervalCounts;
 use crate::core::counting::nuccounter::{CountingResult, NucCounter};
 use crate::core::counting::NucCounts;
-use crate::core::filtering::reads::ReadsFilter;
+
 use crate::core::read::AlignedRead;
 use crate::core::stranding::deduct::StrandDeductor;
 use crate::core::workload::ROIWorkload;
-
-use super::super::buffers::CountsBuffer;
 
 #[derive(Clone)]
 pub struct StrandedNucCounter<R: AlignedRead, Deductor: StrandDeductor<R>, Counter: NucCounter<R>> {
@@ -93,14 +86,15 @@ impl<R: AlignedRead, Deductor: StrandDeductor<R>, Counter: NucCounter<R>> NucCou
 
 #[cfg(test)]
 mod tests {
-    use mockall::{predicate::eq, Sequence};
+    use mockall::Sequence;
 
-    use crate::core::counting::buffers::{MockCountsBuffer, RawCounts};
+    use crate::core::counting::buffers::RawCounts;
     use crate::core::counting::nuccounter::MockNucCounter;
     use crate::core::read::MockRead;
     use crate::core::stranding::deduct::MockStrandDeductor;
 
     use super::*;
+    use itertools::Itertools;
 
     fn counter() -> MockNucCounter<MockRead> {
         let mut counter = MockNucCounter::<MockRead>::new();
@@ -209,7 +203,7 @@ mod tests {
         let mut forward = counter();
         forward.expect_results().once().return_const(fwd.clone());
 
-        let mut rev = vec![
+        let rev = vec![
             CountingResult {
                 name: "1",
                 strand: Strand::Forward,
@@ -226,7 +220,7 @@ mod tests {
         let mut reverse = counter();
         reverse.expect_results().once().return_const(rev.clone());
 
-        let mut dummy = StrandedNucCounter::new(forward, reverse, MockStrandDeductor::new());
+        let dummy = StrandedNucCounter::new(forward, reverse, MockStrandDeductor::new());
         let mut counted = dummy.results();
         counted.sort_by_key(|x| x.name);
 

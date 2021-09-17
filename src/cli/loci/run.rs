@@ -1,14 +1,14 @@
 use std::cell::RefCell;
 use std::ops::DerefMut;
-use std::sync::Mutex;
+
 
 use bio_types::genome::{AbstractInterval, Locus};
-use bio_types::strand::Strand;
+
 use clap::ArgMatches;
 use indicatif::ProgressBar;
-use itertools::{zip, Itertools};
+use itertools::{zip};
 use rayon::prelude::*;
-use thread_local::ThreadLocal;
+
 
 use crate::cli::loci::args::LociArgs;
 use crate::cli::loci::resformat;

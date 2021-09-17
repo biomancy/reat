@@ -48,6 +48,7 @@ mod tests {
             interval: Interval::new("".into(), 1..2),
             strand: Strand::Forward,
             name: "".to_string(),
+            coverage: 2,
             sequenced: NucCounts::zeros(),
             mismatches: Default::default(),
         };

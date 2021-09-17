@@ -59,10 +59,12 @@ mock! {
 }
 
 impl SequencedRead for Record {
+    #[inline]
     fn name(&self) -> &[u8] {
         self.qname()
     }
 
+    #[inline]
     fn strand(&self) -> &ReqStrand {
         if self.is_reverse() {
             &ReqStrand::Reverse
@@ -71,39 +73,48 @@ impl SequencedRead for Record {
         }
     }
 
+    #[inline]
     fn seq(&self) -> Vec<u8> {
         self.seq().as_bytes()
     }
 
+    #[inline]
     fn qual(&self) -> &[u8] {
         self.qual()
     }
 
+    #[inline]
     fn is_first(&self) -> bool {
         self.is_first_in_template()
     }
 
+    #[inline]
     fn len(&self) -> usize {
         self.seq_len()
     }
 }
 
 impl AlignedRead for Record {
+    #[inline]
     fn cigar(&self) -> CigarStringView {
         self.cigar()
     }
 
+    #[inline]
     fn mapq(&self) -> u8 {
         self.mapq()
     }
+    #[inline]
     fn pos(&self) -> i64 {
         self.pos()
     }
 
+    #[inline]
     fn contig(&self) -> &str {
         genome::AbstractInterval::contig(self)
     }
 
+    #[inline]
     fn flags(&self) -> u16 {
         self.flags()
     }

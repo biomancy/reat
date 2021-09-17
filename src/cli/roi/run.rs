@@ -39,6 +39,7 @@ pub fn run(args: &ArgMatches, mut core: CoreArgs, factory: impl Fn() -> Progress
     let pbar = factory();
     pbar.set_style(shared::style::pbar());
     pbar.set_draw_delta((core.threads * 10) as u64);
+    pbar.set_length(args.workload.len() as u64);
 
     let oniter = |_: &[ROISummary]| pbar.inc(1);
     let onfinish = |intervals: &[ROISummary], reads: u32| {
@@ -64,7 +65,7 @@ pub fn run(args: &ArgMatches, mut core: CoreArgs, factory: impl Fn() -> Progress
     resformat::regions(&mut core.saveto, summary);
     match (ei, args.ei) {
         (Some(ei), Some(mut writer)) => {
-            resformat::statistic(&core.name, &mut writer, &ei, true);
+            resformat::statistic(&core.name, &mut writer, &ei);
         }
         (_, _) => {}
     }

@@ -166,7 +166,10 @@ pub fn reference(pbar: ProgressBar, matches: &ArgMatches) -> PathBuf {
 pub fn threads(pbar: ProgressBar, matches: &ArgMatches) -> usize {
     pbar.set_message("Parsing number of threads allowed to launch...");
     let result = matches.value_of(args::core::THREADS).and_then(|x| x.parse().ok()).unwrap();
-    pbar.finish_with_message(format!("Using thread pool with at most {} threads", result));
+    pbar.finish_with_message(format!(
+        "Using thread pool with at most {} threads(+ 1 thread to render progress bar)",
+        result
+    ));
     result
 }
 

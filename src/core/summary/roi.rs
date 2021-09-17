@@ -10,13 +10,21 @@ pub struct ROISummary {
     pub interval: Interval,
     pub strand: Strand,
     pub name: String,
+    pub coverage: u32,
     pub sequenced: NucCounts,
     pub mismatches: MismatchesSummary,
 }
 
 impl From<RunResult<'_>> for ROISummary {
     fn from(run: RunResult) -> Self {
-        ROISummary::from_counts(run.interval.clone(), run.name.into(), run.strand, run.reference, run.cnts.nuc)
+        ROISummary::from_counts(
+            run.interval.clone(),
+            run.name.into(),
+            run.strand,
+            run.cnts.coverage,
+            run.reference,
+            run.cnts.nuc,
+        )
     }
 }
 
@@ -25,6 +33,7 @@ impl ROISummary {
         interval: Interval,
         name: String,
         strand: Strand,
+        coverage: u32,
         sequence: &[Nucleotide],
         counts: &[NucCounts],
     ) -> Self {
@@ -53,7 +62,7 @@ impl ROISummary {
                 _ => {}
             }
         }
-        ROISummary { interval, strand, name, sequenced, mismatches }
+        ROISummary { interval, strand, name, coverage, sequenced, mismatches }
     }
 }
 
@@ -73,6 +82,7 @@ mod tests {
                 interval.clone(),
                 name.clone(),
                 strand,
+                12,
                 &vec![Nucleotide::A, Nucleotide::Unknown, Nucleotide::C],
                 &vec![
                     NucCounts { A: 10, C: 0, G: 15, T: 0 },

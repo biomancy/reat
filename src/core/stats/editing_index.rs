@@ -117,6 +117,7 @@ mod test {
             interval: Interval::new("".into(), 1..2),
             strand: Strand::Forward,
             name: "".into(),
+            coverage: 3,
             sequenced: NucCounts::new(1, 1, 1, 1),
             mismatches: forward,
         });
@@ -150,6 +151,7 @@ mod test {
             interval: Interval::new("".into(), 1..2),
             strand: Strand::Reverse,
             name: "".into(),
+            coverage: 9,
             sequenced: NucCounts::new(1, 1, 1, 1),
             mismatches: reverse,
         });

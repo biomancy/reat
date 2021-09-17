@@ -18,7 +18,7 @@ pub struct FlatBuffer {
 }
 
 impl FlatBuffer {
-    pub(crate) fn new(maxsize: usize) -> Self {
+    pub fn new(maxsize: usize) -> Self {
         let mut inner = Vec::with_capacity(maxsize);
         inner.resize(maxsize, NucCounts::zeros());
         let interval = Interval::new(String::default(), 0..maxsize as u64);

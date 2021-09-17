@@ -42,7 +42,7 @@ pub mod core {
                 .long(BINSIZE)
                 .settings(&defaults())
                 .validator(validate::numeric(1u32, 1_000_000u32))
-                .default_value("16000")
+                .default_value("64000")
                 .long_about("Summarize the mismatches for each locus, providing each worker thread with genome bins(job share) of approximately the specified size (in base pairs)."),
             Arg::new(STRANDING)
                 .short('s')

@@ -9,12 +9,13 @@ const OUTPUT_IO_ERROR: &str = "Failed to write ROI summary to the output TSV fil
 const STATS_IO_ERROR: &str = "Failed to write statistics to the output TSV file.";
 
 pub fn regions(saveto: &mut impl Write, summary: Vec<ROISummary>) {
-    writeln!(saveto, "chr\tstart\tend\tstrand\tname\t#A\t#T\t#G\t#C\tA->A\tA->C\tA->G\tA->T\tC->A\tC->C\tC->G\tC->T\tG->A\tG->C\tG->G\tG->T\tT->A\tT->C\tT->G\tT->T")
+    writeln!(saveto, "chr\tstart\tend\tstrand\tname\tcoverage\t#A\t#T\t#G\t#C\tA->A\tA->C\tA->G\tA->T\tC->A\tC->C\tC->G\tC->T\tG->A\tG->C\tG->G\tG->T\tT->A\tT->C\tT->G\tT->T")
         .expect(OUTPUT_IO_ERROR);
 
     for e in summary {
         let (contig, range, strand) = (e.interval.contig(), e.interval.range(), e.strand.strand_symbol());
-        write!(saveto, "{}\t{}\t{}\t{}\t{}\t", contig, range.start, range.end, strand, e.name).expect(OUTPUT_IO_ERROR);
+        write!(saveto, "{}\t{}\t{}\t{}\t{}\t{}\t", contig, range.start, range.end, strand, e.name, e.coverage)
+            .expect(OUTPUT_IO_ERROR);
         let seq = e.sequenced;
         write!(saveto, "{}\t{}\t{}\t{}\t", seq.A, seq.T, seq.G, seq.C).expect(OUTPUT_IO_ERROR);
         let m = e.mismatches;
@@ -25,11 +26,12 @@ pub fn regions(saveto: &mut impl Write, summary: Vec<ROISummary>) {
     }
 }
 
-pub fn statistic<T: ROIBasedStat>(files: &str, saveto: &mut impl Write, stat: &T, add_header: bool) {
-    if add_header {
-        writeln!(saveto, "files\t{}", T::header()).expect(STATS_IO_ERROR);
-    }
-    writeln!(saveto, "{}\t{}", files, stat.row()).expect(STATS_IO_ERROR);
+pub fn statheader<T: ROIBasedStat, W: Write>(saveto: &mut W) {
+    writeln!(saveto, "Run name\t{}", T::header()).expect(STATS_IO_ERROR);
+}
+
+pub fn statistic<T: ROIBasedStat>(rname: &str, saveto: &mut impl Write, stat: &T) {
+    writeln!(saveto, "{}\t{}", rname, stat.row()).expect(STATS_IO_ERROR);
 }
 
 #[cfg(test)]
@@ -49,6 +51,7 @@ mod test {
                 Interval::new("1".into(), 1..20),
                 "First".into(),
                 Strand::Forward,
+                12,
                 &vec![Nucleotide::A, Nucleotide::Unknown],
                 &vec![NucCounts::new(1, 10, 100, 1000), NucCounts::new(1, 1, 1, 1)],
             ),
@@ -56,6 +59,7 @@ mod test {
                 Interval::new("3".into(), 30..31),
                 "".into(),
                 Strand::Unknown,
+                190,
                 &vec![Nucleotide::C, Nucleotide::G],
                 &vec![NucCounts::new(1, 2, 3, 4), NucCounts::new(5, 6, 7, 8)],
             ),
@@ -64,19 +68,19 @@ mod test {
         super::regions(&mut saveto, dummy);
 
         let result = String::from_utf8(saveto).unwrap();
-        let expected = "chr\tstart\tend\tstrand\tname\t\
+        let expected = "chr\tstart\tend\tstrand\tname\tcoverage\t\
                               #A\t#T\t#G\t#C\t\
                               A->A\tA->C\tA->G\tA->T\t\
                               C->A\tC->C\tC->G\tC->T\t\
                               G->A\tG->C\tG->G\tG->T\t\
                               T->A\tT->C\tT->G\tT->T\n\
-                              1\t1\t20\t+\tFirst\t\
+                              1\t1\t20\t+\tFirst\t12\t\
                               1\t0\t0\t0\t\
                               1\t10\t100\t1000\t\
                               0\t0\t0\t0\t\
                               0\t0\t0\t0\t\
                               0\t0\t0\t0\n\
-                              3\t30\t31\t.\t\t\
+                              3\t30\t31\t.\t\t190\t\
                               0\t0\t1\t1\t\
                               0\t0\t0\t0\t\
                               1\t2\t3\t4\t\

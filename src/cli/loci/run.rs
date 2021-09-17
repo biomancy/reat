@@ -33,6 +33,7 @@ pub fn run(args: &ArgMatches, mut core: CoreArgs, factory: impl Fn() -> Progress
     let pbar = factory();
     pbar.set_style(shared::style::pbar());
     pbar.set_draw_delta((core.threads * 10) as u64);
+    pbar.set_length(args.workload.len() as u64);
 
     let oniter = |_: &[LocusSummary]| pbar.inc(1);
     let onfinish = |intervals: &[LocusSummary], reads: u32| {

@@ -31,13 +31,14 @@ pub fn run(args: &ArgMatches, mut core: CoreArgs, factory: impl Fn() -> Progress
 
     // Callbacks to track progress
     let pbar = factory();
-    pbar.set_style(shared::style::pbar());
+    pbar.set_style(shared::style::running());
     pbar.set_draw_delta((core.threads * 10) as u64);
     pbar.set_length(args.workload.len() as u64);
 
     let oniter = |_: &[ROISummary]| pbar.inc(1);
     let onfinish = |intervals: &[ROISummary], reads: u32| {
-        pbar.finish_with_message(format!("Finished with {} regions, total mapped reads: {}", intervals.len(), reads))
+        pbar.set_style(shared::style::finished());
+        pbar.finish_with_message(format!("Finished with {} regions, total processed reads: {}", intervals.len(), reads))
     };
 
     let (summary, ei) = match core.stranding {

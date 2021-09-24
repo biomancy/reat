@@ -80,8 +80,8 @@ fn main() {
     let core = cli::shared::args::CoreArgs::new(args, factory);
 
     // + 1 thread to render progress bar
-    ThreadPoolBuilder::new().num_threads(core.threads + 1).build_global().expect(CREATE_THREAD_POOL_ERROR);
-    rayon::scope(|s| {
+    let pool = ThreadPoolBuilder::new().num_threads(core.threads + 1).build().expect(CREATE_THREAD_POOL_ERROR);
+    pool.scope(|s| {
         // Render progress bar in the additional thread
         s.spawn(|_| {
             masterbar.mbar.join().expect(RENDER_PROGRESS_ERROR);

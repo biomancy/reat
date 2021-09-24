@@ -1,14 +1,10 @@
-
-
-
+use clap::Arg;
 use clap::ArgMatches;
-use clap::{Arg};
 
-use indicatif::{ProgressBar};
-
+use indicatif::ProgressBar;
 
 use crate::cli::shared;
-use crate::cli::shared::args::{defaults};
+use crate::cli::shared::args::defaults;
 
 use crate::cli::shared::validate;
 
@@ -34,13 +30,20 @@ pub mod output_filtering {
                 .settings(&defaults())
                 .validator(validate::numeric(0u32, u32::MAX))
                 .default_value("5")
-                .long_about("Output only Loci having total number of mismatches ≥ threshold. Mismatches are counted jointly, i.e. for the \"A\" reference we have \"C\" + \"G\" + \"T\". For \"N\" reference all nucleotides are considered as mismatches. This is a deliberate choice to allow a subsequent user to work through / filter such records."),
+                .long_about(
+                    "Output only loci having total number of mismatches ≥ threshold. \
+                    Mismatches are counted jointly, i.e. for the \"A\" reference we have \"C\" + \"G\" + \"T\". \
+                    For \"N\" reference all nucleotides are considered as mismatches. \
+                    This is a deliberate choice to allow a subsequent user to work through / filter such records.",
+                ),
             Arg::new(MIN_FREQ)
                 .long(MIN_FREQ)
                 .settings(&defaults())
                 .validator(validate::numeric(0f32, 1f32))
                 .default_value("0.01")
-                .long_about("Output only Loci having total mismatches frequency ≥ threshold (freq = ∑ mismatches / coverage)"),
+                .long_about(
+                    "Output only loci having total mismatches frequency ≥ threshold (freq = ∑ mismatches / coverage)",
+                ),
         ];
         args.into_iter().map(|x| x.help_heading(Some(SECTION_NAME))).collect()
     }

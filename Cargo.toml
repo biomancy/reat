@@ -1,9 +1,9 @@
 [package]
 name = "rada"
-version = "0.0.1"
+version = "0.0.2"
 edition = "2018"
 authors = ["Aleksandr Fedorov <anfedorov@hse.ru>"]
-description = "Rapid RNA editing profiling"
+description = "Rapid RNA editing analysis"
 readme = "README.md"
 license = "MIT"
 repository = "https://github.com/rust-bio/rust-htslib.git"

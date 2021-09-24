@@ -25,6 +25,8 @@ derive_more = "0.99.16"
 [dev-dependencies]
 mockall = "0.10.2"
 tempfile = "3.2.0"
+static_init = { git = "https://gitlab.com/vkahl/static_init/", rev = "bffc02b27bcaa052994f14d7d2013a957cb74187" }
+file_diff = "1.0.0"
 
 [profile.release]
 lto = true

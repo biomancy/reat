@@ -1,12 +1,10 @@
 use std::fs::File;
 use std::io::BufWriter;
 
-
+use clap::Arg;
 use clap::ArgMatches;
-use clap::{Arg};
 
-use indicatif::{ProgressBar};
-
+use indicatif::ProgressBar;
 
 use crate::cli::shared;
 use crate::cli::shared::args::{defaults, reqdefaults};
@@ -42,7 +40,7 @@ pub mod stats {
 pub mod special {
     use super::*;
 
-    pub const ROI: &str = "roi";
+    pub const ROI: &str = "rois";
 
     pub const SECTION_NAME: &str = "Special information";
 

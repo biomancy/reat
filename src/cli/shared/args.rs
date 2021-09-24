@@ -109,7 +109,7 @@ pub mod reads_filtering {
                 .settings(&defaults())
                 .validator(validate::numeric(0u16, 4095u16))
                 .default_value("2820")
-                .long_about("Exclude reads for which any of the specified BAM flags are set. For example, a value of 2820 will result in skipping unmapped reads, supplementary and not primary alignments, and reads that fail platform/vendor quality checks. Use zero(0) to disable this filter."),
+                .long_about("Exclude reads for which any of the specified BAM flags are set. For example, a value of 2820 will result in skipping unmapped reads, supplementary and secondary alignments, reads that fail platform/vendor quality checks. Use zero(0) to disable this filter."),
             Arg::new(PHREAD)
                 .long(PHREAD)
                 .settings(&defaults())
@@ -135,7 +135,7 @@ pub mod autoref {
                 .long(MIN_COVERAGE)
                 .settings(&defaults())
                 .validator(validate::numeric(0u32, u32::MAX))
-                .default_value("10")
+                .default_value("20")
                 .long_about("Automatically correct reference sequence for loci with coverage ≥ the threshold. In short, there is no reason to use the assembly nucleotide \"T \" if we have sequenced 100% \"A \". This heuristic is especially useful in regions of low complexity(or simple repeats), where such SNPs can affect the editing estimation."),
             Arg::new(MIN_FREQ)
                 .long(MIN_FREQ)

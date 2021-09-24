@@ -26,7 +26,7 @@ pub fn work(pbar: ProgressBar, matches: &ArgMatches) -> (Vec<ROIWorkload>, u32) 
     ));
     (workload, maxlen as u32)
 }
-use crate::cli::roi::resformat;
+use crate::cli::rois::resformat;
 pub fn editing_index(pbar: ProgressBar, matches: &ArgMatches) -> Option<BufWriter<File>> {
     pbar.set_message("Parsing EI output path...");
     match matches.value_of(args::stats::EDITING_INDEX) {

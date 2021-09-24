@@ -1,6 +1,6 @@
 use std::fs::File;
 use std::io::BufWriter;
-use std::path::{PathBuf};
+use std::path::PathBuf;
 use std::str::FromStr;
 
 use clap::ArgMatches;
@@ -8,14 +8,12 @@ use indicatif::ProgressBar;
 use itertools::Itertools;
 use rust_htslib::bam::Record;
 
-
 use crate::cli::shared::stranding::Stranding;
 use crate::core::filtering::reads::{ReadsFilterByFlags, ReadsFilterByQuality, SequentialReadsFilter};
 use crate::core::filtering::summary::SummaryFilterByMismatches;
 use crate::core::refnuc::RefNucPredByHeurisitc;
 use crate::core::stranding::deduct::StrandSpecificExperimentDesign;
 use crate::core::stranding::predict::{SequentialStrandPredictor, StrandByAtoIEditing, StrandByGenomicFeatures};
-
 
 use super::args;
 
@@ -82,6 +80,7 @@ pub fn stranding(pbar: ProgressBar, matches: &ArgMatches) -> Stranding {
 }
 
 pub fn strandpred(pbar: ProgressBar, matches: &ArgMatches) -> SequentialStrandPredictor {
+    pbar.set_draw_delta(10_000);
     pbar.set_message("Parsing strand prediction parameters...");
 
     let stranding = Stranding::from_str(matches.value_of(args::core::STRANDING).unwrap()).unwrap();
@@ -99,7 +98,6 @@ pub fn strandpred(pbar: ProgressBar, matches: &ArgMatches) -> SequentialStrandPr
     );
     let strand_by_editing = Some(StrandByAtoIEditing::new(minmismatches, minfreq));
 
-    pbar.set_draw_delta(10_000);
     let strand_by_features = matches
         .value_of(args::stranding::ANNOTATION)
         .map(|x| Some(StrandByGenomicFeatures::from_gff3(x.as_ref(), |_| pbar.inc(1))))

@@ -171,7 +171,8 @@ impl ROIWorkload {
         let hts = hts
             .iter()
             .map(|x| {
-                IndexedReader::from_path(x).unwrap_or_else(|_| panic!("Failed to open file {}", x.as_ref().display()))
+                IndexedReader::from_path(x)
+                    .unwrap_or_else(|_| panic!("Failed to open file {} (index missed?)", x.as_ref().display()))
             })
             .collect_vec();
 

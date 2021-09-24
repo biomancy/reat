@@ -1,3 +1,3 @@
 pub mod loci;
-pub mod roi;
+pub mod rois;
 pub mod shared;

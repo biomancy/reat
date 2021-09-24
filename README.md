@@ -16,9 +16,8 @@ Quality, correctness, and ease of use are vital to us.
 
 ### Not released yet
 
-**RADA** is under active development and is not yet been officially released. While having unit tests whenever possible,
-the tool still lacks integration tests and users feedback. We will release in a few months; until then, use at your own
-risk.
+**RADA** is under active development and is not yet been officially released. Despite good tests coverage (both unit and
+integration), the tool still lacks user feedback. We will release in a few months; until then, use at your own risk.
 
 ### Features
 
@@ -27,6 +26,7 @@ risk.
 * Strand prediction for unstranded libraries
 * Autoref: automatic detection and accounting for single nucleotide variants (SNV)
 * Editing Index (EI) for the given set of ROI
+* Flexible filtering options with good default settings
 
 See [details](#details) section for more in-depth explanation of some features.
 
@@ -66,7 +66,7 @@ Follow [this](https://www.rust-lang.org/tools/install) page to install rust tool
 #### ROI mode
 
 ROI stands for Region of Interest, a **RADA** mode in which edits are summarized for each provided genomic region. For
-instance, It is useful in the context of studying Alu repeats editing.
+instance, it is useful in the context of studying Alu repeats editing.
 
 Example:
 
@@ -80,9 +80,8 @@ chrY	76783396	76783529	RSINE   .    -   ... # The rest of the columns are ignore
 * _Command:_
 
 ```shell
-rada --input techrep1.bam techrep2.bam --roi repeats.bed \
-     --reference GRCm38.fa --stranding "f/s" --threads $(nproc) \
-     --saveto /dev/stdout 
+rada rois --input techrep1.bam techrep2.bam --rois repeats.bed \
+          --reference GRCm38.fa --stranding "f/s" --threads $(nproc)
 ```
 
 Output columns:
@@ -90,11 +89,13 @@ Output columns:
 * **chr, start, end, name** - ROI coordinate and name from the input file
 * **strand** - transcription strand; predicted for unstranded libraries and deducted from the design for stranded
   experiments
-* **X->Y** - Total number of events observed in a given ROI where a reference nucleotide _X_ was replaced by _Y_. That
-  is, A->A is a number of A matches, and A->G denotes the total number of observed A->I edits.
+* **coverage** - number of unique reads covering ROI (after applying all filters)
+* **#X** - number of _X_ nucleotides in the sequence of a given ROI (always forward strand sequence)
+* **X->Y** - the total number of events observed in a given ROI where a reference nucleotide _X_ was replaced by _Y_.
+  That is, A->A is a number of A matches, and A->G denotes the total number of observed A->I edits
 
 Note that **X->Y** notation always denotes matches/mismatches relative to the forward strand. For example, T->C
-mismatches for REVERSE strand ROI are, in fact, A->G edits within ROI in a pool of sequenced RNAs.
+mismatches for reverse strand ROI are, in fact, A->G edits within ROI in a pool of sequenced RNAs.
 
 If autoref feature is enabled, edits are summarised after correcting for any potential SNVs.
 
@@ -102,12 +103,13 @@ If autoref feature is enabled, edits are summarised after correcting for any pot
 
 For a given set of regions, one can always calculate an editing index (EI) for all possible matches and mismatches.
 
-For example, formally EI for mismatches A->G is defined as follows: EI(A->G) = P(transcribed ROI is A->G edited) = (
-forward(A->G) + REVERSE(T->C)) / (forward(A->A + A->C + A->G + A->T) + REVERSE(T->A + T->C + T->G + T->T)). In other
-words, it is the probability that a given A in the provided ROI will be A->G edited after the transcription.
+For example, formally EI for mismatches A->G is defined as follows: EI(A->G) = P(transcribed ROIs are A->G edited) = (
+forward(A->G) + reverse(T->C)) / (forward(A->A + A->C + A->G + A->T) + reverse(T->A + T->C + T->G + T->T)).
 
-Note that the EI is strand independent as it is defined for the transcribed regions of RNA. For example, to edit A-> I,
-you need to refer exclusively to the A->G column and completely ignore T->C.
+In other words, it is the probability that a given A in the provided ROI will be A->G edited after the transcription.
+
+Note that the EI is strand independent as it is defined for the _transcribed_ regions of RNA. For example, to study A->I
+editing, you need to refer exclusively to the A->G column and completely ignore T->C.
 
 If a given set of ROIs represent all Alu repeats in the genome, then A->G EI is the so-called Alu Editing Index (AEI).
 
@@ -116,10 +118,10 @@ Example:
 ```shell
 for bamfile in *.bam
 do
-  rada --input bamfile  --roi alu-repeats.bed \
-       --reference hg19.fasta --threads $(nproc) \
-       --stranding "s/f" --annotation gencode.gff3.gz \
-       --ei=AEI.tsv --saveto /dev/null # append Alu editing index values and skip ROI results completely
+  rada rois --input $bamfile  --rois alu-repeats.bed \
+            --reference hg19.fasta --threads $(nproc) \
+            --stranding "s/f" --annotation gencode.gff3.gz \
+            --ei=AEI.tsv --saveto /dev/null # append Alu editing index values and skip ROI results completely
 done
 ```
 
@@ -137,10 +139,10 @@ The **RADA** loci-based mode is a classic scenario for estimating RNA editing fo
 Example:
 
 ```shell
-rada --input rnaseq.bam  --binsize 50000 \
-     --reference hg38.fa --threads $(nproc) \
-     --stranding "u" --annotation gencode.gff3.gz \
-     --saveto /dev/stdout 
+rada loci --input rnaseq.bam \
+          --reference hg38.fa --threads $(nproc) \
+          --stranding "u" --annotation gencode.gff3.gz \
+          --saveto /dev/stdout 
 ```
 
 Output columns:
@@ -148,108 +150,13 @@ Output columns:
 * **chr,position** - coordinate of the locus
 * **strand** - transcription strand; predicted for unstranded libraries and deducted from the design for stranded
   experiments
-* **X** - the total number of sequenced nucleotides X; X is one of \[A, C, G, T\].
-* **reference** - predicted reference nucleotide; just a reference assembly if autoref feature is disabled
+* **reference** - predicted reference nucleotide(assembly nucleotide if autoref feature is disabled)
+  Strand-insensitive, always reported for the forward strand
+* **X** - the total number of sequenced nucleotides X; X is one of \[A, C, G, T\]
 
 Similarly to the ROI mode, the reference and sequenced nucleotides **X** are always reported with respect to the forward
 strand. That is, a minus strand locus with ten A's corresponds to ten sequenced T's from RNA fragments originated from
 the minus strand.
-
-### CLI arguments
-
-Here is a list of arguments(`rada --help`) supported by the Command Line Interface (CLI):
-
-```
-Core:
-    -i, --input <input>...
-            Path to the input BAM file(s). May contain a space-separated list of files, in which case they are
-            treated as technical replicates and pulled together.
-
-    -r, --reference <reference>
-            Indexed fasta file with a reference genome assembly. Contig/chromosome names must match the names in
-            the input BAM headers.
-
-        --roi <roi>
-            Path to a BED-like file with 4 columns (chr, start, end, name) in which the target regions of
-            interest (ROI) are declared. If specified, total mismatches will be reported for each region of
-            interest rather than loci.
-
-        --binsize <binsize>
-            Summarize the mismatches for each locus, providing each worker thread with genome bins(job share) of
-            approximately the specified size (in base pairs).
-
-    -s, --stranding <stranding>
-            Strand-specificity of the experiment, i.e. matching between the read strand and the transcript
-            strand. Use "u" for unstranded experiments; other available options based on the RSeQC
-            nomenclature(see infer_experiment.py docs): same:"s" (++,--), flip:"f" (+-,-+), same read1/flip
-            read2:"sf" (1++,1--/2+-,2-+), flip read1/same read2:"fs" (1+-,1-+/2++,2--).[possible values: u, s,
-            f, s/f, f/s]
-
-    -o, --saveto <saveto>
-            Path to the output tsv file. Use /dev/stdout to print result to the standard output.
-
-    -t, --threads <threads>
-            Maximum number of threads to spawn at once.[default: 1]
-
-
-Filtering:
-        --mapq <mapq>
-            Count only reads with mapq ≥ threshold. Note that reads with mapq = 255 are always skipped(mapq is
-            not available according to the SAM spec).[default: 1]
-
-        --phread <phread>
-            Count only bases with phread ≥ threshold. For reference, Phread is defined as -10 log₁₀[error
-            probability], so Phread = 20 means 1 error in 100 base calls.[default: 20]
-
-        --out-min-mismatches <out-min-mismatches>
-            Output only loci/ROI having total number of mismatches ≥ threshold. Mismatches are counted jointly,
-            i.e. for the "A" reference we have "C" + "G" + "T". For "N" reference all nucleotides are considered
-            as mismatches. This is a deliberate choice to allow a subsequent user to work through / filter such
-            records.[default: 5]
-
-        --out-min-freq <out-min-freq>
-            Output only loci/ROI having total mismatches frequency ≥ threshold (freq = ∑ mismatches /
-            coverage)[default: 0.01]
-
-
-Autoref:
-        --ref-min-cov <ref-min-cov>
-            Automatically correct reference sequence for loci with coverage ≥ the threshold. In short, there is
-            no reason to use the assembly nucleotide "T " if we have sequenced 100% "A ". This heuristic is
-            especially useful in regions of low complexity(or simple repeats), where such SNPs can affect the
-            editing estimation.[default: 20]
-
-        --ref-min-freq <ref-min-freq>
-            Automatically correct reference sequence for loci with the most common nucleotide frequency ≥
-            cutoff[default: 0.95]
-
-        --hyperedit
-            Turn on the "hyperediting" mode, i.e. do not correct(replace) A with G and T with C. This will
-            ensure that potentially hyper-editable sites are not accidentally lost.
-
-
-Stranding:
-        --annotation <annotation>
-            Genome annotation in the GFF3 format. Genomic features (exons and genes) are used to inference
-            loci/ROI strand based on the most likely direction of transcription (see the GitHub documentation
-            for details). It is recommended to provide genome annotation for unstranded libraries, otherwise
-            stranding will be highly inaccurate.
-
-        --str-min-mismatches <str-min-mismatches>
-            Automatically predict strand based on the observed A->I editing for locus/ROI with A->G mismatches
-            >= threshold. It is a fallback strand prediction heuristic, used only for the unstranded libraries.
-            Not relevant for organisms without active ADAR-like enzymes.[default: 50]
-
-        --str-min-freq <str-min-freq>
-            Automatically predict strand based on the observed A->I editing for locus/ROI with A->G freq >=
-            threshold (freq = ∑ A->G / (∑ A->G + ∑ A->A))[default: 0.05]
-
-
-Statistics:
-        --ei <ei>
-            File for saving Editing Indexes (EI). If the file already exists, the EI results for the current
-            experiments will be appended to it.
-```
 
 ### Details
 
@@ -257,8 +164,8 @@ Statistics:
 
 To predict transcription strand for ROI/loci in unstranded experiments, **RADA** uses two strategies.
 
-First, ROI/loci strand will be derived from the overlapping genes/exons strand. This approach only works if the GFF3
-genome annotation is provided and can be summarized in the following table:
+First, ROI/loci strand will be derived from the overlapping genes/exons strand(only works if genome annotation is
+provided). This approach can be summarized in the following table:
 
 | overlapping genes | overlapping exons | predicted strand |
 |:-----------------:|:-----------------:|:----------------:|
@@ -266,7 +173,7 @@ genome annotation is provided and can be summarized in the following table:
 |         -         |         -         |         -        |
 |        +/-        |         +         |         +        |
 |        +/-        |         -         |         -        |
-|        +/-        |        +/-        |         ?        |
+|        +/-        |        +/-        |         .        |
 
 That is, **RADA** checks overlapping genes first. If they are genes on the + and the - strand, exons are considered. In
 the worst-case scenario, an unknown(`.`) strand is returned.
@@ -274,7 +181,7 @@ the worst-case scenario, an unknown(`.`) strand is returned.
 Second, for ROIs / loci for which **RADA** could not predict the strand from the annotation, **RADA** attempts to derive
 the strand based on the observed A->I editing.
 
-For the + strand transcripts, A-> I edits are A-> G mismatches, and for the - strand, T-> C mismatches. Note that in
+For the + strand transcripts, A->I edits are A->G mismatches, and for the - strand, T->C mismatches. Note that in
 many cases, this heuristic fails (no A->I editing at all), and such ROIs / loci will be left unstranded in the final
 table.
 
@@ -288,8 +195,134 @@ Note that hyper-editing flag allows one to skip A->G and T->C corrections to exp
 
 # TODO:
 
-- Check grammar
-- Integration tests
-- Editing indices (alu editing index, Non-synonimous editing index)
+- Editing indices (Non-synonimous editing index)
 - Graph: (RAM usage per thread) vs (#threads)
 - Graph: (Speedup against REDItools) vs (#threads) + note about run time
+
+### CLI arguments
+
+Here is a list of arguments(`--help`) supported by the Command Line Interface (CLI):
+#### Shared args
+```
+Core:
+        --binsize <binsize>
+            Summarize mismatches per locus/ROI, providing each thread with genome bins(job share) of at most X base
+            pairs[default: 64000]
+
+    -i, --input <input>...
+            Path to the input BAM file(s). May contain a space-separated list of files, in which case they are treated
+            as technical replicates and pulled together
+
+    -n, --name <name>
+            Name of the run.[default: NA]
+
+    -o, --saveto <saveto>
+            Path to the output tsv file. By default, the results are printed to stdout[default: /dev/stdout]
+
+    -r, --reference <reference>
+            Indexed fasta file with a reference genome assembly. Contig / chromosome names must match the entries in the
+            BAM header (s)
+
+    -s, --stranding <stranding>
+            Strand-specificity of the experiment, i.e. matching between the read strand and the gene strand. Use "u" for
+            unstranded experiments; other available options based on the RSeQC nomenclature(see infer_experiment.py
+            docs): same:"s" (++,--), flip:"f" (+-,-+), same read1/flip read2:"s/f" (1++,1--/2+-,2-+), flip read1/same
+            read2:"f/s" (1+-,1-+/2++,2--)[possible values: u, s, f, s/f, f/s]
+
+    -t, --threads <threads>
+            Maximum number of threads to spawn at once[default: 1]
+
+
+Reads filtering:
+        --ex-flags <ex-flags>
+            Exclude reads for which any of the specified BAM flags are set. For example, a value of 2820 will result in
+            skipping unmapped reads, supplementary and secondary alignments, reads that fail platform/vendor quality
+            checks. Use zero(0) to disable this filter[default: 2820]
+
+        --in-flags <in-flags>
+            Include only reads for which all the specified BAM flags are set. For example, a value of 3 will result in
+            skipping reads that were not mapped in proper pairs. Use zero(0) to disable this filter[default: 0]
+
+        --mapq <mapq>
+            Count only reads with mapq ≥ threshold. Note that reads with mapq = 255 are skipped by default(mapq 255
+            means "not available" according to the SAM spec)[default: 1]
+
+        --mapq-255
+            Count reads with mapq=255. Useful for aligners that do not fully conform to the SAM specification (e.g. STAR
+            with default parameters)
+
+        --phread <phread>
+            Count only bases with phread ≥ threshold. For reference, Phread is defined as -10 log₁₀[error probability],
+            so Phread = 20 means 1 error in 100 base calls[default: 20]
+
+
+Stranding:
+        --annotation <annotation>
+            Genome annotation in the GFF3 format. Genomic features (exons and genes) are used to inference loci/ROI
+            strand based on the most likely direction of transcription (see the GitHub documentation for details). It is
+            recommended to provide genome annotation for unstranded libraries, otherwise stranding will be highly
+            inaccurate.
+
+        --str-min-freq <str-min-freq>
+            Automatically predict strand based on the observed A->I editing for locus/ROI with A->G freq >= threshold
+            (freq = ∑ A->G / (∑ A->G + ∑ A->A))[default: 0.05]
+
+        --str-min-mismatches <str-min-mismatches>
+            Automatically predict strand based on the observed A->I editing for locus/ROI with A->G mismatches >=
+            threshold. It is a fallback strand prediction heuristic, used only for the unstranded libraries. Not
+            relevant for organisms without active ADAR-like enzymes.[default: 50]
+
+
+Autoref:
+        --hyperedit
+            Turn on the "hyperediting" mode, i.e. do not correct(replace) A with G and T with C. This will ensure that
+            potentially hyper-editable sites are not accidentally lost
+
+        --ref-min-cov <ref-min-cov>
+            Automatically correct reference sequence for loci with coverage ≥ the threshold. In short, there is no
+            reason to use the assembly nucleotide "T " if we have sequenced 100% "A ". This heuristic is especially
+            useful in regions of low complexity(or simple repeats), where such SNPs can affect the editing
+            estimation.[default: 20]
+```
+
+#### ROI mode specific
+```
+Stats:
+        --ei <ei>
+            File for saving Editing Indexes (EI). If the file already exists, EI for the current experiments will be
+            appended to it
+
+
+Special information:
+        --rois <rois>
+            Path to a BED file with regions of interest(ROIS) with at least 4 first BED columns(chr, start, end, name)
+
+
+Output filtering:
+        --out-min-cov <out-min-cov>
+            Output only ROIs covered by at least X unique reads(after reads/bases filtering)[default: 10]
+
+        --out-min-freq <out-min-freq>
+            Output only ROI having total mismatches frequency ≥ threshold (freq = ∑ mismatches / coverage)[default:
+            0.01]
+
+        --out-min-mismatches <out-min-mismatches>
+            Output only ROI having total number of mismatches ≥ threshold. Mismatches are counted jointly, i.e. for the
+            "A" reference we have "C" + "G" + "T". For "N" reference all nucleotides are considered as mismatches. This
+            is a deliberate choice to allow a subsequent user to work through / filter such records[default: 5]
+```
+#### Loci mode specific
+```
+Output filtering:
+        --out-min-cov <out-min-cov>
+            Output only loci covered by at least X unique reads(after reads/bases filtering)[default: 10]
+
+        --out-min-freq <out-min-freq>
+            Output only loci having total mismatches frequency ≥ threshold (freq = ∑ mismatches / coverage)[default:
+            0.01]
+
+        --out-min-mismatches <out-min-mismatches>
+            Output only loci having total number of mismatches ≥ threshold. Mismatches are counted jointly, i.e. for the
+            "A" reference we have "C" + "G" + "T". For "N" reference all nucleotides are considered as mismatches. This
+            is a deliberate choice to allow a subsequent user to work through / filter such records.[default: 3]
+```

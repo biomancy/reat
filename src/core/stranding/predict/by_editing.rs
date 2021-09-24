@@ -1,0 +1,177 @@
+use bio_types::strand::Strand;
+use derive_more::Constructor;
+
+use crate::core::dna::Nucleotide;
+use crate::core::stranding::predict::{LocusStrandPredictor, ROIStrandPredictor};
+use crate::core::summary::{LocusSummary, ROISummary};
+
+use super::StrandPredictor;
+use derive_getters::Getters;
+
+#[derive(Constructor, Getters, Copy, Clone)]
+pub struct StrandByAtoIEditing {
+    min_mismatches: u32,
+    min_freq: f32,
+}
+
+impl StrandByAtoIEditing {
+    #[inline]
+    fn is_ok(&self, matches: u32, mismatches: u32) -> bool {
+        let coverage = mismatches + matches;
+        coverage > 0 && mismatches >= self.min_mismatches && (mismatches as f32 / coverage as f32) >= self.min_freq
+    }
+}
+
+impl StrandPredictor for StrandByAtoIEditing {}
+
+impl ROIStrandPredictor for StrandByAtoIEditing {
+    fn predict(&self, data: &ROISummary) -> Strand {
+        let mismatches = &data.mismatches;
+        let a2g = self.is_ok(mismatches.A.A, mismatches.A.G);
+        let t2c = self.is_ok(mismatches.T.T, mismatches.T.C);
+
+        match (a2g, t2c) {
+            (false, false) => Strand::Unknown,
+            (false, true) => Strand::Reverse,
+            (true, false) => Strand::Forward,
+            (true, true) => {
+                let a2g_coverage = mismatches.A.A + mismatches.A.G;
+                let t2c_coverage = mismatches.T.T + mismatches.T.C;
+
+                if a2g_coverage == 0 && t2c_coverage == 0 {
+                    return Strand::Unknown;
+                }
+
+                let a2g = mismatches.A.G as f32 / a2g_coverage as f32;
+                let t2c = mismatches.T.C as f32 / t2c_coverage as f32;
+                if mismatches.A.G > 0 && a2g > t2c {
+                    Strand::Forward
+                } else if mismatches.T.C > 0 && t2c > a2g {
+                    Strand::Reverse
+                } else {
+                    Strand::Unknown
+                }
+            }
+        }
+    }
+}
+
+impl LocusStrandPredictor for StrandByAtoIEditing {
+    fn predict(&self, data: &LocusSummary) -> Strand {
+        let sequenced = &data.sequenced;
+
+        match data.refnuc {
+            Nucleotide::A => {
+                if self.is_ok(sequenced.A, sequenced.G) {
+                    Strand::Forward
+                } else {
+                    Strand::Unknown
+                }
+            }
+            Nucleotide::T => {
+                if self.is_ok(sequenced.T, sequenced.C) {
+                    Strand::Reverse
+                } else {
+                    Strand::Unknown
+                }
+            }
+            Nucleotide::C | Nucleotide::G | Nucleotide::Unknown => Strand::Unknown,
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::ops::Neg;
+
+    use bio_types::strand::Same;
+
+    use super::*;
+    use crate::core::counting::NucCounts;
+    use crate::core::summary::MismatchesSummary;
+    use bio_types::genome::Interval;
+    use bio_types::genome::Locus;
+
+    #[test]
+    fn locuspred() {
+        let locus = Locus::new(String::from(""), 123);
+
+        let mut summary = LocusSummary {
+            locus: locus.clone(),
+            strand: Strand::Unknown,
+            refnuc: Nucleotide::Unknown,
+            sequenced: NucCounts::zeros(),
+        };
+
+        // Not relevant nucleotides
+        let a2g = NucCounts::new(10, 0, 10, 0);
+        let t2c = NucCounts::new(0, 10, 0, 10);
+        let dummy = StrandByAtoIEditing::new(1, 0.1);
+        for refnuc in [Nucleotide::C, Nucleotide::G, Nucleotide::Unknown] {
+            summary.refnuc = refnuc;
+
+            summary.sequenced = a2g;
+            assert!(LocusStrandPredictor::predict(&dummy, &summary).is_unknown());
+            summary.sequenced = t2c;
+            assert!(LocusStrandPredictor::predict(&dummy, &summary).is_unknown());
+        }
+
+        // Relevant nucleotides
+        let dummy = StrandByAtoIEditing::new(8, 0.05);
+        for (result, matches, mismatches) in
+            [(&Strand::Forward, 8, 8), (&Strand::Unknown, 100, 4), (&Strand::Unknown, 1, 7), (&Strand::Forward, 10, 10)]
+        {
+            summary.refnuc = Nucleotide::A;
+            summary.sequenced = NucCounts::new(matches, 0, mismatches, 0);
+            assert!(LocusStrandPredictor::predict(&dummy, &summary).same(result));
+
+            summary.refnuc = Nucleotide::T;
+            summary.sequenced = NucCounts::new(0, mismatches, 0, matches);
+            assert!(LocusStrandPredictor::predict(&dummy, &summary).same(&result.neg()));
+        }
+    }
+
+    #[test]
+    fn intervalpred() {
+        let interval = Interval::new("".into(), 1..2);
+        let dummy = StrandByAtoIEditing::new(8, 0.05);
+
+        let roisum = |mismatches| ROISummary {
+            interval: interval.clone(),
+            strand: Strand::Unknown,
+            name: "".to_string(),
+            coverage: 21,
+            sequenced: NucCounts::zeros(),
+            mismatches: mismatches,
+        };
+
+        // Simple cases
+        for (result, matches, mismatches) in
+            [(&Strand::Forward, 8, 8), (&Strand::Unknown, 100, 4), (&Strand::Unknown, 1, 7), (&Strand::Forward, 10, 10)]
+        {
+            let mut summary = MismatchesSummary::zeros();
+            summary.A.A = matches;
+            summary.A.G = mismatches;
+            assert!(ROIStrandPredictor::predict(&dummy, &roisum(summary)).same(&result));
+
+            let mut summary = MismatchesSummary::zeros();
+            summary.T.T = matches;
+            summary.T.C = mismatches;
+            assert!(ROIStrandPredictor::predict(&dummy, &roisum(summary)).same(&result.neg()));
+        }
+
+        // Both strands pass the threshold
+        for (result, matches, a2g, t2c) in
+            [(&Strand::Unknown, 10, 10, 10), (&Strand::Reverse, 10, 10, 11), (&Strand::Forward, 10, 11, 10)]
+        {
+            let mut summary = MismatchesSummary::zeros();
+            summary.A.A = matches;
+            summary.A.G = a2g;
+
+            summary.T.T = matches;
+            summary.T.C = t2c;
+
+            assert!(ROIStrandPredictor::predict(&dummy, &roisum(summary)).same(&result));
+        }
+    }
+}

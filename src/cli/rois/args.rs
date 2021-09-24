@@ -55,11 +55,18 @@ pub mod output_filtering {
 
     pub const MIN_MISMATCHES: &str = "out-min-mismatches";
     pub const MIN_FREQ: &str = "out-min-freq";
+    pub const MIN_COVERAGE: &str = "out-min-cov";
 
     pub const SECTION_NAME: &str = "Output filtering";
 
     pub fn args<'a>() -> Vec<Arg<'a>> {
         let args = vec![
+            Arg::new(MIN_COVERAGE)
+                .long(MIN_COVERAGE)
+                .settings(&defaults())
+                .validator(validate::numeric(0u32, u32::MAX))
+                .default_value("10")
+                .long_about("Output only ROIs covered by at least X unique reads(after reads/bases filtering)"),
             Arg::new(MIN_MISMATCHES)
                 .long(MIN_MISMATCHES)
                 .settings(&defaults())
@@ -103,8 +110,13 @@ pub struct ROIArgs {
 
 impl ROIArgs {
     pub fn new(_: &shared::args::CoreArgs, args: &ArgMatches, factory: &impl Fn() -> ProgressBar) -> Self {
-        let outfilter =
-            shared::parse::outfilter(factory(), output_filtering::MIN_MISMATCHES, output_filtering::MIN_FREQ, args);
+        let outfilter = shared::parse::outfilter(
+            factory(),
+            output_filtering::MIN_MISMATCHES,
+            output_filtering::MIN_FREQ,
+            output_filtering::MIN_COVERAGE,
+            args,
+        );
         let ei = parse::editing_index(factory(), args);
 
         let mut strandpred: Option<SequentialStrandPredictor> = Default::default();

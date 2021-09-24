@@ -182,16 +182,19 @@ pub fn outfilter(
     pbar: ProgressBar,
     mismatch_key: &str,
     freq_key: &str,
+    cov_key: &str,
     matches: &ArgMatches,
 ) -> SummaryFilterByMismatches {
     pbar.set_message("Parsing filtering options...");
-    let (minmismatches, minfreq) = (
+    let (minmismatches, minfreq, mincov) = (
         matches.value_of(mismatch_key).unwrap().parse().unwrap(),
         matches.value_of(freq_key).unwrap().parse().unwrap(),
+        matches.value_of(cov_key).unwrap().parse().unwrap(),
     );
-    let result = SummaryFilterByMismatches::new(minmismatches, minfreq);
+    let result = SummaryFilterByMismatches::new(minmismatches, minfreq, mincov);
     pbar.finish_with_message(format!(
-        "Filtering options: mismatches min number >= {}, min frequency >= {}",
+        "Filtering options: min coverage >= {}; mismatches min number >= {}, min frequency >= {}",
+        result.mincov(),
         result.minmismatches(),
         result.minfreq()
     ));

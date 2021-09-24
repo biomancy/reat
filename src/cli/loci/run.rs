@@ -2,7 +2,6 @@ use std::cell::RefCell;
 use std::ops::DerefMut;
 
 use bio_types::genome::{AbstractInterval, Locus};
-
 use clap::ArgMatches;
 use indicatif::ProgressBar;
 use itertools::zip;
@@ -97,24 +96,26 @@ fn doiter(
     strandpred: &impl LocusStrandPredictor,
     filter: &impl LocusSummaryFilter,
 ) -> Vec<LocusSummary> {
-    rnr.run(w)
+    let (mut unstranded, stranded): (Vec<LocusSummary>, Vec<LocusSummary>) = rnr
+        .run(w)
         .into_iter()
         .filter(|x| x.cnts.coverage > 0)
         .map(|x| {
             let startpos = x.interval.range().start;
             let contig = x.interval.contig();
             zip(x.reference, x.cnts.nuc).enumerate().map(move |(offset, (nuc, cnt))| {
-                let mut summary =
-                    LocusSummary::new(Locus::new(contig.into(), startpos + offset as u64), x.strand, *nuc, *cnt);
-                if summary.strand.is_unknown() {
-                    summary.strand = strandpred.predict(&summary.locus, &summary.refnuc, &summary.sequenced);
-                }
-                summary
+                LocusSummary::new(Locus::new(contig.into(), startpos + offset as u64), x.strand, *nuc, *cnt)
             })
         })
         .flatten()
-        .filter(|x| filter.is_ok(x))
-        .collect()
+        .partition(|x: &LocusSummary| x.strand.is_unknown());
+
+    let strands = strandpred.batch_predict(&unstranded);
+    for (item, strand) in zip(&mut unstranded, strands) {
+        item.strand = strand;
+    }
+
+    unstranded.into_iter().chain(stranded.into_iter()).filter(|x| filter.is_ok(x)).collect()
 }
 
 // #[cfg(test)]

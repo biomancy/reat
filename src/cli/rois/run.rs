@@ -1,10 +1,9 @@
 use std::cell::RefCell;
-
 use std::ops::DerefMut;
 
 use clap::ArgMatches;
 use indicatif::ProgressBar;
-use itertools::Itertools;
+use itertools::{zip, Itertools};
 use rayon::prelude::*;
 
 use crate::cli::shared;
@@ -122,19 +121,17 @@ fn doiter(
     filter: &impl ROISummaryFilter,
     stat: &mut Option<impl ROIBasedStat>,
 ) -> Vec<ROISummary> {
-    // Count nucleotides and infer the reference sequence
-    let mut results = rnr
-        .run(w)
-        .into_iter()
-        .map(|x| {
-            let mut summary: ROISummary = x.into();
+    // Count nucleotides and infer the reference sequence / strand
+    let (mut unstranded, stranded): (Vec<ROISummary>, Vec<ROISummary>) =
+        rnr.run(w).into_iter().map(|x| x.into()).partition(|x: &ROISummary| x.strand.is_unknown());
 
-            if summary.strand.is_unknown() {
-                summary.strand = strandpred.predict(&summary.interval, &summary.mismatches);
-            }
-            summary
-        })
-        .collect_vec();
+    let strands = strandpred.batch_predict(&unstranded);
+    for (item, strand) in zip(&mut unstranded, strands) {
+        item.strand = strand;
+    }
+    let mut results = Vec::with_capacity(stranded.len() + unstranded.len());
+    results.extend(unstranded.into_iter());
+    results.extend(stranded.into_iter());
 
     if let Some(stat) = stat {
         for x in &results {

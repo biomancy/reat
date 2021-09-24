@@ -1,11 +1,9 @@
-use bio_types::genome::{Interval, Locus};
 use bio_types::strand::Strand;
 use derive_more::Constructor;
 
-use crate::core::counting::NucCounts;
 use crate::core::dna::Nucleotide;
 use crate::core::stranding::predict::{LocusStrandPredictor, ROIStrandPredictor};
-use crate::core::summary::MismatchesSummary;
+use crate::core::summary::{LocusSummary, ROISummary};
 
 use super::StrandPredictor;
 use derive_getters::Getters;
@@ -27,7 +25,8 @@ impl StrandByAtoIEditing {
 impl StrandPredictor for StrandByAtoIEditing {}
 
 impl ROIStrandPredictor for StrandByAtoIEditing {
-    fn predict(&self, _: &Interval, mismatches: &MismatchesSummary) -> Strand {
+    fn predict(&self, data: &ROISummary) -> Strand {
+        let mismatches = &data.mismatches;
         let a2g = self.is_ok(mismatches.A.A, mismatches.A.G);
         let t2c = self.is_ok(mismatches.T.T, mismatches.T.C);
 
@@ -58,8 +57,10 @@ impl ROIStrandPredictor for StrandByAtoIEditing {
 }
 
 impl LocusStrandPredictor for StrandByAtoIEditing {
-    fn predict(&self, _: &Locus, refnuc: &Nucleotide, sequenced: &NucCounts) -> Strand {
-        match refnuc {
+    fn predict(&self, data: &LocusSummary) -> Strand {
+        let sequenced = &data.sequenced;
+
+        match data.refnuc {
             Nucleotide::A => {
                 if self.is_ok(sequenced.A, sequenced.G) {
                     Strand::Forward
@@ -86,18 +87,33 @@ mod tests {
     use bio_types::strand::Same;
 
     use super::*;
+    use crate::core::counting::NucCounts;
+    use crate::core::summary::MismatchesSummary;
+    use bio_types::genome::Interval;
+    use bio_types::genome::Locus;
 
     #[test]
     fn locuspred() {
         let locus = Locus::new(String::from(""), 123);
+
+        let mut summary = LocusSummary {
+            locus: locus.clone(),
+            strand: Strand::Unknown,
+            refnuc: Nucleotide::Unknown,
+            sequenced: NucCounts::zeros(),
+        };
 
         // Not relevant nucleotides
         let a2g = NucCounts::new(10, 0, 10, 0);
         let t2c = NucCounts::new(0, 10, 0, 10);
         let dummy = StrandByAtoIEditing::new(1, 0.1);
         for refnuc in [Nucleotide::C, Nucleotide::G, Nucleotide::Unknown] {
-            assert!(LocusStrandPredictor::predict(&dummy, &locus, &refnuc, &a2g).is_unknown());
-            assert!(LocusStrandPredictor::predict(&dummy, &locus, &refnuc, &t2c).is_unknown());
+            summary.refnuc = refnuc;
+
+            summary.sequenced = a2g;
+            assert!(LocusStrandPredictor::predict(&dummy, &summary).is_unknown());
+            summary.sequenced = t2c;
+            assert!(LocusStrandPredictor::predict(&dummy, &summary).is_unknown());
         }
 
         // Relevant nucleotides
@@ -105,11 +121,13 @@ mod tests {
         for (result, matches, mismatches) in
             [(&Strand::Forward, 8, 8), (&Strand::Unknown, 100, 4), (&Strand::Unknown, 1, 7), (&Strand::Forward, 10, 10)]
         {
-            let a2g = NucCounts::new(matches, 0, mismatches, 0);
-            assert!(LocusStrandPredictor::predict(&dummy, &locus, &Nucleotide::A, &a2g).same(result));
+            summary.refnuc = Nucleotide::A;
+            summary.sequenced = NucCounts::new(matches, 0, mismatches, 0);
+            assert!(LocusStrandPredictor::predict(&dummy, &summary).same(result));
 
-            let t2c = NucCounts::new(0, mismatches, 0, matches);
-            assert!(LocusStrandPredictor::predict(&dummy, &locus, &Nucleotide::T, &t2c).same(&result.neg()));
+            summary.refnuc = Nucleotide::T;
+            summary.sequenced = NucCounts::new(0, mismatches, 0, matches);
+            assert!(LocusStrandPredictor::predict(&dummy, &summary).same(&result.neg()));
         }
     }
 
@@ -118,6 +136,15 @@ mod tests {
         let interval = Interval::new("".into(), 1..2);
         let dummy = StrandByAtoIEditing::new(8, 0.05);
 
+        let roisum = |mismatches| ROISummary {
+            interval: interval.clone(),
+            strand: Strand::Unknown,
+            name: "".to_string(),
+            coverage: 21,
+            sequenced: NucCounts::zeros(),
+            mismatches: mismatches,
+        };
+
         // Simple cases
         for (result, matches, mismatches) in
             [(&Strand::Forward, 8, 8), (&Strand::Unknown, 100, 4), (&Strand::Unknown, 1, 7), (&Strand::Forward, 10, 10)]
@@ -125,12 +152,12 @@ mod tests {
             let mut summary = MismatchesSummary::zeros();
             summary.A.A = matches;
             summary.A.G = mismatches;
-            assert!(ROIStrandPredictor::predict(&dummy, &interval, &summary).same(&result));
+            assert!(ROIStrandPredictor::predict(&dummy, &roisum(summary)).same(&result));
 
             let mut summary = MismatchesSummary::zeros();
             summary.T.T = matches;
             summary.T.C = mismatches;
-            assert!(ROIStrandPredictor::predict(&dummy, &interval, &summary).same(&result.neg()));
+            assert!(ROIStrandPredictor::predict(&dummy, &roisum(summary)).same(&result.neg()));
         }
 
         // Both strands pass the threshold
@@ -144,7 +171,7 @@ mod tests {
             summary.T.T = matches;
             summary.T.C = t2c;
 
-            assert!(ROIStrandPredictor::predict(&dummy, &interval, &summary).same(&result));
+            assert!(ROIStrandPredictor::predict(&dummy, &roisum(summary)).same(&result));
         }
     }
 }

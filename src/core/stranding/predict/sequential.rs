@@ -2,16 +2,14 @@
 // You create it for 1-12 arguments in a compile time
 // AND a from declaration for them using tuples
 
-use bio_types::genome::{Interval, Locus};
 use bio_types::strand::Strand;
 use derive_more::Constructor;
 
-use crate::core::counting::NucCounts;
-use crate::core::dna::Nucleotide;
 use crate::core::stranding::predict::{StrandByAtoIEditing, StrandByGenomicFeatures};
-use crate::core::summary::MismatchesSummary;
+use crate::core::summary::{LocusSummary, ROISummary};
 
 use super::{LocusStrandPredictor, ROIStrandPredictor};
+use itertools::zip;
 
 #[derive(Constructor, Clone)]
 pub struct SequentialStrandPredictor {
@@ -29,34 +27,58 @@ impl SequentialStrandPredictor {
 }
 
 impl LocusStrandPredictor for SequentialStrandPredictor {
-    fn predict(&self, locus: &Locus, refnuc: &Nucleotide, sequenced: &NucCounts) -> Strand {
+    fn predict(&self, data: &LocusSummary) -> Strand {
         let mut strand = Strand::Unknown;
 
         if let Some(p) = self.by_features.as_ref() {
-            strand = LocusStrandPredictor::predict(p, locus, refnuc, sequenced);
+            strand = LocusStrandPredictor::predict(p, data);
         }
         if !strand.is_unknown() {
             return strand;
         }
         if let Some(p) = self.by_editing.as_ref() {
-            strand = LocusStrandPredictor::predict(p, locus, refnuc, sequenced);
+            strand = LocusStrandPredictor::predict(p, data);
         }
         strand
+    }
+
+    fn batch_predict(&self, data: &[LocusSummary]) -> Vec<Strand> {
+        if data.is_empty() {
+            return vec![];
+        }
+
+        let mut strands = if let Some(p) = self.by_features.as_ref() {
+            LocusStrandPredictor::batch_predict(p, data)
+        } else {
+            let mut v = Vec::with_capacity(data.len());
+            v.resize(data.len(), Strand::Unknown);
+            v
+        };
+
+        if let Some(p) = self.by_editing.as_ref() {
+            for (s, d) in zip(&mut strands, data) {
+                if s.is_unknown() {
+                    *s = LocusStrandPredictor::predict(p, d);
+                }
+            }
+        }
+
+        strands
     }
 }
 
 impl ROIStrandPredictor for SequentialStrandPredictor {
-    fn predict(&self, interval: &Interval, mismatches: &MismatchesSummary) -> Strand {
+    fn predict(&self, data: &ROISummary) -> Strand {
         let mut strand = Strand::Unknown;
 
         if let Some(p) = self.by_features.as_ref() {
-            strand = ROIStrandPredictor::predict(p, interval, mismatches);
+            strand = ROIStrandPredictor::predict(p, data);
         }
         if !strand.is_unknown() {
             return strand;
         }
         if let Some(p) = self.by_editing.as_ref() {
-            strand = ROIStrandPredictor::predict(p, interval, mismatches);
+            strand = ROIStrandPredictor::predict(p, data);
         }
         strand
     }

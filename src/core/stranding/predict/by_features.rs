@@ -6,14 +6,12 @@ use std::path::Path;
 
 use bio::data_structures::annot_map::AnnotMap;
 use bio_types::annot::contig::Contig;
-use bio_types::genome::{AbstractInterval, AbstractLocus, Interval, Locus};
+use bio_types::genome::{AbstractInterval, AbstractLocus, Interval};
 use bio_types::strand::{ReqStrand, Strand};
 use flate2::bufread::GzDecoder;
 use itertools::Itertools;
 
-use crate::core::counting::NucCounts;
-use crate::core::dna::Nucleotide;
-use crate::core::summary::MismatchesSummary;
+use crate::core::summary::{LocusSummary, ROISummary};
 
 use super::{LocusStrandPredictor, ROIStrandPredictor, StrandPredictor};
 
@@ -98,7 +96,7 @@ impl StrandByGenomicFeatures {
         }
     }
 
-    pub fn infer_strand(&self, interval: &Interval) -> Strand {
+    fn infer_strand(&self, interval: &Interval) -> Strand {
         let byexons = self.predict_by_index(interval, &self.exons);
         if byexons.is_unknown() {
             self.predict_by_index(interval, &self.genes)
@@ -106,17 +104,83 @@ impl StrandByGenomicFeatures {
             byexons
         }
     }
+
+    fn blocks_in(&self, interval: &Interval) -> Vec<Interval> {
+        let contig = interval.contig().to_owned();
+        let (start, end) = (interval.range().start, interval.range().end);
+
+        let interval = Contig::new(contig.clone(), start as isize, (end - start) as usize, Strand::Unknown);
+        let borders = (self.exons.find(&interval))
+            .chain(self.genes.find(&interval))
+            .map(|x| [x.interval().start as u64, x.interval().end as u64])
+            .flatten()
+            .sorted()
+            .skip_while(|x| x <= &start)
+            .dedup()
+            .collect_vec();
+
+        let mut supfeatures = Vec::with_capacity(borders.len() / 2 + 2);
+        let mut prevind = start;
+        for border in borders {
+            let border = std::cmp::min(border, end);
+            supfeatures.push(Interval::new(contig.clone(), prevind..border));
+            if border >= end {
+                break;
+            }
+            prevind = border;
+        }
+        if supfeatures.is_empty() || supfeatures.last().unwrap().range().end < end {
+            supfeatures.push(Interval::new(contig.clone(), prevind..end));
+        }
+        debug_assert!(!supfeatures.is_empty());
+        debug_assert!(supfeatures.windows(2).all(|x| x[0].range().end == x[1].range().start));
+        debug_assert!(supfeatures.iter().all(|x| x.contig() == contig));
+        debug_assert!(supfeatures.first().unwrap().range().start == start);
+        debug_assert!(supfeatures.last().unwrap().range().end == end);
+        supfeatures
+    }
 }
 
 impl ROIStrandPredictor for StrandByGenomicFeatures {
-    fn predict(&self, interval: &Interval, _: &MismatchesSummary) -> Strand {
-        self.infer_strand(interval)
+    fn predict(&self, data: &ROISummary) -> Strand {
+        self.infer_strand(&data.interval)
     }
 }
 
 impl LocusStrandPredictor for StrandByGenomicFeatures {
-    fn predict(&self, locus: &Locus, _: &Nucleotide, _: &NucCounts) -> Strand {
+    fn predict(&self, data: &LocusSummary) -> Strand {
+        let locus = &data.locus;
         self.infer_strand(&Interval::new(locus.contig().to_string(), locus.pos()..locus.pos() + 1))
+    }
+    fn batch_predict(&self, data: &[LocusSummary]) -> Vec<Strand> {
+        if data.is_empty() {
+            return vec![];
+        } else if data.len() <= 10 {
+            return data.iter().map(|x| LocusStrandPredictor::predict(self, x)).collect();
+        }
+
+        // Same contig, data is ordered
+        debug_assert!(data.iter().map(|x| x.locus.contig()).all_equal());
+        debug_assert!(data.windows(2).all(|w| w[0].locus.pos() <= w[1].locus.pos()));
+
+        // Split large region into sub intervals which contain annotated features
+        let (first, last) = (&data.first().unwrap().locus, &data.last().unwrap().locus);
+        let (start, end) = (first.pos(), last.pos());
+        debug_assert!(end > start);
+        // + 1 because interval's end is exclusive
+        let interval = Interval::new(first.contig().into(), start..end + 1);
+        let supfeatures = self.blocks_in(&interval);
+
+        // Annotate regions with constant features
+        let mut strands = Vec::with_capacity(data.len());
+        for supf in supfeatures {
+            let strand = self.infer_strand(&supf);
+            let length = (supf.range().end - supf.range().start) as usize;
+            debug_assert!(length >= 1);
+            strands.extend(std::iter::repeat(strand).take(length));
+        }
+        debug_assert_eq!(strands.len(), data.len());
+        strands
     }
 }
 
@@ -139,12 +203,12 @@ mod tests {
         chr1\t.\texon\t4\t7\t.\t+\t0\n\
         chr1\t.\texon\t12\t16\t.\t+\t0\n\
         chr1\t.\texon\t21\t24\t.\t+\t0\n\
-        # Forward gene
+        # Forward gene\n\
         2\t.\tgene\t1\t29\t.\t+\t0\n\
         2\t.\texon\t4\t5\t.\t+\t0\n\
         2\t.\texon\t12\t13\t.\t+\t0\n\
         2\t.\texon\t19\t20\t.\t+\t0\n\
-        # Reverse gene
+        # Reverse gene\n\
         2\t.\tgene\t1\t29\t.\t-\t0\n\
         2\t.\texon\t1\t9\t.\t-\t0\n\
         2\t.\texon\t20\t22\t.\t-\t0";
@@ -165,6 +229,49 @@ mod tests {
         ] {
             let inferred = dummy.infer_strand(&Interval::new(contig.into(), range));
             assert!(inferred.same(&strand))
+        }
+    }
+
+    #[test]
+    fn blocks_in() {
+        let interval = |range| Interval::new("chr1".into(), range);
+
+        let gff3 = "\n\
+        chr1\t.\tgene\t2\t12\t.\t+\t0\n\
+        chr1\t.\texon\t4\t6\t.\t+\t0\n\
+        chr1\t.\texon\t9\t11\t.\t+\t0";
+        let dummy = StrandByGenomicFeatures::parse_gff3(io::BufReader::new(gff3.as_bytes()), |_| {});
+        for (query, expected) in [
+            (1..12, [1..3, 3..6, 6..8, 8..11, 11..12].to_vec()),
+            (6..26, [6..8, 8..11, 11..12, 12..26].to_vec()),
+            (2..7, [2..3, 3..6, 6..7].to_vec()),
+            (2..7, [2..3, 3..6, 6..7].to_vec()),
+            (0..7, [0..1, 1..3, 3..6, 6..7].to_vec()),
+        ] {
+            let expected: Vec<Interval> = expected.into_iter().map(|x| interval(x)).collect();
+            let inferred = dummy.blocks_in(&interval(query));
+            assert_eq!(inferred, expected);
+        }
+
+        let gff3 = "
+        chr1\t.\tgene\t11\t20\t.\t+\t0\n\
+        chr1\t.\texon\t11\t12\t.\t+\t0\n\
+        chr1\t.\texon\t17\t20\t.\t+\t0\n\
+        #\n\
+        chr1\t.\tgene\t17\t30\t.\t-\t0\n\
+        chr1\t.\texon\t17\t24\t.\t-\t0\n\
+        chr1\t.\texon\t29\t30\t.\t-\t0\n\
+        #\n\
+        chr1\t.\tgene\t2\t30\t.\t+\t0";
+        let dummy = StrandByGenomicFeatures::parse_gff3(io::BufReader::new(gff3.as_bytes()), |_| {});
+        for (query, expected) in [
+            (0..14, [0..1, 1..10, 10..12, 12..14].to_vec()),
+            (13..30, [13..16, 16..20, 20..24, 24..28, 28..30].to_vec()),
+            (16..36, [16..20, 20..24, 24..28, 28..30, 30..36].to_vec()),
+        ] {
+            let expected: Vec<Interval> = expected.into_iter().map(|x| interval(x)).collect();
+            let inferred = dummy.blocks_in(&interval(query));
+            assert_eq!(inferred, expected);
         }
     }
 }

@@ -4,8 +4,10 @@ use clap::{crate_authors, crate_name, crate_version, App, AppSettings, ArgMatche
 use indicatif::{MultiProgress, ProgressBar, ProgressFinish, ProgressStyle};
 use rayon::ThreadPoolBuilder;
 
+use itertools::Itertools;
 use rada::cli;
 use rada::cli::shared::args::CoreArgs;
+use std::env;
 
 const CREATE_THREAD_POOL_ERROR: &str = "Failed to initialize thread pool";
 const RENDER_PROGRESS_ERROR: &str = "Failed to render progress bar";
@@ -55,14 +57,12 @@ fn main() {
             App::new("loci").long_about("Estimate editing per-loci for the whole genome.").args(cli::loci::args()),
         )
         .get_matches();
+    // Log the exact command used to call rada
+    println!("CLI: {}", env::args().join(" "));
 
     // Setup progress tracking
-    let style = ProgressStyle::default_bar()
-        .template("[{elapsed_precise}] {spinner} {msg}")
-        .tick_strings(&["▹▹▹▹▹", "▸▹▹▹▹", "▹▸▹▹▹", "▹▹▸▹▹", "▹▹▹▸▹", "▹▹▹▹▸", "▪▪▪▪▪"])
-        .on_finish(ProgressFinish::AndLeave);
     let masterbar = PanicAwareProgressManager::new();
-    let factory = || masterbar.attach(style.clone());
+    let factory = || masterbar.attach(cli::shared::style::parse::with_progress());
 
     let pbar = masterbar.attach(
         ProgressStyle::default_spinner()

@@ -1,7 +1,4 @@
-
-
-use std::path::{Path};
-
+use std::path::Path;
 
 use clap::ArgMatches;
 use indicatif::ProgressBar;

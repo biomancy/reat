@@ -1,6 +1,6 @@
 pub use inner::*;
 
-use crate::core::dna::ReqNucleotide;
+use crate::core::dna::Nucleotide;
 
 // See NucCounts note
 mod inner {
@@ -33,10 +33,10 @@ impl MismatchesSummary {
 
     #[inline]
     pub fn mismatches(&self) -> u32 {
-        self.A.mismatches(&ReqNucleotide::A)
-            + self.C.mismatches(&ReqNucleotide::C)
-            + self.G.mismatches(&ReqNucleotide::G)
-            + self.T.mismatches(&ReqNucleotide::T)
+        self.A.mismatches(&Nucleotide::A)
+            + self.C.mismatches(&Nucleotide::C)
+            + self.G.mismatches(&Nucleotide::G)
+            + self.T.mismatches(&Nucleotide::T)
     }
 
     #[inline]

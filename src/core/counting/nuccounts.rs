@@ -2,7 +2,7 @@ use std::cmp::max;
 
 pub use inner::NucCounts;
 
-use crate::core::dna::ReqNucleotide;
+use crate::core::dna::{Nucleotide, ReqNucleotide};
 
 // Workaround to disable snake_case warning for the struct.
 // Annotating struct/fields didn't work for some reasons
@@ -56,12 +56,13 @@ impl NucCounts {
     }
 
     #[inline]
-    pub fn mismatches(&self, reference: &ReqNucleotide) -> u32 {
+    pub fn mismatches(&self, reference: &Nucleotide) -> u32 {
         match reference {
-            ReqNucleotide::A => self.C + self.G + self.T,
-            ReqNucleotide::C => self.A + self.G + self.T,
-            ReqNucleotide::G => self.A + self.C + self.T,
-            ReqNucleotide::T => self.A + self.C + self.G,
+            Nucleotide::A => self.C + self.G + self.T,
+            Nucleotide::C => self.A + self.G + self.T,
+            Nucleotide::G => self.A + self.C + self.T,
+            Nucleotide::T => self.A + self.C + self.G,
+            Nucleotide::Unknown => self.A + self.C + self.G + self.T,
         }
     }
 
@@ -100,10 +101,11 @@ mod tests {
     #[test]
     fn mismatches() {
         let dummy = NucCounts { A: 1, C: 2, G: 3, T: 4 };
-        assert_eq!(dummy.mismatches(&ReqNucleotide::A), 9);
-        assert_eq!(dummy.mismatches(&ReqNucleotide::C), 8);
-        assert_eq!(dummy.mismatches(&ReqNucleotide::G), 7);
-        assert_eq!(dummy.mismatches(&ReqNucleotide::T), 6);
+        assert_eq!(dummy.mismatches(&Nucleotide::A), 9);
+        assert_eq!(dummy.mismatches(&Nucleotide::C), 8);
+        assert_eq!(dummy.mismatches(&Nucleotide::G), 7);
+        assert_eq!(dummy.mismatches(&Nucleotide::T), 6);
+        assert_eq!(dummy.mismatches(&Nucleotide::Unknown), 10);
     }
 
     #[test]

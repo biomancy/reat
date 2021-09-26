@@ -181,9 +181,8 @@ the worst-case scenario, an unknown(`.`) strand is returned.
 Second, for ROIs / loci for which **RADA** could not predict the strand from the annotation, **RADA** attempts to derive
 the strand based on the observed A->I editing.
 
-For the + strand transcripts, A->I edits are A->G mismatches, and for the - strand, T->C mismatches. Note that in
-many cases, this heuristic fails (no A->I editing at all), and such ROIs / loci will be left unstranded in the final
-table.
+For the + strand transcripts, A->I edits are A->G mismatches, and for the - strand, T->C mismatches. Note that in many
+cases, this heuristic fails (no A->I editing at all), and such ROIs / loci will be left unstranded in the final table.
 
 #### Autoref
 
@@ -192,6 +191,20 @@ With sufficient coverage, we can automatically adjust the reference sequence for
 exceeds the threshold, then the reference nucleotide is the most abundant nucleotide at that locus.
 
 Note that hyper-editing flag allows one to skip A->G and T->C corrections to explore potential hyperedited ROI/loci.
+
+#### How are `N`s handled?
+
+`N` is routinely used to indicate unknown nucleotides in assemblies and sequencing data. Here are a few notes on how `N`
+s are handled by **RADA**:
+
+* Ignored in sequencing data (reads). That is, _X->N_ mismatches are always ignored
+* For unknown nucleotide `N`, all canonical nucleotides (A, C, G, T) are treated as mismatches
+* In **rois** mode, `N` reference positions are skipped
+
+Note that the above notes apply to `N`s after _Autoref_ (if enabled). That is, in most cases, `N`s will be replaced by
+an appropriate nucleotide during _Autoref_ pass.
+
+**rois**
 
 # TODO:
 
@@ -202,7 +215,9 @@ Note that hyper-editing flag allows one to skip A->G and T->C corrections to exp
 ### CLI arguments
 
 Here is a list of arguments(`--help`) supported by the Command Line Interface (CLI):
+
 #### Shared args
+
 ```
 Core:
         --binsize <binsize>
@@ -286,6 +301,7 @@ Autoref:
 ```
 
 #### ROI mode specific
+
 ```
 Stats:
         --ei <ei>
@@ -311,7 +327,9 @@ Output filtering:
             "A" reference we have "C" + "G" + "T". For "N" reference all nucleotides are considered as mismatches. This
             is a deliberate choice to allow a subsequent user to work through / filter such records[default: 5]
 ```
+
 #### Loci mode specific
+
 ```
 Output filtering:
         --out-min-cov <out-min-cov>

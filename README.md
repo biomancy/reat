@@ -24,9 +24,9 @@ integration), the tool still lacks user feedback. We will release in a few month
 * Summarizing editing for provided regions or separate loci
 * Efficient multithreading
 * Strand prediction for unstranded libraries
-* Autoref: automatic detection and accounting for single nucleotide variants (SNV)
+* Autoref: simple yet useful inference of single nucleotide variants (SNV)
 * Editing Index (EI) for the given set of ROI
-* Flexible filtering options with good default settings
+* Flexible filtering options with reasonable default settings
 
 See [details](#details) section for more in-depth explanation of some features.
 
@@ -59,6 +59,7 @@ rada --help
 
 Follow [this](https://www.rust-lang.org/tools/install) page to install rust toolchain if you don't have one.
 
+In addition, one will need CMake (for zlib-ng), which should be available in most package managers (e.g, `apt install cmake`).
 ### Basic usage
 
 **RADA** supports two modes: ROI-based and loci-based.
@@ -192,7 +193,7 @@ exceeds the threshold, then the reference nucleotide is the most abundant nucleo
 
 Note that hyper-editing flag allows one to skip A->G and T->C corrections to explore potential hyperedited ROI/loci.
 
-#### How are `N`s handled?
+#### How `N`s are handled?
 
 `N` is routinely used to indicate unknown nucleotides in assemblies and sequencing data. Here are a few notes on how `N`
 s are handled by **RADA**:
@@ -204,13 +205,19 @@ s are handled by **RADA**:
 Note that the above notes apply to `N`s after _Autoref_ (if enabled). That is, in most cases, `N`s will be replaced by
 an appropriate nucleotide during _Autoref_ pass.
 
-**rois**
+#### What are include/exclude lists?
+In short, these lists specify DNA regions that will be included or excluded from the analysis completely.  
 
-# TODO:
+For **loci** mode, this implies processing only loci inside provided regions(include) or completely skipping some 
+assembly regions/contigs (exclude).
 
-- Editing indices (Non-synonimous editing index)
-- Graph: (RAM usage per thread) vs (#threads)
-- Graph: (Speedup against REDItools) vs (#threads) + note about run time
+In **rois** regime, everything is slightly more complicated. The "include"/"exclude" regions determine which sub-ROIs of provided ROIs will be processed.
+
+That is, all ROIs outside the included regions are discarded. Same for ROIs inside excluded list.
+
+If a given ROI overlaps with the include list, then only "included" nucleotides will be counted. Similarly with exclude list, all nucleotides in a ROI will be counted except for "excluded" ones.
+
+Regardless of the overlap with excluded / included regions, the ROIs will be printed with their original coordinates and names to make them distinguishable in the subsequent analysis. This is what makes usage of include/exclude regions different from simply subtracting/intersting ROIs with them - original ROIs won't be splitted in the output.
 
 ### CLI arguments
 
@@ -249,6 +256,15 @@ Core:
 
 
 Reads filtering:
+    -3, --trim3 <trim3>
+            Trim bases from the 3’ (right) end of each read before processing. Can be used to hard skip low-quality
+            bases at the end of reads if no trimming was done before / during the alignment.[default: 0]
+
+    -5, --trim5 <trim5>
+            Trim bases from the 5’ (left) end of each read before processing. In particular, one can skip the first ~12
+            bases with non-random composition due to priming biases, what is a common anomaly in short-read RNA-seq
+            experiments.[default: 0]
+
         --ex-flags <ex-flags>
             Exclude reads for which any of the specified BAM flags are set. For example, a value of 2820 will result in
             skipping unmapped reads, supplementary and secondary alignments, reads that fail platform/vendor quality
@@ -256,7 +272,7 @@ Reads filtering:
 
         --in-flags <in-flags>
             Include only reads for which all the specified BAM flags are set. For example, a value of 3 will result in
-            skipping reads that were not mapped in proper pairs. Use zero(0) to disable this filter[default: 0]
+            keeping only reads that were mapped in proper pairs. Use zero(0) to disable this filter[default: 0]
 
         --mapq <mapq>
             Count only reads with mapq ≥ threshold. Note that reads with mapq = 255 are skipped by default(mapq 255
@@ -273,7 +289,7 @@ Reads filtering:
 
 Stranding:
         --annotation <annotation>
-            Genome annotation in the GFF3 format. Genomic features (exons and genes) are used to inference loci/ROI
+            Genome annotation in the GFF3 format. Genomic features (exons and genes) are used only to inference loci/ROI
             strand based on the most likely direction of transcription (see the GitHub documentation for details). It is
             recommended to provide genome annotation for unstranded libraries, otherwise stranding will be highly
             inaccurate.

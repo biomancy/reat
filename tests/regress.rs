@@ -63,6 +63,24 @@ mod loci {
     use super::*;
 
     #[test]
+    fn trimming() {
+        // rada loci --input resources/bam/SRX6966474.bam -r resources/GRCh38/Homo_sapiens.GRCh38.dna.primary_assembly.fa.gz -s "f/s" -n Test -5 10 --trim3 2 --mapq-255 -o resources/expected/loci/trimmed.tsv
+        let expected = paths::expected::LOCI.join("trimmed.tsv");
+        assert!(expected.is_file());
+
+        let tmp = NamedTempFile::new().expect(TMP_CREATE_ERROR);
+        #[rustfmt::skip]
+            let args = [
+            "test", "--input", &paths::bam::EXAMPLE, "--reference", &paths::GRCh38::FASTA, "-s", "f/s",
+            "-n", "Test", "-5", "10", "--trim3", "2", "--mapq-255", "-o", tmp.path().to_str().unwrap(),
+        ];
+        run(&args, SubCommand::loci);
+
+        assert!(same(tmp.path(), &expected.as_path()));
+        tmp.close().expect(TMP_DELETE_ERROR);
+    }
+
+    #[test]
     fn deducted_strand() {
         // rada loci --input resources/bam/SRX6966474.bam -r resources/GRCh38/Homo_sapiens.GRCh38.dna.primary_assembly.fa.gz -s "f/s" -n Test --out-min-cov 20 --mapq-255 -o resources/expected/loci/deducted.tsv
         let expected = paths::expected::LOCI.join("deducted.tsv");
@@ -122,6 +140,25 @@ mod loci {
 mod rois {
     use super::*;
     use std::fs;
+
+    #[test]
+    fn trimming() {
+        // rada rois -i resources/bam/SRX6966474.bam -r resources/GRCh38/Homo_sapiens.GRCh38.dna.primary_assembly.fa.gz -s "f/s" --out-min-cov 30 -n Test --mapq-255 --in-flags=3 --trim5=2 -3 10 --rois resources/GRCh38/Alu.bed.gz --hyperedit -o resources/expected/rois/trimmed.tsv
+        let expected = paths::expected::ROIS.join("trimmed.tsv");
+        assert!(expected.is_file());
+
+        let tmp = NamedTempFile::new().expect(TMP_CREATE_ERROR);
+        #[rustfmt::skip]
+            let args = [
+            "test", "-i", &paths::bam::EXAMPLE, "-r", &paths::GRCh38::FASTA, "-s", "f/s", "--out-min-cov", "30",
+            "-n", "Test", "--mapq-255", "--in-flags", "3", "--trim5", "2", "-3", "10", "--rois", &paths::GRCh38::ALU, 
+            "--hyperedit", "-o", tmp.path().to_str().unwrap(),
+        ];
+        run(&args, SubCommand::rois);
+
+        assert!(same(tmp.path(), &expected.as_path()));
+        tmp.close().expect(TMP_DELETE_ERROR);
+    }
 
     #[test]
     fn deducted_strand() {

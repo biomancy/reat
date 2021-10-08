@@ -303,10 +303,12 @@ pub struct CoreArgs {
 
 impl CoreArgs {
     pub fn new(args: &ArgMatches, factory: impl Fn() -> ProgressBar) -> Self {
+        let name = parse::name(factory(), args);
+        let threads = parse::threads(factory(), args);
         let (trim5, trim3) = parse::trimming(factory(), args);
         Self {
-            name: parse::name(factory(), args),
-            threads: parse::threads(factory(), args),
+            name,
+            threads,
             trim5,
             trim3,
             bamfiles: parse::bamfiles(factory(), args),

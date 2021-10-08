@@ -144,16 +144,21 @@ pub fn strandpred(pbar: ProgressBar, matches: &ArgMatches) -> SequentialStrandPr
 pub fn refnucpred(pbar: ProgressBar, matches: &ArgMatches) -> RefNucPredByHeurisitc {
     pbar.set_message("Parsing reference prediction parameters...");
 
-    let (mincoverage, minfreq) = (
+    let (mincoverage, minfreq, hyperedit) = (
         matches.value_of(args::autoref::MIN_COVERAGE).unwrap().parse().unwrap(),
         matches.value_of(args::autoref::MIN_FREQ).unwrap().parse().unwrap(),
+        matches.is_present(args::autoref::HYPEREDITING),
     );
-    let result = RefNucPredByHeurisitc::new(mincoverage, minfreq, matches.is_present(args::autoref::HYPEREDITING));
-    pbar.finish_with_message(format!(
-        "Reference prediction for loci with coverage >= {} and most common nucleotide frequency >= {}",
+    let result = RefNucPredByHeurisitc::new(mincoverage, minfreq, hyperedit);
+    let mut msg = format!(
+        "Reference prediction for loci with coverage >= {} and most common nucleotide frequency >= {}.",
         result.mincoverage(),
         result.freqthr()
-    ));
+    );
+    if hyperedit {
+        msg += " A->G or T->C corrections disabled (hyper editing mode)."
+    }
+    pbar.finish_with_message(msg);
     result
 }
 

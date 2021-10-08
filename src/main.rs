@@ -7,7 +7,8 @@ use rayon::ThreadPoolBuilder;
 use itertools::Itertools;
 use rada::cli;
 use rada::cli::shared::args::CoreArgs;
-use std::env;
+use std::io::Write;
+use std::{env, io};
 
 const CREATE_THREAD_POOL_ERROR: &str = "Failed to initialize thread pool";
 const RENDER_PROGRESS_ERROR: &str = "Failed to render progress bar";
@@ -28,6 +29,8 @@ impl PanicAwareProgressManager {
             for x in clone.lock.lock().unwrap().iter() {
                 x.abandon();
             }
+            // Flush and ignore possible errors, we can't do anything anyway
+            let _ = (io::stdout().flush(), io::stderr().flush());
             hook(info);
         }));
         obj
@@ -50,7 +53,7 @@ fn main() {
         .setting(AppSettings::SubcommandRequiredElseHelp)
         .subcommand(
             App::new("rois")
-                .long_about("Quantify editing for the specified set of Regions Of Interest (ROIs)")
+                .long_about("Quantify editing for the specified Regions Of Interest (ROIs)")
                 .args(cli::rois::args()),
         )
         .subcommand(

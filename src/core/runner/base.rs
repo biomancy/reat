@@ -34,12 +34,22 @@ impl<Counter: NucCounter<Record>, RefNucPred: RefNucPredictor> BaseRunner<Counte
         let htsreaders: Vec<bam::IndexedReader> = htsfiles
             .iter()
             .map(|hts| {
-                bam::IndexedReader::from_path(&hts)
-                    .unwrap_or_else(|_| panic!("Failed to open file {} (index missed?)", hts.display()))
+                bam::IndexedReader::from_path(&hts).unwrap_or_else(|_| {
+                    panic!(
+                        "Failed to open file {}\n\
+                        Possible reasons: BAM file was not indexed (samtools index); you don't have read permissions",
+                        hts.display()
+                    )
+                })
             })
             .collect();
-        let refreader = faidx::Reader::from_path(reference.as_path())
-            .unwrap_or_else(|_| panic!("Failed to open file {} (index missed?)", reference.display()));
+        let refreader = faidx::Reader::from_path(reference.as_path()).unwrap_or_else(|_| {
+            panic!(
+                "Failed to open file {}\n\
+                Possible reasons: fasta file was not indexed (samtools faidx); you don't have read permissions",
+                reference.display()
+            )
+        });
         Self {
             htsreaders,
             htsfiles,

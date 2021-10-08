@@ -3,17 +3,16 @@ use std::marker::PhantomData;
 use std::ops::Range;
 
 use bio_types::genome::{AbstractInterval, Interval};
-use bio_types::strand::Strand;
-
+use bio_types::strand::{ReqStrand, Strand};
 use rust_htslib::bam::record::Cigar;
 
 use crate::core::counting::buffers::NucCounts;
 use crate::core::counting::nuccounter::{CountingResult, NucCounter};
 use crate::core::filtering::reads::ReadsFilter;
 use crate::core::read::AlignedRead;
+use crate::core::workload::ROIWorkload;
 
 use super::super::buffers::CountsBuffer;
-use crate::core::workload::ROIWorkload;
 
 #[derive(Clone)]
 pub struct BaseNucCounter<R: AlignedRead, Filter: ReadsFilter<R>, Buffer: CountsBuffer> {
@@ -21,6 +20,8 @@ pub struct BaseNucCounter<R: AlignedRead, Filter: ReadsFilter<R>, Buffer: Counts
     buffer: Buffer,
     matched: Vec<Range<u32>>,
     mapped: u32,
+    trim5: usize,
+    trim3: usize,
     phantom: PhantomData<fn() -> R>,
 }
 
@@ -30,9 +31,17 @@ impl<R: AlignedRead, Filter: ReadsFilter<R>, Buffer: CountsBuffer> BaseNucCounte
         self.filter.is_read_ok(record) && record.contig() == self.buffer.interval().contig()
     }
 
-    pub fn new(filter: Filter, buffer: Buffer) -> Self {
+    pub fn new(filter: Filter, buffer: Buffer, trim5: u16, trim3: u16) -> Self {
         let matched = Vec::with_capacity(5);
-        BaseNucCounter { filter, buffer, matched, mapped: 0, phantom: Default::default() }
+        BaseNucCounter {
+            filter,
+            buffer,
+            matched,
+            mapped: 0,
+            trim5: trim5 as usize,
+            trim3: trim3 as usize,
+            phantom: Default::default(),
+        }
     }
 
     fn implprocess(&mut self, read: &mut R) -> &[NucCounts] {
@@ -44,12 +53,23 @@ impl<R: AlignedRead, Filter: ReadsFilter<R>, Buffer: CountsBuffer> BaseNucCounte
         let counts = self.buffer.buffer_mut();
         self.matched.clear();
 
-        for cigar in read.cigar().iter() {
-            if roipos >= roisize {
+        // Read is too short
+        if read.len() <= (self.trim5 + self.trim3) {
+            return counts;
+        }
+
+        let (minseqpos, maxseqpos) = match read.strand() {
+            ReqStrand::Forward => (self.trim5, read.len() - self.trim3),
+            ReqStrand::Reverse => (self.trim3, read.len() - self.trim5),
+        };
+
+        for block in read.cigar().iter() {
+            if roipos >= roisize || seqpos >= maxseqpos {
                 break;
             }
-            match cigar {
+            match block {
                 Cigar::Match(ops) | Cigar::Equal(ops) | Cigar::Diff(ops) => {
+                    // fast-end when possible
                     let end = min(roisize as i64, roipos + *ops as i64);
                     // fast-forward when possible
                     if roipos < 0 {
@@ -62,7 +82,7 @@ impl<R: AlignedRead, Filter: ReadsFilter<R>, Buffer: CountsBuffer> BaseNucCounte
                     let start = roipos;
                     for _ in start..end {
                         debug_assert!(roipos < roisize);
-                        if self.filter.is_base_ok(read, seqpos) {
+                        if seqpos >= minseqpos && seqpos < maxseqpos && self.filter.is_base_ok(read, seqpos) {
                             debug_assert!(roipos >= 0);
                             // From the SAM specification: No assumptions can be made on the letter cases
                             match sequence[seqpos as usize] {
@@ -150,8 +170,9 @@ impl<R: AlignedRead, Filter: ReadsFilter<R>, Buffer: CountsBuffer> NucCounter<R>
 mod tests {
     use std::ops::Range;
 
-    use rust_htslib::bam::record::Cigar::*;
     use rust_htslib::bam::record::CigarString;
+
+    use shortcats::*;
 
     use crate::core::counting::NucCounts;
     use crate::core::filtering::reads::MockReadsFilter;
@@ -160,10 +181,65 @@ mod tests {
     use super::super::super::buffers::MockCountsBuffer;
     use super::*;
 
-    fn _implprocess(
+    mod shortcats {
+        #![allow(non_snake_case)]
+
+        use rust_htslib::bam::record::Cigar;
+        use rust_htslib::bam::record::Cigar::*;
+
+        use crate::core::counting::NucCounts;
+
+        pub fn Z() -> NucCounts {
+            NucCounts::zeros()
+        }
+        pub fn A() -> NucCounts {
+            NucCounts::A(1)
+        }
+        pub fn C() -> NucCounts {
+            NucCounts::C(1)
+        }
+        pub fn G() -> NucCounts {
+            NucCounts::G(1)
+        }
+        pub fn T() -> NucCounts {
+            NucCounts::T(1)
+        }
+
+        pub fn M(x: u32) -> Cigar {
+            Match(x)
+        }
+        pub fn X(x: u32) -> Cigar {
+            Diff(x)
+        }
+        pub fn E(x: u32) -> Cigar {
+            Equal(x)
+        }
+        pub fn D(x: u32) -> Cigar {
+            Del(x)
+        }
+        pub fn N(x: u32) -> Cigar {
+            RefSkip(x)
+        }
+        pub fn H(x: u32) -> Cigar {
+            HardClip(x)
+        }
+        pub fn P(x: u32) -> Cigar {
+            Pad(x)
+        }
+        pub fn S(x: u32) -> Cigar {
+            SoftClip(x)
+        }
+        pub fn I(x: u32) -> Cigar {
+            Ins(x)
+        }
+    }
+
+    fn run(
+        trim: (u16, u16),
         roi: Range<u64>,
         pos: i64,
         seq: &str,
+        strand: ReqStrand,
         okbase: Vec<bool>,
         cigar: Vec<Cigar>,
         excounts: &[NucCounts],
@@ -182,12 +258,14 @@ mod tests {
             filter.expect_is_base_ok().once().return_const(isok);
         }
 
-        let mut counter = BaseNucCounter::new(filter, buffer);
+        let mut counter = BaseNucCounter::new(filter, buffer, trim.0, trim.1);
         counter.reset(ROIWorkload::default());
 
         let mut read = MockRead::new();
         read.expect_pos().return_const(pos);
+        read.expect_len().return_const(seq.len());
         read.expect_cigar().return_once(move || CigarString(cigar).into_view(pos));
+        read.expect_strand().return_const(strand);
         let seq = String::from(seq);
         read.expect_seq().returning(move || seq.as_bytes().to_vec());
 
@@ -198,83 +276,178 @@ mod tests {
     #[test]
     #[allow(non_snake_case)]
     fn implprocess() {
-        let A = || NucCounts::A(1);
-        let C = || NucCounts::C(1);
-        let G = || NucCounts::G(1);
-        let T = || NucCounts::T(1);
-        let Z = || NucCounts::zeros();
-
         // Query consuming operations only
-        let M = |x| Match(x);
-        let X = |x| Diff(x);
-        let E = |x| Equal(x);
         for op in [M, X, E] {
             // complete overlap with the region
-            _implprocess(
+            run(
+                (0, 0),
                 0..4,
                 0,
                 "ACGT",
+                ReqStrand::Forward,
                 vec![true, true, true, true],
                 vec![op(4)],
                 &vec![A(), C(), G(), T()],
                 &vec![0..4],
             );
             // inside region
-            _implprocess(0..4, 1, "AC", vec![true, true], vec![op(2)], &vec![Z(), A(), C(), Z()], &vec![1..3]);
+            run(
+                (0, 0),
+                0..4,
+                1,
+                "AC",
+                ReqStrand::Forward,
+                vec![true, true],
+                vec![op(2)],
+                &vec![Z(), A(), C(), Z()],
+                &vec![1..3],
+            );
             // completely out of the region
-            _implprocess(0..4, 4, "ACGT", vec![], vec![op(4)], &vec![Z(), Z(), Z(), Z()], &vec![]);
+            run((0, 0), 0..4, 4, "ACGT", ReqStrand::Reverse, vec![], vec![op(4)], &vec![Z(), Z(), Z(), Z()], &vec![]);
             // end out of the region
-            _implprocess(0..4, 2, "ACGT", vec![true, true], vec![op(4)], &vec![Z(), Z(), A(), C()], &vec![2..4]);
+            run(
+                (0, 0),
+                0..4,
+                2,
+                "ACGT",
+                ReqStrand::Forward,
+                vec![true, true],
+                vec![op(4)],
+                &vec![Z(), Z(), A(), C()],
+                &vec![2..4],
+            );
             // start out of the region
-            _implprocess(0..4, -1, "ACGT", vec![true, true, true], vec![op(4)], &vec![C(), G(), T(), Z()], &vec![0..3]);
+            run(
+                (0, 0),
+                0..4,
+                -1,
+                "ACGT",
+                ReqStrand::Reverse,
+                vec![true, true, true],
+                vec![op(4)],
+                &vec![C(), G(), T(), Z()],
+                &vec![0..3],
+            );
         }
 
         // No-ops + reference/query consuming operations only
-        let D = |x| Del(x);
-        let N = |x| RefSkip(x);
-        let H = |x| HardClip(x);
-        let P = |x| Pad(x);
-        let S = |x| SoftClip(x);
-        let I = |x| Ins(x);
-
         let empty = vec![Z()].repeat(4);
         for op in [D, N, H, P, S, I] {
             // complete overlap with the region
-            _implprocess(0..4, 0, "ACGT", vec![], vec![op(4)], &empty, &vec![]);
+            run((0, 0), 0..4, 0, "ACGT", ReqStrand::Forward, vec![], vec![op(4)], &empty, &vec![]);
             // inside region
-            _implprocess(0..4, 1, "AC", vec![], vec![op(2)], &empty, &vec![]);
+            run((0, 0), 0..4, 1, "AC", ReqStrand::Reverse, vec![], vec![op(2)], &empty, &vec![]);
             // completely out of the region
-            _implprocess(0..4, 4, "ACGT", vec![], vec![op(4)], &empty, &vec![]);
+            run((0, 0), 0..4, 4, "ACGT", ReqStrand::Forward, vec![], vec![op(4)], &empty, &vec![]);
             // end out of the region
-            _implprocess(0..4, 2, "ACGT", vec![], vec![op(4)], &empty, &vec![]);
+            run((0, 0), 0..4, 2, "ACGT", ReqStrand::Reverse, vec![], vec![op(4)], &empty, &vec![]);
             // start out of the region
-            _implprocess(0..4, -1, "ACGT", vec![], vec![op(4)], &empty, &vec![]);
+            run((0, 0), 0..4, -1, "ACGT", ReqStrand::Forward, vec![], vec![op(4)], &empty, &vec![]);
         }
 
         // Complex queries
-        _implprocess(
+        run(
+            (0, 0),
             2..5,
             0,
             "AGC",
+            ReqStrand::Forward,
+            vec![true],
+            vec![D(4), M(1), N(3), M(2)],
+            &vec![Z(), Z(), A()],
+            &vec![2..3],
+        );
+        run((0, 0), 2..5, 0, "AGC", ReqStrand::Reverse, vec![false], vec![M(3)], &vec![Z(), Z(), Z()], &vec![]);
+        run(
+            (0, 0),
+            2..5,
+            0,
+            "AGC",
+            ReqStrand::Reverse,
+            vec![true, true],
+            vec![M(1), N(2), M(2)],
+            &vec![Z(), G(), C()],
+            &vec![1..3],
+        );
+        run(
+            (0, 0),
+            1..5,
+            0,
+            "NNN",
+            ReqStrand::Forward,
+            vec![true, true],
+            vec![M(1), N(2), M(2)],
+            &vec![Z(), Z(), Z(), Z()],
+            &vec![2..4],
+        );
+
+        run(
+            (0, 0),
+            2..5,
+            0,
+            "AGC",
+            ReqStrand::Forward,
             vec![true, true],
             vec![D(2), M(1), N(1), M(1), N(1), M(1)],
             &vec![A(), Z(), G()],
             &vec![0..1, 2..3],
         );
-        _implprocess(2..5, 0, "AGC", vec![true], vec![D(4), M(1), N(3), M(2)], &vec![Z(), Z(), A()], &vec![2..3]);
-        _implprocess(2..5, 0, "AGC", vec![false], vec![M(3)], &vec![Z(), Z(), Z()], &vec![]);
-        _implprocess(2..5, 0, "AGC", vec![true, true], vec![M(1), N(2), M(2)], &vec![Z(), G(), C()], &vec![1..3]);
-        _implprocess(1..5, 0, "NNN", vec![true, true], vec![M(1), N(2), M(2)], &vec![Z(), Z(), Z(), Z()], &vec![2..4]);
-
-        _implprocess(
+        run(
+            (0, 0),
             0..10,
             0,
             "ACGTNNGTAG",
+            ReqStrand::Reverse,
             vec![true, true, false, true, true, true, true, false, true, true],
             vec![M(10)],
             &vec![A(), C(), Z(), T(), Z(), Z(), G(), Z(), A(), G()],
             &vec![0..2, 3..7, 8..10],
         );
+    }
+
+    #[test]
+    fn trim() {
+        // normal trimming
+        run(
+            (1, 2),
+            1..6,
+            1,
+            "ACGT",
+            ReqStrand::Forward,
+            vec![true],
+            vec![M(4)],
+            &vec![Z(), C(), Z(), Z(), Z()],
+            &vec![1..2],
+        );
+        run(
+            (1, 2),
+            1..6,
+            1,
+            "ACGT",
+            ReqStrand::Reverse,
+            vec![true],
+            vec![M(4)],
+            &vec![Z(), Z(), G(), Z(), Z()],
+            &vec![2..3],
+        );
+
+        // trim all bases from 5` or 3`
+        let ex = (vec![Z()].repeat(10), vec![]);
+        for trim in [3, 6] {
+            run((trim, 0), 10..20, 10, "ACG", ReqStrand::Forward, vec![], vec![M(3)], &ex.0, &ex.1);
+            run((0, trim), 10..20, 17, "ACG", ReqStrand::Forward, vec![], vec![M(3)], &ex.0, &ex.1);
+            run((trim, trim), 10..20, 17, "ACG", ReqStrand::Reverse, vec![], vec![M(3)], &ex.0, &ex.1);
+        }
+
+        // Read out of the roi + trim
+        run((2, 1), 3..4, 0, "ACGTA", ReqStrand::Forward, vec![true], vec![M(5)], &vec![T()], &vec![0..1]);
+        run((2, 1), 3..4, 1, "ACGTA", ReqStrand::Reverse, vec![true], vec![M(5)], &vec![G()], &vec![0..1]);
+
+        run((0, 3), 0..2, 0, "AGTA", ReqStrand::Forward, vec![true], vec![M(4)], &vec![A(), Z()], &vec![0..1]);
+        run((0, 3), 0..2, 0, "AGTA", ReqStrand::Reverse, vec![], vec![M(4)], &vec![Z(), Z()], &vec![]);
+
+        run((2, 0), 2..4, 1, "CGTA", ReqStrand::Forward, vec![true], vec![M(4)], &vec![Z(), T()], &vec![1..2]);
+        run((2, 0), 2..4, 1, "CGTA", ReqStrand::Reverse, vec![true], vec![M(4)], &vec![G(), Z()], &vec![0..1]);
     }
 
     #[test]
@@ -293,7 +466,7 @@ mod tests {
 
             let mut buffer = MockCountsBuffer::default();
             buffer.expect_interval().return_const(interval.clone());
-            let dummy = BaseNucCounter::new(filter, buffer);
+            let dummy = BaseNucCounter::new(filter, buffer, 4, 0);
 
             let mut read = MockRead::new();
             read.expect_contig().return_const(ctg.clone());

@@ -113,6 +113,8 @@ pub mod reads_filtering {
     pub const INCLUDE_FLAGS: &str = "in-flags";
     pub const EXCLUDE_FLAGS: &str = "ex-flags";
     pub const PHREAD: &str = "phread";
+    pub const TRIM5: &str = "trim5";
+    pub const TRIM3: &str = "trim3";
 
     pub const SECTION_NAME: &str = "Reads filtering";
 
@@ -140,7 +142,7 @@ pub mod reads_filtering {
                 .default_value("0")
                 .long_about(
                     "Include only reads for which all the specified BAM flags are set. \
-                    For example, a value of 3 will result in skipping reads that were not mapped in proper pairs. \
+                    For example, a value of 3 will result in keeping only reads that were mapped in proper pairs. \
                     Use zero(0) to disable this filter",
                 ),
             Arg::new(EXCLUDE_FLAGS)
@@ -163,6 +165,28 @@ pub mod reads_filtering {
                     "Count only bases with phread ≥ threshold. \
                     For reference, Phread is defined as -10 log₁₀[error probability], \
                     so Phread = 20 means 1 error in 100 base calls",
+                ),
+            Arg::new(TRIM5)
+                .short('5')
+                .long(TRIM5)
+                .settings(&defaults())
+                .validator(validate::numeric(0u16, 65535u16))
+                .default_value("0")
+                .long_about(
+                    "Trim bases from the 5’ (left) end of each read before processing. \
+                    In particular, one can skip the first ~12 bases with non-random composition due to priming biases, \
+                    what is a common anomaly in short-read RNA-seq experiments.",
+                ),
+            Arg::new(TRIM3)
+                .short('3')
+                .long(TRIM3)
+                .settings(&defaults())
+                .validator(validate::numeric(0u16, 65535u16))
+                .default_value("0")
+                .long_about(
+                    "Trim bases from the 3’ (right) end of each read before processing. \
+                    Can be used to hard skip low-quality bases at the end of reads if no trimming was done \
+                    before / during the alignment.",
                 ),
         ];
         args.into_iter().map(|x| x.help_heading(Some(SECTION_NAME))).collect()
@@ -226,7 +250,7 @@ pub mod stranding {
         let args = vec![
             Arg::new(ANNOTATION).long(ANNOTATION).settings(&defaults()).validator(validate::path).long_about(
                 "Genome annotation in the GFF3 format. \
-                    Genomic features (exons and genes) are used to inference loci/ROI strand based on the most \
+                    Genomic features (exons and genes) are used only to inference loci/ROI strand based on the most \
                     likely direction of transcription (see the GitHub documentation for details). \
                     It is recommended to provide genome annotation for unstranded libraries, \
                     otherwise stranding will be highly inaccurate.",
@@ -267,6 +291,8 @@ pub fn all<'a>() -> Vec<Arg<'a>> {
 pub struct CoreArgs {
     pub name: String,
     pub threads: usize,
+    pub trim5: u16,
+    pub trim3: u16,
     pub bamfiles: Vec<PathBuf>,
     pub reference: PathBuf,
     pub refnucpred: RefNucPredByHeurisitc,
@@ -277,9 +303,12 @@ pub struct CoreArgs {
 
 impl CoreArgs {
     pub fn new(args: &ArgMatches, factory: impl Fn() -> ProgressBar) -> Self {
+        let (trim5, trim3) = parse::trimming(factory(), args);
         Self {
             name: parse::name(factory(), args),
             threads: parse::threads(factory(), args),
+            trim5,
+            trim3,
             bamfiles: parse::bamfiles(factory(), args),
             reference: parse::reference(factory(), args),
             refnucpred: parse::refnucpred(factory(), args),

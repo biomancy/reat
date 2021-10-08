@@ -171,8 +171,13 @@ impl ROIWorkload {
         let hts = hts
             .iter()
             .map(|x| {
-                IndexedReader::from_path(x)
-                    .unwrap_or_else(|_| panic!("Failed to open file {} (index missed?)", x.as_ref().display()))
+                IndexedReader::from_path(x).unwrap_or_else(|_| {
+                    panic!(
+                        "Failed to open file {}\n\
+                        Possible reasons: BAM file was not indexed (samtools index); you don't have read permissions",
+                        x.as_ref().display()
+                    )
+                })
             })
             .collect_vec();
 

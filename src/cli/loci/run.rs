@@ -40,14 +40,21 @@ pub fn run(args: &ArgMatches, mut core: CoreArgs, factory: impl Fn() -> Progress
 
     let summary = match core.stranding {
         Stranding::Unstranded => {
-            let counter = BaseNucCounter::new(core.readfilter, FlatBuffer::new(args.maxwsize as usize));
+            let counter =
+                BaseNucCounter::new(core.readfilter, FlatBuffer::new(args.maxwsize as usize), core.trim5, core.trim3);
             let runner = BaseRunner::new(core.bamfiles, core.reference, counter, core.refnucpred);
             process(args.workload, runner, args.strandpred, args.outfilter, oniter, onfinish)
         }
         Stranding::Stranded(design) => {
             let deductor = DeductStrandByDesign::new(design);
-            let forward = BaseNucCounter::new(core.readfilter.clone(), FlatBuffer::new(args.maxwsize as usize));
-            let reverse = BaseNucCounter::new(core.readfilter, FlatBuffer::new(args.maxwsize as usize));
+            let forward = BaseNucCounter::new(
+                core.readfilter.clone(),
+                FlatBuffer::new(args.maxwsize as usize),
+                core.trim5,
+                core.trim3,
+            );
+            let reverse =
+                BaseNucCounter::new(core.readfilter, FlatBuffer::new(args.maxwsize as usize), core.trim5, core.trim3);
             let counter = StrandedNucCounter::new(forward, reverse, deductor);
             let runner = BaseRunner::new(core.bamfiles, core.reference, counter, core.refnucpred);
             process(args.workload, runner, args.strandpred, args.outfilter, oniter, onfinish)

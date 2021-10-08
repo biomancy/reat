@@ -51,6 +51,21 @@ pub fn readfilter(
     SequentialReadsFilter::new(byquality, byflags)
 }
 
+pub fn trimming(pbar: ProgressBar, matches: &ArgMatches) -> (u16, u16) {
+    pbar.set_message("Parsing trimming options...");
+    let (trim5, trim3) = (
+        matches.value_of(args::reads_filtering::TRIM5).unwrap().parse().unwrap(),
+        matches.value_of(args::reads_filtering::TRIM3).unwrap().parse().unwrap(),
+    );
+
+    if trim5 != 0 || trim3 != 0 {
+        pbar.finish_with_message(format!("Reads trimming: 5`: {}bp; 3`: {}bp.", trim5, trim3));
+    } else {
+        pbar.finish_with_message("Reads trimming disabled.");
+    }
+    (trim5, trim3)
+}
+
 pub fn saveto(pbar: ProgressBar, matches: &ArgMatches) -> BufWriter<File> {
     pbar.set_message("Parsing output path...");
     let result = matches.value_of(args::core::SAVETO).unwrap();
@@ -64,7 +79,7 @@ pub fn stranding(pbar: ProgressBar, matches: &ArgMatches) -> Stranding {
     let stranding = Stranding::from_str(matches.value_of(args::core::STRANDING).unwrap()).unwrap();
     let msg = match stranding {
         Stranding::Unstranded => {
-            "Unstranded library, regions/loci strand will predicted by heuristic"
+            "Unstranded library, regions/loci strand will be predicted by heuristic"
         }
         Stranding::Stranded(x) => {
             match x {

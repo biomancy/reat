@@ -1,7 +1,8 @@
 use std::cell::RefCell;
+use std::collections::{HashMap, HashSet};
 use std::ops::DerefMut;
 
-use bio_types::genome::{AbstractInterval, Locus};
+use bio_types::genome::{AbstractInterval, AbstractLocus, Locus};
 use clap::ArgMatches;
 use indicatif::ProgressBar;
 use itertools::zip;
@@ -43,7 +44,7 @@ pub fn run(args: &ArgMatches, mut core: CoreArgs, factory: impl Fn() -> Progress
             let counter =
                 BaseNucCounter::new(core.readfilter, FlatBuffer::new(args.maxwsize as usize), core.trim5, core.trim3);
             let runner = BaseRunner::new(core.bamfiles, core.reference, counter, core.refnucpred);
-            process(args.workload, runner, args.strandpred, args.outfilter, oniter, onfinish)
+            process(args.workload, runner, args.strandpred, args.outfilter, args.forcelist, oniter, onfinish)
         }
         Stranding::Stranded(design) => {
             let deductor = DeductStrandByDesign::new(design);
@@ -57,7 +58,7 @@ pub fn run(args: &ArgMatches, mut core: CoreArgs, factory: impl Fn() -> Progress
                 BaseNucCounter::new(core.readfilter, FlatBuffer::new(args.maxwsize as usize), core.trim5, core.trim3);
             let counter = StrandedNucCounter::new(forward, reverse, deductor);
             let runner = BaseRunner::new(core.bamfiles, core.reference, counter, core.refnucpred);
-            process(args.workload, runner, args.strandpred, args.outfilter, oniter, onfinish)
+            process(args.workload, runner, args.strandpred, args.outfilter, args.forcelist, oniter, onfinish)
         }
     };
 
@@ -75,6 +76,7 @@ pub fn process<
     runner: Rnr,
     strandpred: StrandPred,
     filter: Filter,
+    forcelist: Option<HashMap<String, HashSet<u64>>>,
     oniter: OnIteration,
     onfinish: OnFinish,
 ) -> Vec<LocusSummary> {
@@ -84,7 +86,7 @@ pub fn process<
         .map(|w| {
             let mut ctx = ctxstore.get().borrow_mut();
             let (rnr, strandpred, filter) = ctx.deref_mut();
-            let result = doiter(w, rnr, strandpred, filter);
+            let result = doiter(w, rnr, strandpred, filter, forcelist.as_ref());
             oniter(&result);
             result
         })
@@ -102,6 +104,7 @@ fn doiter(
     rnr: &mut impl Runner,
     strandpred: &impl LocusStrandPredictor,
     filter: &impl LocusSummaryFilter,
+    forcelist: Option<&HashMap<String, HashSet<u64>>>,
 ) -> Vec<LocusSummary> {
     let (mut unstranded, stranded): (Vec<LocusSummary>, Vec<LocusSummary>) = rnr
         .run(w)
@@ -122,7 +125,22 @@ fn doiter(
         item.strand = strand;
     }
 
-    unstranded.into_iter().chain(stranded.into_iter()).filter(|x| filter.is_ok(x)).collect()
+    unstranded
+        .into_iter()
+        .chain(stranded.into_iter())
+        .filter(|x| {
+            if filter.is_ok(x) {
+                return true;
+            }
+
+            if let Some(z) = forcelist {
+                let forced = z.get(x.locus.contig()).map(|set| set.contains(&x.locus.pos()));
+                forced.is_some() && forced.unwrap()
+            } else {
+                false
+            }
+        })
+        .collect()
 }
 
 // #[cfg(test)]

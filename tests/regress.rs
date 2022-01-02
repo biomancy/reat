@@ -64,7 +64,7 @@ mod loci {
 
     #[test]
     fn trimming() {
-        // rada loci --input resources/bam/SRX6966474.bam -r resources/GRCh38/Homo_sapiens.GRCh38.dna.primary_assembly.fa.gz -s "f/s" -n Test -5 10 --trim3 2 --mapq-255 -o resources/expected/loci/trimmed.tsv
+        // rada site --input resources/bam/SRX6966474.bam -r resources/GRCh38/Homo_sapiens.GRCh38.dna.primary_assembly.fa.gz -s "f/s" -n Test -5 10 --trim3 2 --mapq-255 -o resources/expected/site/trimmed.tsv
         let expected = paths::expected::LOCI.join("trimmed.tsv");
         assert!(expected.is_file());
 
@@ -82,7 +82,7 @@ mod loci {
 
     #[test]
     fn deducted_strand() {
-        // rada loci --input resources/bam/SRX6966474.bam -r resources/GRCh38/Homo_sapiens.GRCh38.dna.primary_assembly.fa.gz -s "f/s" -n Test --out-min-cov 20 --mapq-255 -o resources/expected/loci/deducted.tsv
+        // rada site --input resources/bam/SRX6966474.bam -r resources/GRCh38/Homo_sapiens.GRCh38.dna.primary_assembly.fa.gz -s "f/s" -n Test --out-min-cov 20 --mapq-255 -o resources/expected/site/deducted.tsv
         let expected = paths::expected::LOCI.join("deducted.tsv");
         assert!(expected.is_file());
 
@@ -100,7 +100,7 @@ mod loci {
 
     #[test]
     fn predicted_strand() {
-        //  ../../target/release/rada loci --input bam/SRX6966474.bam -r GRCh38/Homo_sapiens.GRCh38.dna.primary_assembly.fa.gz -s u --hyperedit --ref-min-cov 30 --annotation GRCh38/Homo_sapiens.GRCh38.104.gff3.gz --str-min-freq 0.01 --str-min-mismatches 5 --mapq-255 -o expected/loci/predicted.tsv
+        //  ../../target/release/rada site --input bam/SRX6966474.bam -r GRCh38/Homo_sapiens.GRCh38.dna.primary_assembly.fa.gz -s u --hyperedit --ref-min-cov 30 --annotation GRCh38/Homo_sapiens.GRCh38.104.gff3.gz --str-min-freq 0.01 --str-min-mismatches 5 --mapq-255 -o expected/site/predicted.tsv
         let expected = paths::expected::LOCI.join("predicted.tsv");
         assert!(expected.is_file());
 
@@ -119,7 +119,7 @@ mod loci {
 
     #[test]
     fn multiple_files() {
-        // ../../target/release/rada loci --input bam/SRX6966474.bam bam/SRX6966474.bam -r GRCh38/Homo_sapiens.GRCh38.dna.primary_assembly.fa.gz -s f --mapq-255 -t 12 --in-flags 67 --out-min-freq 0.1 -o expected/loci/doubled.tsv
+        // ../../target/release/rada site --input bam/SRX6966474.bam bam/SRX6966474.bam -r GRCh38/Homo_sapiens.GRCh38.dna.primary_assembly.fa.gz -s f --mapq-255 -t 12 --in-flags 67 --out-min-freq 0.1 -o expected/site/doubled.tsv
         let expected = paths::expected::LOCI.join("doubled.tsv");
         assert!(expected.is_file());
 

@@ -103,8 +103,8 @@ impl ROIWorkload {
             let split: Vec<&str> = line.split('\t').take(4).collect();
             assert!(split.len() >= 3);
 
-            let start = split[1].parse().expect("Failed to reads string start");
-            let end = split[2].parse().expect("Failed to reads string start");
+            let start = split[1].parse().expect("Failed to filters string start");
+            let end = split[2].parse().expect("Failed to filters string start");
             let interval = Interval::new(split[0].to_owned(), Range { start, end });
 
             let name = if split.len() >= 4 { split[3] } else { &"." };

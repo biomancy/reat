@@ -9,19 +9,22 @@ use itertools::Itertools;
 use rust_htslib::bam::Record;
 
 use crate::cli::shared::stranding::Stranding;
-use crate::core::filtering::reads::{ReadsFilterByFlags, ReadsFilterByQuality, SequentialReadsFilter};
-use crate::core::filtering::summary::SummaryFilterByMismatches;
-use crate::core::refnuc::RefNucPredByHeurisitc;
+use crate::core::io::fasta::{BasicFastaReader, FastaReader};
+use crate::core::mismatches::IntermediateMismatches;
+use crate::core::refpred::AutoRef;
+use crate::core::rpileup::ncounters::filters::{ReadsFilterByFlags, ReadsFilterByQuality, SequentialReadsFilter};
 use crate::core::stranding::deduct::StrandSpecificExperimentDesign;
-use crate::core::stranding::predict::{SequentialStrandPredictor, StrandByAtoIEditing, StrandByGenomicFeatures};
+use crate::core::stranding::predict::StrandingEngine;
 
 use super::args;
+use crate::core::hooks::filters::ByMismatches;
+use crate::core::stranding::predict::shared::{StrandByAtoIEditing, StrandByGenomicAnnotation};
 
 pub fn readfilter(
     pbar: ProgressBar,
     matches: &ArgMatches,
 ) -> SequentialReadsFilter<Record, ReadsFilterByQuality, ReadsFilterByFlags> {
-    pbar.set_message("Parsing reads filter options...");
+    pbar.set_message("Parsing filters filter options...");
     let (mapq, allow_mapq_255, phread) = (
         matches.value_of(args::reads_filtering::MAPQ).unwrap().parse().unwrap(),
         matches.is_present(args::reads_filtering::ALLOW_MAPQ_255),
@@ -79,7 +82,7 @@ pub fn stranding(pbar: ProgressBar, matches: &ArgMatches) -> Stranding {
     let stranding = Stranding::from_str(matches.value_of(args::core::STRANDING).unwrap()).unwrap();
     let msg = match stranding {
         Stranding::Unstranded => {
-            "Unstranded library, regions/loci strand will be predicted by heuristic"
+            "Unstranded library, roi/site strand will be predicted by heuristic"
         }
         Stranding::Stranded(x) => {
             match x {
@@ -94,7 +97,10 @@ pub fn stranding(pbar: ProgressBar, matches: &ArgMatches) -> Stranding {
     stranding
 }
 
-pub fn strandpred(pbar: ProgressBar, matches: &ArgMatches) -> SequentialStrandPredictor {
+pub fn strandpred<T: IntermediateMismatches>(
+    pbar: ProgressBar,
+    matches: &ArgMatches,
+) -> (Option<StrandByAtoIEditing>, Option<StrandByGenomicAnnotation>) {
     pbar.set_draw_delta(10_000);
     pbar.set_message("Parsing strand prediction parameters...");
 
@@ -104,44 +110,44 @@ pub fn strandpred(pbar: ProgressBar, matches: &ArgMatches) -> SequentialStrandPr
             "Strand prediction is disabled -> working with \"{}\" stranded library",
             stranding
         ));
-        return SequentialStrandPredictor::new(None, None);
+        return (None, None);
     }
 
     let (minmismatches, minfreq) = (
         matches.value_of(args::stranding::MIN_MISMATCHES).unwrap().parse().unwrap(),
         matches.value_of(args::stranding::MIN_FREQ).unwrap().parse().unwrap(),
     );
-    let strand_by_editing = Some(StrandByAtoIEditing::new(minmismatches, minfreq));
+    let byediting = Some(StrandByAtoIEditing::new(minmismatches, minfreq));
 
-    let strand_by_features = matches
+    let byfeatures = matches
         .value_of(args::stranding::ANNOTATION)
-        .map(|x| Some(StrandByGenomicFeatures::from_gff3(x.as_ref(), |_| pbar.inc(1))))
+        .map(|x| Some(StrandByGenomicAnnotation::from_gff3(x.as_ref(), |_| pbar.inc(1))))
         .unwrap_or(None);
-    let result = SequentialStrandPredictor::new(strand_by_editing, strand_by_features);
+    let result = (byediting, byfeatures);
 
     let msg = "Strand prediction";
-    match (result.by_features(), result.by_editing()) {
+    match &result {
         (None, None) => {
             unreachable!()
         }
-        (Some(_), None) => pbar.finish_with_message(format!("{}: by genomic features", msg)),
-        (None, Some(x)) => pbar.finish_with_message(format!(
+        (None, Some(_)) => pbar.finish_with_message(format!("{}: by genomic features", msg)),
+        (Some(x), None) => pbar.finish_with_message(format!(
             "{}: by A->I editing[min mismatches={}, min freq={}]",
             msg,
-            x.min_mismatches(),
-            x.min_freq()
+            x.minmismatches(),
+            x.minfreq()
         )),
-        (Some(_), Some(x)) => pbar.finish_with_message(format!(
+        (Some(x), Some(_)) => pbar.finish_with_message(format!(
             "{}: by genomic features IF FAIL by A->I editing[min mismatches={}, min freq={}]",
             msg,
-            x.min_mismatches(),
-            x.min_freq()
+            x.minmismatches(),
+            x.minfreq()
         )),
     };
     result
 }
 
-pub fn refnucpred(pbar: ProgressBar, matches: &ArgMatches) -> RefNucPredByHeurisitc {
+pub fn refnucpred<T: FastaReader>(pbar: ProgressBar, matches: &ArgMatches, reader: T) -> AutoRef<T> {
     pbar.set_message("Parsing reference prediction parameters...");
 
     let (mincoverage, minfreq, hyperedit) = (
@@ -149,15 +155,14 @@ pub fn refnucpred(pbar: ProgressBar, matches: &ArgMatches) -> RefNucPredByHeuris
         matches.value_of(args::autoref::MIN_FREQ).unwrap().parse().unwrap(),
         matches.is_present(args::autoref::HYPEREDITING),
     );
-    let result = RefNucPredByHeurisitc::new(mincoverage, minfreq, hyperedit);
     let mut msg = format!(
-        "Reference prediction for loci with coverage >= {} and most common nucleotide frequency >= {}.",
-        result.mincoverage(),
-        result.freqthr()
+        "Reference prediction for site with coverage >= {} and most common nucleotide frequency >= {}.",
+        mincoverage, minfreq
     );
     if hyperedit {
         msg += " A->G or T->C corrections disabled (hyper editing mode)."
     }
+    let result = AutoRef::new(mincoverage, minfreq, hyperedit, reader);
     pbar.finish_with_message(msg);
     result
 }
@@ -204,14 +209,14 @@ pub fn outfilter(
     freq_key: &str,
     cov_key: &str,
     matches: &ArgMatches,
-) -> SummaryFilterByMismatches {
+) -> ByMismatches {
     pbar.set_message("Parsing filtering options...");
     let (minmismatches, minfreq, mincov) = (
         matches.value_of(mismatch_key).unwrap().parse().unwrap(),
         matches.value_of(freq_key).unwrap().parse().unwrap(),
         matches.value_of(cov_key).unwrap().parse().unwrap(),
     );
-    let result = SummaryFilterByMismatches::new(minmismatches, minfreq, mincov);
+    let result = ByMismatches::new(minmismatches, minfreq, mincov);
     pbar.finish_with_message(format!(
         "Filtering options: min coverage >= {}; mismatches min number >= {}, min frequency >= {}",
         result.mincov(),

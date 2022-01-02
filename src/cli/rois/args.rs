@@ -8,11 +8,14 @@ use indicatif::ProgressBar;
 use crate::cli::shared;
 use crate::cli::shared::args::{defaults, reqdefaults};
 use crate::cli::shared::validate;
-use crate::core::filtering::summary::SummaryFilterByMismatches;
-use crate::core::stranding::predict::SequentialStrandPredictor;
+use crate::core::hooks::filters::ByMismatches;
+use crate::core::stranding::predict::StrandingEngine;
 use crate::core::workload::ROIWorkload;
 
 use super::parse;
+use crate::cli::shared::stranding::Stranding;
+use crate::core::hooks::stats::ROIEditingIndex;
+use crate::core::stranding::predict::roi::ROIStrandingEngine;
 
 pub mod stats {
     use super::*;
@@ -57,7 +60,7 @@ pub mod output_filtering {
     pub const MIN_FREQ: &str = "out-min-freq";
     pub const MIN_COVERAGE: &str = "out-min-cov";
 
-    pub const SECTION_NAME: &str = "Output filtering";
+    pub const SECTION_NAME: &str = "Output hooks";
 
     pub fn args<'a>() -> Vec<Arg<'a>> {
         let args = vec![
@@ -66,7 +69,7 @@ pub mod output_filtering {
                 .settings(&defaults())
                 .validator(validate::numeric(0u32, u32::MAX))
                 .default_value("10")
-                .long_about("Output only ROIs covered by at least X unique reads(after reads/bases filtering)"),
+                .long_about("Output only ROIs covered by at least X unique filters(after filters/bases hooks)"),
             Arg::new(MIN_MISMATCHES)
                 .long(MIN_MISMATCHES)
                 .settings(&defaults())
@@ -103,14 +106,14 @@ pub fn all<'a>() -> Vec<Arg<'a>> {
 pub struct ROIArgs {
     pub workload: Vec<ROIWorkload>,
     pub maxwsize: u32,
-    pub outfilter: SummaryFilterByMismatches,
-    pub strandpred: SequentialStrandPredictor,
+    pub filter: ByMismatches,
+    pub stranding: Stranding,
     pub ei: Option<BufWriter<File>>,
 }
 
 impl ROIArgs {
     pub fn new(_: &shared::args::CoreArgs, args: &ArgMatches, factory: &impl Fn() -> ProgressBar) -> Self {
-        let outfilter = shared::parse::outfilter(
+        let filter = shared::parse::outfilter(
             factory(),
             output_filtering::MIN_MISMATCHES,
             output_filtering::MIN_FREQ,
@@ -119,7 +122,7 @@ impl ROIArgs {
         );
         let ei = parse::editing_index(factory(), args);
 
-        let mut strandpred: Option<SequentialStrandPredictor> = Default::default();
+        let mut stranding: Option<Stranding> = Default::default();
         let mut workload: Option<Vec<ROIWorkload>> = Default::default();
         let mut maxsize: Option<u32> = Default::default();
 
@@ -130,9 +133,9 @@ impl ROIArgs {
                 workload = Some(w);
                 maxsize = Some(m)
             });
-            s.spawn(|_| strandpred = Some(shared::parse::strandpred(pbars, args)));
+            s.spawn(|_| stranding = Some(shared::parse::stranding(pbars, args)));
         });
 
-        Self { workload: workload.unwrap(), maxwsize: maxsize.unwrap(), outfilter, strandpred: strandpred.unwrap(), ei }
+        Self { workload: workload.unwrap(), maxwsize: maxsize.unwrap(), filter, stranding: stranding.unwrap(), ei }
     }
 }

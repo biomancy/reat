@@ -1,10 +1,10 @@
-pub mod counting;
 pub mod dna;
-pub mod filtering;
+pub mod hooks;
+pub mod io;
+pub mod mismatches;
 pub mod read;
-pub mod refnuc;
+pub mod refpred;
+pub mod rpileup;
 pub mod runner;
-pub mod stats;
 pub mod stranding;
-pub mod summary;
 pub mod workload;

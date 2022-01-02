@@ -8,8 +8,9 @@ use indicatif::ProgressBar;
 use rust_htslib::bam::Record;
 
 use crate::cli::shared::stranding::Stranding;
-use crate::core::filtering::reads::{ReadsFilterByFlags, ReadsFilterByQuality, SequentialReadsFilter};
-use crate::core::refnuc::RefNucPredByHeurisitc;
+use crate::core::io::fasta::BasicFastaReader;
+use crate::core::refpred::AutoRef;
+use crate::core::rpileup::ncounters::filters::{ReadsFilterByFlags, ReadsFilterByQuality, SequentialReadsFilter};
 
 use super::parse;
 use super::validate;
@@ -116,7 +117,7 @@ pub mod reads_filtering {
     pub const TRIM5: &str = "trim5";
     pub const TRIM3: &str = "trim3";
 
-    pub const SECTION_NAME: &str = "Reads filtering";
+    pub const SECTION_NAME: &str = "Reads hooks";
 
     pub fn args<'a>() -> Vec<Arg<'a>> {
         let args = vec![
@@ -126,12 +127,12 @@ pub mod reads_filtering {
                 .validator(validate::numeric(0u8, 254u8))
                 .default_value("1")
                 .long_about(
-                    "Count only reads with mapq ≥ threshold. \
-                    Note that reads with mapq = 255 are skipped by default\
+                    "Count only filters with mapq ≥ threshold. \
+                    Note that filters with mapq = 255 are skipped by default\
                     (mapq 255 means \"not available\" according to the SAM spec)",
                 ),
             Arg::new(ALLOW_MAPQ_255).long(ALLOW_MAPQ_255).settings(&defaults()).takes_value(false).long_about(
-                "Count reads with mapq=255. \
+                "Count filters with mapq=255. \
                 Useful for aligners that do not fully conform to the SAM specification \
                 (e.g. STAR with default parameters)",
             ),
@@ -141,8 +142,8 @@ pub mod reads_filtering {
                 .validator(validate::numeric(0u16, 4095u16))
                 .default_value("0")
                 .long_about(
-                    "Include only reads for which all the specified BAM flags are set. \
-                    For example, a value of 3 will result in keeping only reads that were mapped in proper pairs. \
+                    "Include only filters for which all the specified BAM flags are set. \
+                    For example, a value of 3 will result in keeping only filters that were mapped in proper pairs. \
                     Use zero(0) to disable this filter",
                 ),
             Arg::new(EXCLUDE_FLAGS)
@@ -151,9 +152,9 @@ pub mod reads_filtering {
                 .validator(validate::numeric(0u16, 4095u16))
                 .default_value("2820")
                 .long_about(
-                    "Exclude reads for which any of the specified BAM flags are set. \
-                    For example, a value of 2820 will result in skipping unmapped reads, \
-                    supplementary and secondary alignments, reads that fail platform/vendor quality checks. \
+                    "Exclude filters for which any of the specified BAM flags are set. \
+                    For example, a value of 2820 will result in skipping unmapped filters, \
+                    supplementary and secondary alignments, filters that fail platform/vendor quality checks. \
                     Use zero(0) to disable this filter",
                 ),
             Arg::new(PHREAD)
@@ -185,7 +186,7 @@ pub mod reads_filtering {
                 .default_value("0")
                 .long_about(
                     "Trim bases from the 3’ (right) end of each read before processing. \
-                    Can be used to hard skip low-quality bases at the end of reads if no trimming was done \
+                    Can be used to hard skip low-quality bases at the end of filters if no trimming was done \
                     before / during the alignment.",
                 ),
         ];
@@ -210,7 +211,7 @@ pub mod autoref {
                 .validator(validate::numeric(0u32, u32::MAX))
                 .default_value("20")
                 .long_about(
-                    "Automatically correct reference sequence for loci with coverage ≥ the threshold. \
+                    "Automatically correct reference sequence for site with coverage ≥ the threshold. \
                     In short, there is no reason to use the assembly nucleotide \"T \" if we have sequenced 100% \"A \". \
                     This heuristic is especially useful in regions of low complexity(or simple repeats), \
                     where such SNPs can affect the editing estimation."
@@ -221,7 +222,7 @@ pub mod autoref {
                 .validator(validate::numeric(0f32, 1f32))
                 .default_value("0.95")
                 .long_about(
-                    "Automatically correct reference sequence for loci with the most common nucleotide \
+                    "Automatically correct reference sequence for site with the most common nucleotide \
                     frequency ≥ cutoff"
                 ),
             Arg::new(HYPEREDITING)
@@ -250,7 +251,7 @@ pub mod stranding {
         let args = vec![
             Arg::new(ANNOTATION).long(ANNOTATION).settings(&defaults()).validator(validate::path).long_about(
                 "Genome annotation in the GFF3 format. \
-                    Genomic features (exons and genes) are used only to inference loci/ROI strand based on the most \
+                    Genomic features (exons and genes) are used only to inference site/ROI strand based on the most \
                     likely direction of transcription (see the GitHub documentation for details). \
                     It is recommended to provide genome annotation for unstranded libraries, \
                     otherwise stranding will be highly inaccurate.",
@@ -294,8 +295,7 @@ pub struct CoreArgs {
     pub trim5: u16,
     pub trim3: u16,
     pub bamfiles: Vec<PathBuf>,
-    pub reference: PathBuf,
-    pub refnucpred: RefNucPredByHeurisitc,
+    pub refnucpred: AutoRef<BasicFastaReader>,
     pub readfilter: SequentialReadsFilter<Record, ReadsFilterByQuality, ReadsFilterByFlags>,
     pub stranding: Stranding,
     pub saveto: BufWriter<File>,
@@ -306,14 +306,17 @@ impl CoreArgs {
         let name = parse::name(factory(), args);
         let threads = parse::threads(factory(), args);
         let (trim5, trim3) = parse::trimming(factory(), args);
+
+        let reference = parse::reference(factory(), args);
+        let refreader = BasicFastaReader::new(reference);
+
         Self {
             name,
             threads,
             trim5,
             trim3,
             bamfiles: parse::bamfiles(factory(), args),
-            reference: parse::reference(factory(), args),
-            refnucpred: parse::refnucpred(factory(), args),
+            refnucpred: parse::refnucpred(factory(), args, refreader),
             readfilter: parse::readfilter(factory(), args),
             stranding: parse::stranding(factory(), args),
             saveto: parse::saveto(factory(), args),

@@ -2,23 +2,25 @@ use std::io::Write;
 
 use bio_types::genome::AbstractInterval;
 
-use crate::core::stats::ROIBasedStat;
-use crate::core::summary::ROISummary;
+use crate::core::io::Table;
+use crate::core::mismatches::roi::ROIMismatches;
 
-const OUTPUT_IO_ERROR: &str = "Failed to write ROI summary to the output TSV file.";
+// use crate::core::stats::ROIBasedStat;
+
+const OUTPUT_IO_ERROR: &str = "Failed to write ROI filters to the output TSV file.";
 const STATS_IO_ERROR: &str = "Failed to write statistics to the output TSV file.";
 
-pub fn regions(saveto: &mut impl Write, summary: Vec<ROISummary>) {
+pub fn regions(saveto: &mut impl Write, summary: Vec<impl ROIMismatches>) {
     writeln!(saveto, "chr\tstart\tend\tstrand\tname\tcoverage\t#A\t#T\t#G\t#C\tA->A\tA->C\tA->G\tA->T\tC->A\tC->C\tC->G\tC->T\tG->A\tG->C\tG->G\tG->T\tT->A\tT->C\tT->G\tT->T")
         .expect(OUTPUT_IO_ERROR);
 
     for e in summary {
-        let (contig, range, strand) = (e.interval.contig(), e.interval.range(), e.strand.strand_symbol());
-        write!(saveto, "{}\t{}\t{}\t{}\t{}\t{}\t", contig, range.start, range.end, strand, e.name, e.coverage)
+        let (contig, range, strand) = (e.interval().contig(), e.interval().range(), e.strand().strand_symbol());
+        write!(saveto, "{}\t{}\t{}\t{}\t{}\t{}\t", contig, range.start, range.end, strand, e.name(), e.coverage())
             .expect(OUTPUT_IO_ERROR);
-        let seq = e.sequenced;
+        let seq = e.sequence();
         write!(saveto, "{}\t{}\t{}\t{}\t", seq.A, seq.T, seq.G, seq.C).expect(OUTPUT_IO_ERROR);
-        let m = e.mismatches;
+        let m = e.mismatches();
         write!(saveto, "{}\t{}\t{}\t{}\t", m.A.A, m.A.C, m.A.G, m.A.T).expect(OUTPUT_IO_ERROR);
         write!(saveto, "{}\t{}\t{}\t{}\t", m.C.A, m.C.C, m.C.G, m.C.T).expect(OUTPUT_IO_ERROR);
         write!(saveto, "{}\t{}\t{}\t{}\t", m.G.A, m.G.C, m.G.G, m.G.T).expect(OUTPUT_IO_ERROR);
@@ -26,12 +28,12 @@ pub fn regions(saveto: &mut impl Write, summary: Vec<ROISummary>) {
     }
 }
 
-pub fn statheader<T: ROIBasedStat, W: Write>(saveto: &mut W) {
-    writeln!(saveto, "Run name\t{}", T::header()).expect(STATS_IO_ERROR);
+pub fn statheader<T: Table, W: Write>(saveto: &mut W) {
+    writeln!(saveto, "Run name\t{}", T::header().join("\t")).expect(STATS_IO_ERROR);
 }
 
-pub fn statistic<T: ROIBasedStat>(rname: &str, saveto: &mut impl Write, stat: &T) {
-    writeln!(saveto, "{}\t{}", rname, stat.row()).expect(STATS_IO_ERROR);
+pub fn statistic<T: Table>(rname: &str, saveto: &mut impl Write, stat: &T) {
+    writeln!(saveto, "{}\t{}", rname, stat.row().join("\t")).expect(STATS_IO_ERROR);
 }
 
 #[cfg(test)]
@@ -39,33 +41,45 @@ mod test {
     use bio_types::genome::Interval;
     use bio_types::strand::Strand;
 
-    use crate::core::counting::NucCounts;
+    use crate::core::dna::NucCounts;
     use crate::core::dna::Nucleotide;
+    use crate::core::mismatches::roi::{MismatchesSummary, MockROIMismatches};
 
     use super::*;
 
     #[test]
     fn regions() {
-        let dummy = vec![
-            ROISummary::from_counts(
+        let factory = |interval, name, strand, coverage, sequence, ncounts| {
+            let mut dummy = MockROIMismatches::new();
+            dummy.expect_interval().return_const(interval);
+            dummy.expect_name().return_const(name);
+            dummy.expect_strand().return_const(strand);
+            dummy.expect_coverage().return_const(coverage);
+            dummy.expect_sequence().return_const(NucCounts::from_sequence(sequence));
+            dummy.expect_mismatches().return_const(MismatchesSummary::from_ncounts(sequence, ncounts));
+            dummy
+        };
+
+        let workload = vec![
+            factory(
                 Interval::new("1".into(), 1..20),
                 "First".into(),
                 Strand::Forward,
-                12,
+                12u32,
                 &vec![Nucleotide::A, Nucleotide::Unknown],
                 &vec![NucCounts::new(1, 10, 100, 1000), NucCounts::new(1, 1, 1, 1)],
             ),
-            ROISummary::from_counts(
+            factory(
                 Interval::new("3".into(), 30..31),
                 "".into(),
                 Strand::Unknown,
-                190,
+                190u32,
                 &vec![Nucleotide::C, Nucleotide::G],
                 &vec![NucCounts::new(1, 2, 3, 4), NucCounts::new(5, 6, 7, 8)],
             ),
         ];
         let mut saveto = Vec::new();
-        super::regions(&mut saveto, dummy);
+        super::regions(&mut saveto, workload);
 
         let result = String::from_utf8(saveto).unwrap();
         let expected = "chr\tstart\tend\tstrand\tname\tcoverage\t\

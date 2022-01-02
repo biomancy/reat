@@ -1,37 +1,15 @@
-use bio_types::strand::Strand;
 #[cfg(test)]
 use mockall::{automock, predicate::*};
 
-pub use by_editing::StrandByAtoIEditing;
-pub use by_features::StrandByGenomicFeatures;
-pub use sequential::SequentialStrandPredictor;
+use crate::core::mismatches::roi::IntermediateROIMismatches;
+use crate::core::mismatches::IntermediateMismatches;
 
-use crate::core::summary::{LocusSummary, ROISummary};
-use bio_types::genome::{AbstractInterval, AbstractLocus};
-use itertools::Itertools;
+pub mod interval;
+pub mod roi;
+pub mod shared;
 
-mod by_editing;
-mod by_features;
-mod sequential;
-
-#[cfg_attr(test, automock)]
-pub trait ROIStrandPredictor {
-    fn predict(&self, data: &ROISummary) -> Strand;
-    fn batch_predict(&self, data: &[ROISummary]) -> Vec<Strand> {
-        debug_assert!(data.iter().map(|x| x.interval.contig()).all_equal());
-        debug_assert!(data.windows(2).all(|w| w[0].interval.range().start <= w[1].interval.range().start));
-        data.iter().map(|x| self.predict(x)).collect_vec()
-    }
+// TODO: refactor once we have stable trait specialization
+pub trait StrandingEngine<T: IntermediateMismatches> {
+    // TODO: It's a lot better to pass CONST objects but SiteBlocks can be splitted during stranding
+    fn strand(&self, items: Vec<T>) -> Vec<T>;
 }
-
-#[cfg_attr(test, automock)]
-pub trait LocusStrandPredictor {
-    fn predict(&self, data: &LocusSummary) -> Strand;
-    fn batch_predict(&self, data: &[LocusSummary]) -> Vec<Strand> {
-        debug_assert!(data.iter().map(|x| x.locus.contig()).all_equal());
-        debug_assert!(data.windows(2).all(|w| w[0].locus.pos() <= w[1].locus.pos()));
-        data.iter().map(|x| self.predict(x)).collect_vec()
-    }
-}
-
-pub trait StrandPredictor: ROIStrandPredictor + LocusStrandPredictor {}

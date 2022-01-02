@@ -57,7 +57,7 @@ fn main() {
                 .args(cli::rois::args()),
         )
         .subcommand(
-            App::new("loci").long_about("Estimate editing per-loci for the whole genome.").args(cli::loci::args()),
+            App::new("site").long_about("Estimate editing per-site for the whole genome.").args(cli::loci::args()),
         )
         .get_matches();
     // Log the exact command used to call rada
@@ -77,7 +77,7 @@ fn main() {
     #[allow(clippy::type_complexity)]
     let (args, func): (&ArgMatches, Box<dyn FnOnce(&ArgMatches, CoreArgs) + Send>) = match app.subcommand() {
         Some(("rois", matches)) => (matches, Box::new(|matches, core| cli::rois::run(matches, core, factory))),
-        Some(("loci", matches)) => (matches, Box::new(|matches, core| cli::loci::run(matches, core, factory))),
+        Some(("site", matches)) => (matches, Box::new(|matches, core| cli::loci::run(matches, core, factory))),
         _ => panic!("Subcommand is not specified."),
     };
     let core = cli::shared::args::CoreArgs::new(args, factory);

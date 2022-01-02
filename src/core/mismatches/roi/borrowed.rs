@@ -8,7 +8,7 @@ use crate::core::mismatches::roi::{MismatchesSummary, OwnedROIMismatches, ROIMis
 use crate::core::mismatches::IntermediateMismatches;
 
 #[derive(Clone, Debug, Dissolve)]
-pub struct BorrowedROIMismatches<'a> {
+pub struct RefROIMismatches<'a> {
     interval: &'a Interval,
     strand: Strand,
     name: &'a String,
@@ -17,7 +17,7 @@ pub struct BorrowedROIMismatches<'a> {
     mismatches: MismatchesSummary,
 }
 
-impl ROIMismatches for BorrowedROIMismatches<'_> {
+impl ROIMismatches for RefROIMismatches<'_> {
     fn interval(&self) -> &Interval {
         &self.interval
     }
@@ -43,7 +43,7 @@ impl ROIMismatches for BorrowedROIMismatches<'_> {
     }
 }
 
-impl<'a> BorrowedROIMismatches<'a> {
+impl<'a> RefROIMismatches<'a> {
     pub fn new(
         interval: &'a Interval,
         strand: Strand,
@@ -51,7 +51,7 @@ impl<'a> BorrowedROIMismatches<'a> {
         coverage: u32,
         reference: &'a [Nucleotide],
         sequenced: &'a [NucCounts],
-    ) -> BorrowedROIMismatches<'a> {
+    ) -> RefROIMismatches<'a> {
         Self {
             interval,
             strand,
@@ -63,7 +63,7 @@ impl<'a> BorrowedROIMismatches<'a> {
     }
 }
 
-impl IntermediateMismatches for BorrowedROIMismatches<'_> {
+impl IntermediateMismatches for RefROIMismatches<'_> {
     type Finalized = OwnedROIMismatches;
 
     fn finalize(self) -> Self::Finalized {

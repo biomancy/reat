@@ -1,10 +1,11 @@
-#[cfg(test)]
-use mockall::{mock, predicate::*};
+use std::ops::Range;
 
 use bio_types::genome::{Interval, Locus};
 use bio_types::strand::Strand;
+#[cfg(test)]
+use mockall::{mock, predicate::*};
 
-pub use borrowed::BorrowedIntervalMismatches;
+pub use borrowed::RefIntervalMismatches;
 pub use owned::OwnedIntervalMismatches;
 
 use crate::core::dna::NucCounts;
@@ -19,14 +20,21 @@ pub trait IntervalMismatches {
     fn strand(&self) -> &Strand;
     fn refnuc(&self) -> &[Nucleotide];
     fn ncounts(&self) -> &[NucCounts];
-
-    fn split(self, indices: &[usize]) -> Vec<Self>
-    where
-        Self: Sized;
 }
 
-pub trait IntermediateIntervalMismatches: IntervalMismatches + IntermediateMismatches {}
-impl<T: IntervalMismatches + IntermediateMismatches> IntermediateIntervalMismatches for T {}
+pub trait SeparableIntervalMismatches: Sized {
+    fn split(self, indices: &[usize]) -> Vec<Self>;
+    fn extract(self, ranges: &[Range<usize>], into: &mut Vec<Self>);
+}
+
+pub trait IntermediateIntervalMismatches:
+    IntervalMismatches + SeparableIntervalMismatches + IntermediateMismatches
+{
+}
+impl<T: IntervalMismatches + SeparableIntervalMismatches + IntermediateMismatches> IntermediateIntervalMismatches
+    for T
+{
+}
 
 #[cfg(test)]
 mock! {
@@ -42,9 +50,9 @@ mock! {
         fn strand(&self) -> &Strand;
         fn refnuc(&self) -> &[Nucleotide];
         fn ncounts(&self) -> &[NucCounts];
-
-        fn split(self, indices: &[usize]) -> Vec<Self>
-        where
-            Self: Sized;
+    }
+    impl SeparableIntervalMismatches for IntervalMismatches {
+        fn split(self, indices: &[usize]) -> Vec<MockIntervalMismatches>;
+        fn extract(self, ranges: &[Range<usize>], into: &mut Vec<MockIntervalMismatches>);
     }
 }

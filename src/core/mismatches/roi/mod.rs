@@ -6,7 +6,7 @@ use bio_types::strand::{Same, Strand};
 #[cfg(test)]
 use mockall::{mock, predicate::*};
 
-pub use borrowed::BorrowedROIMismatches;
+pub use borrowed::RefROIMismatches;
 pub use mismatches_summary::MismatchesSummary;
 pub use owned::OwnedROIMismatches;
 

@@ -1,23 +1,25 @@
-use crate::core::mismatches::interval::IntermediateIntervalMismatches;
+use crate::core::mismatches::roi::IntermediateROIMismatches;
 
 use super::super::StrandingEngine;
-use super::IntervalStrandPredictor;
 
-pub struct IntervalStrandingEngine<T: IntermediateIntervalMismatches> {
-    predictors: Vec<Box<dyn IntervalStrandPredictor<T>>>,
+pub trait ROIStrandPredictor<T: IntermediateROIMismatches> {
+    fn predict(&self, rois: Vec<T>) -> Vec<T>;
+}
+pub struct ROIStrandingEngine<T: IntermediateROIMismatches> {
+    predictors: Vec<Box<dyn ROIStrandPredictor<T>>>,
 }
 
-impl<T: IntermediateIntervalMismatches> IntervalStrandingEngine<T> {
+impl<T: IntermediateROIMismatches> ROIStrandingEngine<T> {
     pub fn new() -> Self {
         Self { predictors: vec![] }
     }
 
-    pub fn add(&mut self, predictor: impl IntervalStrandPredictor<T> + 'static) {
+    pub fn add(&mut self, predictor: impl ROIStrandPredictor<T> + 'static) {
         self.predictors.push(Box::new(predictor))
     }
 }
 
-impl<T: IntermediateIntervalMismatches> StrandingEngine<T> for IntervalStrandingEngine<T> {
+impl<T: IntermediateROIMismatches> StrandingEngine<T> for ROIStrandingEngine<T> {
     fn strand(&self, items: Vec<T>) -> Vec<T> {
         let (mut unknown, mut result): (Vec<T>, Vec<T>) = items.into_iter().partition(|x| x.strand().is_unknown());
         result.reserve(result.len() + unknown.len());

@@ -1,18 +1,29 @@
-use bio_types::genome::{AbstractInterval, AbstractLocus, Interval};
 use bio_types::strand::{Same, Strand};
-use itertools::{zip, Itertools};
+use derive_getters::Getters;
+use derive_more::Constructor;
+use itertools::zip;
 
 use crate::core::dna::{NucCounts, Nucleotide};
 use crate::core::mismatches::interval::IntermediateIntervalMismatches;
+use crate::core::mismatches::roi::{IntermediateROIMismatches, MismatchesSummary, ROIMismatches, RefROIMismatches};
 use crate::core::mismatches::IntermediateMismatches;
-use crate::core::stranding::predict::shared::StrandByAtoIEditing;
-use crate::core::stranding::predict::shared::StrandByGenomicAnnotation;
+use crate::core::stranding::predict::engines::{IntervalStrandPredictor, ROIStrandPredictor};
 
-use super::IntervalStrandPredictor;
+#[derive(Constructor, Getters, Copy, Clone)]
+pub struct StrandByAtoIEditing {
+    minmismatches: u32,
+    minfreq: f32,
+}
 
 impl StrandByAtoIEditing {
     #[inline]
-    fn nuc_predict(&self, sequenced: &NucCounts, refnuc: &Nucleotide) -> Strand {
+    pub fn edited(&self, matches: u32, mismatches: u32) -> bool {
+        let coverage = mismatches + matches;
+        coverage > 0 && mismatches >= self.minmismatches && (mismatches as f32 / coverage as f32) >= self.minfreq
+    }
+
+    #[inline]
+    fn nucpred(&self, sequenced: &NucCounts, refnuc: &Nucleotide) -> Strand {
         match refnuc {
             Nucleotide::A => {
                 if self.edited(sequenced.A, sequenced.G) {
@@ -31,6 +42,45 @@ impl StrandByAtoIEditing {
             Nucleotide::C | Nucleotide::G | Nucleotide::Unknown => Strand::Unknown,
         }
     }
+
+    #[inline]
+    fn roipred(&self, mismatches: &MismatchesSummary) -> Strand {
+        let a2g = self.edited(mismatches.A.A, mismatches.A.G);
+        let t2c = self.edited(mismatches.T.T, mismatches.T.C);
+
+        match (a2g, t2c) {
+            (false, false) => Strand::Unknown,
+            (false, true) => Strand::Reverse,
+            (true, false) => Strand::Forward,
+            (true, true) => {
+                let a2g_coverage = mismatches.A.A + mismatches.A.G;
+                let t2c_coverage = mismatches.T.T + mismatches.T.C;
+
+                if a2g_coverage == 0 && t2c_coverage == 0 {
+                    Strand::Unknown
+                } else {
+                    let a2g = mismatches.A.G as f32 / a2g_coverage as f32;
+                    let t2c = mismatches.T.C as f32 / t2c_coverage as f32;
+                    if mismatches.A.G > 0 && a2g > t2c {
+                        Strand::Forward
+                    } else if mismatches.T.C > 0 && t2c > a2g {
+                        Strand::Reverse
+                    } else {
+                        Strand::Unknown
+                    }
+                }
+            }
+        }
+    }
+}
+
+impl<T: IntermediateROIMismatches> ROIStrandPredictor<T> for StrandByAtoIEditing {
+    fn predict(&self, mut rois: Vec<T>) -> Vec<T> {
+        for x in &mut rois {
+            x.set_strand(self.roipred(x.mismatches()));
+        }
+        rois
+    }
 }
 
 impl<T: IntermediateIntervalMismatches> IntervalStrandPredictor<T> for StrandByAtoIEditing {
@@ -45,7 +95,7 @@ impl<T: IntermediateIntervalMismatches> IntervalStrandPredictor<T> for StrandByA
 
             // Loop and safe strand for each site inside the interval
             for (sequenced, refnuc) in zip(b.ncounts(), b.refnuc()) {
-                strands.push(self.nuc_predict(sequenced, refnuc));
+                strands.push(self.nucpred(sequenced, refnuc));
             }
             // Split strands into constant regions
             let mut lastr = &strands[0];
@@ -70,64 +120,71 @@ impl<T: IntermediateIntervalMismatches> IntervalStrandPredictor<T> for StrandByA
     }
 }
 
-impl<T: IntermediateIntervalMismatches> IntervalStrandPredictor<T> for StrandByGenomicAnnotation {
-    fn predict(&self, blocks: Vec<T>) -> Vec<T> {
-        if blocks.is_empty() {
-            return blocks;
-        }
-
-        let mut result = Vec::with_capacity(blocks.len());
-        for mut i in blocks {
-            debug_assert!(i.strand().is_unknown());
-
-            // Split region into sub intervals with constant annotation if needed
-            let interval = i.interval();
-            let supfeatures = self.intervals_in(interval);
-            debug_assert!(
-                supfeatures.len() >= 1
-                    && supfeatures.first().unwrap().range().start == i.interval().range().start
-                    && supfeatures.last().unwrap().range().end == i.interval().range().end
-            );
-
-            if supfeatures.len() == 1 {
-                let strand = self.predict(interval);
-                i.set_strand(strand);
-                result.push(i);
-                continue;
-            }
-
-            let interst = interval.range().start;
-            let splits = supfeatures.iter().skip(1).map(|x| (x.range().start - interst) as usize).collect_vec();
-            let splited = i.split(&splits);
-
-            debug_assert!(splited.iter().map(|x| x.interval()).zip(supfeatures.iter()).all(|(x, y)| x == y));
-
-            for mut b in splited {
-                b.set_strand(self.predict(b.interval()));
-                result.push(b);
-            }
-        }
-        result
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use std::ops::Neg;
 
+    use bio_types::genome::Locus;
     use bio_types::genome::{AbstractInterval, Interval};
     use bio_types::strand::Same;
     use bio_types::strand::Strand;
     use itertools::izip;
+    use itertools::{zip, Itertools};
+    use mockall::predicate::function;
 
     use crate::core::dna::{NucCounts, Nucleotide};
-    use crate::core::mismatches::interval::{BorrowedIntervalMismatches, IntervalMismatches, MockIntervalMismatches};
-    use crate::core::stranding::predict::shared::StrandByAtoIEditing;
+    use crate::core::mismatches::interval::{IntervalMismatches, MockIntervalMismatches, RefIntervalMismatches};
+    use crate::core::mismatches::roi::{MismatchesSummary, MockROIMismatches};
 
-    use super::IntervalStrandPredictor;
+    use super::*;
 
     #[test]
-    fn nuc_predict() {
+    fn roi_strand_by_editing() {
+        let dummy = StrandByAtoIEditing::new(8, 0.05);
+
+        let mockit = |mismatches, expected| {
+            let mut mock = MockROIMismatches::new();
+            mock.expect_mismatches().return_const(mismatches);
+            mock.expect_set_strand().once().with(function(move |x: &Strand| x.same(&expected))).return_const(());
+            mock
+        };
+
+        let mut mocks = Vec::new();
+        for (result, matches, mismatches) in
+            [(Strand::Forward, 8, 8), (Strand::Unknown, 100, 4), (Strand::Unknown, 1, 7), (Strand::Forward, 10, 10)]
+        {
+            let mut summary = MismatchesSummary::zeros();
+            summary.T.T = matches;
+            summary.T.C = mismatches;
+            mocks.push(mockit(summary, result.clone().neg()));
+
+            let mut summary = MismatchesSummary::zeros();
+            summary.A.A = matches;
+            summary.A.G = mismatches;
+            mocks.push(mockit(summary, result));
+        }
+        let mut mocks = ROIStrandPredictor::predict(&dummy, mocks);
+        mocks.iter_mut().for_each(|x| x.checkpoint());
+        mocks.clear();
+
+        for (result, matches, a2g, t2c) in
+            [(Strand::Unknown, 10, 10, 10), (Strand::Reverse, 10, 10, 11), (Strand::Forward, 10, 11, 10)]
+        {
+            let mut summary = MismatchesSummary::zeros();
+            summary.A.A = matches;
+            summary.A.G = a2g;
+
+            summary.T.T = matches;
+            summary.T.C = t2c;
+
+            mocks.push(mockit(summary, result));
+        }
+        let mut mocks = ROIStrandPredictor::predict(&dummy, mocks);
+        mocks.iter_mut().for_each(|x| x.checkpoint());
+    }
+
+    #[test]
+    fn nucpred() {
         let dummy = StrandByAtoIEditing::new(10, 0.1);
 
         // Unknown strand
@@ -139,7 +196,7 @@ mod tests {
             (NucCounts::new(10, 0, 9, 0), Nucleotide::A),
             (NucCounts::new(0, 200, 0, 200), Nucleotide::G),
         ] {
-            assert!(dummy.nuc_predict(&sequenced, &refnuc).is_unknown());
+            assert!(dummy.nucpred(&sequenced, &refnuc).is_unknown());
         }
 
         let dummy = StrandByAtoIEditing::new(8, 0.05);
@@ -149,10 +206,10 @@ mod tests {
             [(8, 8, Strand::Forward), (100, 4, Strand::Unknown), (1, 7, Strand::Unknown), (10, 10, Strand::Forward)]
         {
             let cnts = NucCounts::new(matches, 0, mismatches, 0);
-            assert!(dummy.nuc_predict(&cnts, &Nucleotide::A).same(&strand));
+            assert!(dummy.nucpred(&cnts, &Nucleotide::A).same(&strand));
 
             let cnts = NucCounts::new(0, mismatches, 0, matches);
-            assert!(dummy.nuc_predict(&cnts, &Nucleotide::T).same(&strand.neg()));
+            assert!(dummy.nucpred(&cnts, &Nucleotide::T).same(&strand.neg()));
         }
     }
 
@@ -164,7 +221,7 @@ mod tests {
         let assertok = |workload: Vec<(Vec<NucCounts>, Vec<Nucleotide>)>, strands, explen| {
             let mut blocks = Vec::new();
             for (sequenced, reference) in &workload {
-                blocks.push(BorrowedIntervalMismatches::new(interval.clone(), Strand::Unknown, &reference, &sequenced))
+                blocks.push(RefIntervalMismatches::new(interval.clone(), Strand::Unknown, &reference, &sequenced))
             }
 
             let predicted = IntervalStrandPredictor::predict(&dummy, blocks);

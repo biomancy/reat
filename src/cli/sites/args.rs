@@ -9,8 +9,8 @@ use crate::cli::shared;
 use crate::cli::shared::args::defaults;
 use crate::cli::shared::validate;
 use crate::core::hooks::filters::ByMismatches;
-use crate::core::mismatches::interval::BorrowedIntervalMismatches;
-use crate::core::stranding::predict::interval::IntervalStrandingEngine;
+use crate::core::mismatches::interval::RefIntervalMismatches;
+use crate::core::stranding::predict::engines::IntervalStrandingEngine;
 use crate::core::stranding::predict::StrandingEngine;
 use crate::core::workload::ROIWorkload;
 
@@ -28,16 +28,16 @@ pub mod output_filtering {
         let args = vec![
             Arg::new(MIN_COVERAGE)
                 .long(MIN_COVERAGE)
-                .settings(&defaults())
+                .setting(defaults())
                 .validator(validate::numeric(0u32, u32::MAX))
                 .default_value("10")
-                .long_about("Output only site covered by at least X unique filters(after filters/bases hooks)"),
+                .long_help("Output only site covered by at least X unique filters(after filters/bases hooks)"),
             Arg::new(MIN_MISMATCHES)
                 .long(MIN_MISMATCHES)
-                .settings(&defaults())
+                .setting(defaults())
                 .validator(validate::numeric(0u32, u32::MAX))
                 .default_value("3")
-                .long_about(
+                .long_help(
                     "Output only site having total number of mismatches ≥ threshold. \
                     Mismatches are counted jointly, i.e. for the \"A\" reference we have \"C\" + \"G\" + \"T\". \
                     For \"N\" reference all nucleotides are considered as mismatches. \
@@ -45,17 +45,17 @@ pub mod output_filtering {
                 ),
             Arg::new(MIN_FREQ)
                 .long(MIN_FREQ)
-                .settings(&defaults())
+                .setting(defaults())
                 .validator(validate::numeric(0f32, 1f32))
                 .default_value("0.01")
-                .long_about(
+                .long_help(
                     "Output only site having total mismatches frequency ≥ threshold (freq = ∑ mismatches / coverage)",
                 ),
             Arg::new(FORCE_LIST)
                 .long(FORCE_LIST)
-                .settings(&defaults())
+                .setting(defaults())
                 .validator(validate::path)
-                .long_about(
+                .long_help(
                     "Force the output of sites overlapping regions in a given BED file, even if they do not pass other filters"
                 ),
         ];

@@ -4,18 +4,19 @@ use derive_more::Constructor;
 
 use crate::core::dna::{NucCounts, Nucleotide};
 use crate::core::mismatches::interval::owned::OwnedIntervalMismatches;
-use crate::core::mismatches::interval::IntervalMismatches;
+use crate::core::mismatches::interval::{IntervalMismatches, SeparableIntervalMismatches};
 use crate::core::mismatches::IntermediateMismatches;
+use std::ops::Range;
 
 #[derive(Constructor)]
-pub struct BorrowedIntervalMismatches<'a> {
+pub struct RefIntervalMismatches<'a> {
     interval: Interval,
     strand: Strand,
     refnuc: &'a [Nucleotide],
     ncounts: &'a [NucCounts],
 }
 
-impl IntervalMismatches for BorrowedIntervalMismatches<'_> {
+impl IntervalMismatches for RefIntervalMismatches<'_> {
     fn interval(&self) -> &Interval {
         &self.interval
     }
@@ -31,11 +32,10 @@ impl IntervalMismatches for BorrowedIntervalMismatches<'_> {
     fn ncounts(&self) -> &[NucCounts] {
         self.ncounts
     }
+}
 
-    fn split(self, indices: &[usize]) -> Vec<Self>
-    where
-        Self: Sized,
-    {
+impl SeparableIntervalMismatches for RefIntervalMismatches<'_> {
+    fn split(self, indices: &[usize]) -> Vec<Self> {
         if indices.is_empty() {
             return vec![self];
         }
@@ -67,9 +67,21 @@ impl IntervalMismatches for BorrowedIntervalMismatches<'_> {
         debug_assert_eq!(result.len(), indices.len() + 1);
         result
     }
+
+    fn extract(self, ranges: &[Range<usize>], into: &mut Vec<Self>) {
+        let contig = self.interval.contig();
+        let start = self.interval.range().start;
+
+        into.extend(ranges.into_iter().map(|x| Self {
+            interval: Interval::new(contig.to_owned(), start + x.start as u64..start + x.end as u64),
+            strand: self.strand,
+            refnuc: &self.refnuc[x.to_owned()],
+            ncounts: &self.ncounts[x.to_owned()],
+        }))
+    }
 }
 
-impl IntermediateMismatches for BorrowedIntervalMismatches<'_> {
+impl IntermediateMismatches for RefIntervalMismatches<'_> {
     type Finalized = OwnedIntervalMismatches;
 
     fn finalize(self) -> Self::Finalized {

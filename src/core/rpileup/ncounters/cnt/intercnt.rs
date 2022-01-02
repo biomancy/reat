@@ -3,7 +3,7 @@ use bio_types::strand::{ReqStrand, Strand};
 use itertools::Itertools;
 
 use crate::core::dna::{NucCounts, Nucleotide};
-use crate::core::mismatches::interval::BorrowedIntervalMismatches;
+use crate::core::mismatches::interval::RefIntervalMismatches;
 use crate::core::read::AlignedRead;
 use crate::core::rpileup::ncounters::filters::ReadsFilter;
 use crate::core::rpileup::ncounters::{NucCounter, NucCountingResult};
@@ -17,7 +17,7 @@ pub struct IntervalNucCounts<'a> {
     strand: Strand,
 }
 
-impl<'a> NucCountingResult<'a, BorrowedIntervalMismatches<'a>> for IntervalNucCounts<'a> {
+impl<'a> NucCountingResult<'a, RefIntervalMismatches<'a>> for IntervalNucCounts<'a> {
     fn interval(&self) -> &Interval {
         &self.block
     }
@@ -26,8 +26,8 @@ impl<'a> NucCountingResult<'a, BorrowedIntervalMismatches<'a>> for IntervalNucCo
         &self.ncounts
     }
 
-    fn mismatches(self, reference: &'a [Nucleotide]) -> Vec<BorrowedIntervalMismatches<'a>> {
-        let object = BorrowedIntervalMismatches::new(self.block.clone(), self.strand, reference, self.ncounts);
+    fn mismatches(self, reference: &'a [Nucleotide]) -> Vec<RefIntervalMismatches<'a>> {
+        let object = RefIntervalMismatches::new(self.block.clone(), self.strand, reference, self.ncounts);
         vec![object]
     }
 }
@@ -58,7 +58,7 @@ where
     }
 }
 
-impl<'a, R: 'a + AlignedRead, Filter: 'a + ReadsFilter<R>> NucCounter<'a, R, BorrowedIntervalMismatches<'a>>
+impl<'a, R: 'a + AlignedRead, Filter: 'a + ReadsFilter<R>> NucCounter<'a, R, RefIntervalMismatches<'a>>
     for IntervalNucCounter<R, Filter>
 {
 }

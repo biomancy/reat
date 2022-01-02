@@ -53,11 +53,11 @@ fn main() {
         .setting(AppSettings::SubcommandRequiredElseHelp)
         .subcommand(
             App::new("rois")
-                .long_about("Quantify editing for the specified Regions Of Interest (ROIs)")
+                .long_help("Quantify editing for the specified Regions Of Interest (ROIs)")
                 .args(cli::rois::args()),
         )
         .subcommand(
-            App::new("site").long_about("Estimate editing per-site for the whole genome.").args(cli::loci::args()),
+            App::new("site").long_help("Estimate editing per-site for the whole genome.").args(cli::loci::args()),
         )
         .get_matches();
     // Log the exact command used to call rada

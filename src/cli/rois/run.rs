@@ -20,7 +20,7 @@ use crate::core::workload::ROIWorkload;
 use super::args::ROIArgs;
 use super::resformat;
 use crate::core::rpileup::hts::HTSPileupEngine;
-use crate::core::stranding::predict::roi::ROIStrandingEngine;
+use crate::core::stranding::predict::engines::ROIStrandingEngine;
 
 pub fn run(args: &ArgMatches, mut core: CoreArgs, factory: impl Fn() -> ProgressBar) {
     let args = ROIArgs::new(&core, args, &factory);

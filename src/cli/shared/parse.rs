@@ -18,7 +18,7 @@ use crate::core::stranding::predict::StrandingEngine;
 
 use super::args;
 use crate::core::hooks::filters::ByMismatches;
-use crate::core::stranding::predict::shared::{StrandByAtoIEditing, StrandByGenomicAnnotation};
+use crate::core::stranding::predict::algo::{StrandByAtoIEditing, StrandByGenomicAnnotation};
 
 pub fn readfilter(
     pbar: ProgressBar,

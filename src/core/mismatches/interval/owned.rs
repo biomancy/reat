@@ -5,7 +5,7 @@ use bio_types::strand::Strand;
 use derive_more::Constructor;
 
 use crate::core::dna::{NucCounts, Nucleotide};
-use crate::core::mismatches::interval::borrowed::BorrowedIntervalMismatches;
+use crate::core::mismatches::interval::borrowed::RefIntervalMismatches;
 use crate::core::mismatches::interval::IntervalMismatches;
 
 #[derive(Constructor)]
@@ -32,17 +32,10 @@ impl IntervalMismatches for OwnedIntervalMismatches {
     fn ncounts(&self) -> &[NucCounts] {
         &self.ncounts
     }
-
-    fn split(self, indices: &[usize]) -> Vec<Self>
-    where
-        Self: Sized,
-    {
-        todo!()
-    }
 }
 
-impl From<BorrowedIntervalMismatches<'_>> for OwnedIntervalMismatches {
-    fn from(x: BorrowedIntervalMismatches<'_>) -> Self {
+impl From<RefIntervalMismatches<'_>> for OwnedIntervalMismatches {
+    fn from(x: RefIntervalMismatches<'_>) -> Self {
         OwnedIntervalMismatches::new(
             x.interval().to_owned(),
             x.strand().clone(),

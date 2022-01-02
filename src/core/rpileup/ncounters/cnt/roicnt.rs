@@ -3,7 +3,7 @@ use bio_types::strand::{ReqStrand, Strand};
 use itertools::Itertools;
 
 use crate::core::dna::{NucCounts, Nucleotide};
-use crate::core::mismatches::roi::BorrowedROIMismatches;
+use crate::core::mismatches::roi::RefROIMismatches;
 use crate::core::read::AlignedRead;
 use crate::core::rpileup::ncounters::filters::ReadsFilter;
 use crate::core::rpileup::ncounters::{NucCounter, NucCountingResult};
@@ -20,7 +20,7 @@ pub struct ROINucCounts<'a> {
     ncounts: &'a [NucCounts],
 }
 
-impl<'a> NucCountingResult<'a, BorrowedROIMismatches<'a>> for ROINucCounts<'a> {
+impl<'a> NucCountingResult<'a, RefROIMismatches<'a>> for ROINucCounts<'a> {
     fn interval(&self) -> &Interval {
         self.interval()
     }
@@ -29,8 +29,8 @@ impl<'a> NucCountingResult<'a, BorrowedROIMismatches<'a>> for ROINucCounts<'a> {
         &self.ncounts
     }
 
-    fn mismatches(self, reference: &'a [Nucleotide]) -> Vec<BorrowedROIMismatches<'a>> {
-        vec![BorrowedROIMismatches::new(self.interval, self.strand, self.name, self.coverage, reference, self.ncounts)]
+    fn mismatches(self, reference: &'a [Nucleotide]) -> Vec<RefROIMismatches<'a>> {
+        vec![RefROIMismatches::new(self.interval, self.strand, self.name, self.coverage, reference, self.ncounts)]
     }
 }
 
@@ -85,7 +85,7 @@ impl<'a, R: AlignedRead, Filter: ReadsFilter<R>> ReadsCollider<'a, R> for ROINuc
     }
 }
 
-impl<'a, R: 'a + AlignedRead, Filter: 'a + ReadsFilter<R>> NucCounter<'a, R, BorrowedROIMismatches<'a>>
+impl<'a, R: 'a + AlignedRead, Filter: 'a + ReadsFilter<R>> NucCounter<'a, R, RefROIMismatches<'a>>
     for ROINucCounter<R, Filter>
 {
 }

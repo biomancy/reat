@@ -15,7 +15,7 @@ use crate::core::workload::ROIWorkload;
 use super::parse;
 use crate::cli::shared::stranding::Stranding;
 use crate::core::hooks::stats::ROIEditingIndex;
-use crate::core::stranding::predict::roi::ROIStrandingEngine;
+use crate::core::stranding::predict::engines::ROIStrandingEngine;
 
 pub mod stats {
     use super::*;
@@ -27,9 +27,9 @@ pub mod stats {
     pub fn args<'a>() -> Vec<Arg<'a>> {
         let args = vec![Arg::new(EDITING_INDEX)
             .long(EDITING_INDEX)
-            .settings(&defaults())
+            .setting(defaults())
             .validator(validate::writable)
-            .long_about(
+            .long_help(
                 "File for saving Editing Indexes (EI). \
                 If the file already exists, EI for the current experiments will be appended to it",
             )];
@@ -45,7 +45,7 @@ pub mod special {
     pub const SECTION_NAME: &str = "Special information";
 
     pub fn args<'a>() -> Vec<Arg<'a>> {
-        let args = vec![Arg::new(ROI).long(ROI).settings(&reqdefaults()).validator(validate::path).long_about(
+        let args = vec![Arg::new(ROI).long(ROI).setting(reqdefaults()).validator(validate::path).long_help(
             "Path to a BED file with regions of interest(ROIS) \
             with at least 4 first BED columns(chr, start, end, name)",
         )];
@@ -66,16 +66,16 @@ pub mod output_filtering {
         let args = vec![
             Arg::new(MIN_COVERAGE)
                 .long(MIN_COVERAGE)
-                .settings(&defaults())
+                .setting(defaults())
                 .validator(validate::numeric(0u32, u32::MAX))
                 .default_value("10")
-                .long_about("Output only ROIs covered by at least X unique filters(after filters/bases hooks)"),
+                .long_help("Output only ROIs covered by at least X unique filters(after filters/bases hooks)"),
             Arg::new(MIN_MISMATCHES)
                 .long(MIN_MISMATCHES)
-                .settings(&defaults())
+                .setting(defaults())
                 .validator(validate::numeric(0u32, u32::MAX))
                 .default_value("5")
-                .long_about(
+                .long_help(
                     "Output only ROI having total number of mismatches ≥ threshold. \
                     Mismatches are counted jointly, i.e. for the \"A\" reference we have \"C\" + \"G\" + \"T\". \
                     For \"N\" reference all nucleotides are considered as mismatches. \
@@ -83,10 +83,10 @@ pub mod output_filtering {
                 ),
             Arg::new(MIN_FREQ)
                 .long(MIN_FREQ)
-                .settings(&defaults())
+                .setting(defaults())
                 .validator(validate::numeric(0f32, 1f32))
                 .default_value("0.01")
-                .long_about(
+                .long_help(
                     "Output only ROI having total mismatches frequency ≥ threshold (freq = ∑ mismatches / coverage)",
                 ),
         ];

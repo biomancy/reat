@@ -3,7 +3,7 @@ use bio_types::strand::Strand;
 use derive_more::Constructor;
 
 use crate::core::dna::{NucCounts, Nucleotide};
-use crate::core::mismatches::roi::borrowed::BorrowedROIMismatches;
+use crate::core::mismatches::roi::borrowed::RefROIMismatches;
 use crate::core::mismatches::roi::{MismatchesSummary, ROIMismatches};
 
 #[derive(Clone, Debug, Constructor)]
@@ -42,8 +42,8 @@ impl ROIMismatches for OwnedROIMismatches {
     }
 }
 
-impl From<BorrowedROIMismatches<'_>> for OwnedROIMismatches {
-    fn from(x: BorrowedROIMismatches<'_>) -> Self {
+impl From<RefROIMismatches<'_>> for OwnedROIMismatches {
+    fn from(x: RefROIMismatches<'_>) -> Self {
         let (interval, strand, name, coverage, sequenced, mismatches) = x.dissolve();
         Self { interval: interval.clone(), strand, name: name.clone(), coverage, sequenced, mismatches }
     }

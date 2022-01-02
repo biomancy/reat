@@ -1,10 +1,14 @@
+use std::ops::Range;
+
 use derive_getters::Getters;
 use derive_more::Constructor;
 use itertools::zip;
 
 use crate::core::hooks::ProcessingHook;
-use crate::core::mismatches::interval::{BorrowedIntervalMismatches, IntervalMismatches};
-use crate::core::mismatches::roi::{BorrowedROIMismatches, ROIMismatches};
+use crate::core::mismatches::interval::{
+    IntermediateIntervalMismatches, IntervalMismatches, RefIntervalMismatches, SeparableIntervalMismatches,
+};
+use crate::core::mismatches::roi::{ROIMismatches, RefROIMismatches};
 
 #[derive(Constructor, Getters, Debug, PartialEq, Copy, Clone)]
 pub struct ByMismatches {
@@ -14,31 +18,59 @@ pub struct ByMismatches {
 }
 
 impl ByMismatches {
-    fn is_roi_ok(&self, x: &impl ROIMismatches) -> bool {
+    fn ok_roi(&self, x: &impl ROIMismatches) -> bool {
         let (cov, mismatch) = (x.mismatches().coverage(), x.mismatches().mismatches());
         x.coverage() >= self.mincov && mismatch >= self.minmismatches && mismatch as f32 / cov as f32 >= self.minfreq
     }
 
-    fn is_interval_ok(&self, x: &impl IntervalMismatches) -> Vec<bool> {
-        zip(x.ncounts(), x.refnuc())
-            .map(|(seqnc, refnc)| {
-                let cov = seqnc.coverage();
-                let mismatch = seqnc.mismatches(refnc);
-                cov >= self.mincov && mismatch >= self.minmismatches && mismatch as f32 / cov as f32 >= self.minfreq
-            })
-            .collect()
+    fn ok_ranges(&self, x: &impl IntervalMismatches) -> Vec<Range<usize>> {
+        let mut result = Vec::new();
+
+        let mut prevind: Option<usize> = None;
+        for (ind, (seqnc, refnc)) in zip(x.ncounts(), x.refnuc()).enumerate() {
+            let cov = seqnc.coverage();
+            let mismatch = seqnc.mismatches(refnc);
+            let isok =
+                cov >= self.mincov && mismatch >= self.minmismatches && mismatch as f32 / cov as f32 >= self.minfreq;
+
+            match (prevind, isok) {
+                // Faulty range continues
+                (None, false) => {}
+                // Faulty range finished
+                (None, true) => prevind = Some(ind),
+                // Ok range continues
+                (Some(_), true) => {}
+                // Ok range finished
+                (Some(prev), false) => {
+                    result.push(prev..ind);
+                    prevind = None;
+                }
+            }
+        }
+        if let Some(prev) = prevind {
+            result.push(prev..x.ncounts().len());
+        }
+
+        result
     }
 }
 
-impl<'a> ProcessingHook<BorrowedIntervalMismatches<'a>> for ByMismatches {
-    fn hook(&mut self, objects: Vec<BorrowedIntervalMismatches<'a>>) -> Vec<BorrowedIntervalMismatches<'a>> {
-        todo!()
+impl<'a> ProcessingHook<RefIntervalMismatches<'a>> for ByMismatches {
+    fn hook(&mut self, mut objects: Vec<RefIntervalMismatches<'a>>) -> Vec<RefIntervalMismatches<'a>> {
+        let mut result = Vec::new();
+
+        for obj in objects {
+            let ranges = self.ok_ranges(&obj);
+            obj.extract(&ranges, &mut result);
+        }
+        result
     }
 }
 
-impl<'a> ProcessingHook<BorrowedROIMismatches<'a>> for ByMismatches {
-    fn hook(&mut self, objects: Vec<BorrowedROIMismatches<'a>>) -> Vec<BorrowedROIMismatches<'a>> {
-        todo!()
+impl<'a> ProcessingHook<RefROIMismatches<'a>> for ByMismatches {
+    fn hook(&mut self, mut objects: Vec<RefROIMismatches<'a>>) -> Vec<RefROIMismatches<'a>> {
+        objects.retain(|x| self.ok_roi(x));
+        objects
     }
 }
 
@@ -47,13 +79,13 @@ mod tests {
     use bio_types::genome::Interval;
     use bio_types::strand::Strand;
 
-    use crate::core::dna::NucCounts;
+    use crate::core::dna::{NucCounts, Nucleotide};
     use crate::core::mismatches::roi::{MismatchesSummary, OwnedROIMismatches};
 
     use super::*;
 
     #[test]
-    fn is_roi_ok() {
+    fn ok_roi() {
         let mut dummy: MismatchesSummary = Default::default();
 
         dummy.A.C = 1;
@@ -89,44 +121,32 @@ mod tests {
             (false, 13, 0.48f32, 4),
         ] {
             let filter = ByMismatches::new(minmismatches, minfreq, mincov);
-            assert_eq!(filter.is_roi_ok(&dummy), expected);
+            assert_eq!(filter.ok_roi(&dummy), expected);
         }
     }
 
-    // #[test]
-    // fn is_ok_locus() {
-    //     let mut dummy = BlockSiteSummary {
-    //         block: Interval::new("".into(), 0..1),
-    //         strand: Strand::Forward,
-    //         refnuc: vec![Nucleotide::A],
-    //         ncounts: vec![NucCounts { A: 1, C: 2, G: 3, T: 4 }],
-    //     };
-    //
-    //     for (expected, minmismatches, minfreq, mincov) in [
-    //         (false, 10, 0f32, 0),
-    //         (true, 9, 0f32, 5),
-    //         (true, 8, 0f32, 8),
-    //         (true, 9, 0.85f32, 9),
-    //         (false, 9, 0.95f32, 10),
-    //         (true, 9, 0.85f32, 10),
-    //         (false, 9, 0.85f32, 11),
-    //     ] {
-    //         let filter = SitesFilteringByMismatches::new(minmismatches, minfreq, mincov);
-    //         assert_eq!(filter.isok(&dummy)[0], expected);
-    //     }
-    //
-    //     dummy.refnuc[0] = Nucleotide::Unknown;
-    //     for (expected, minmismatches, minfreq, mincov) in [
-    //         (true, 10, 0f32, 0),
-    //         (true, 9, 0f32, 0),
-    //         (false, 11, 0f32, 0),
-    //         (true, 10, 1f32, 0),
-    //         (false, 11, 1f32, 0),
-    //         (true, 10, 1f32, 10),
-    //         (false, 10, 1f32, 11),
-    //     ] {
-    //         let filter = SitesFilteringByMismatches::new(minmismatches, minfreq, mincov);
-    //         assert_eq!(filter.isok(&dummy)[0], expected);
-    //     }
-    // }
+    #[test]
+    fn ok_interval() {
+        let refnuc = [
+            Nucleotide::A,
+            Nucleotide::T,
+            Nucleotide::G,
+            Nucleotide::C,
+            Nucleotide::A,
+            Nucleotide::Unknown,
+            Nucleotide::Unknown,
+        ];
+        let sequenced = [NucCounts { A: 1, C: 2, G: 3, T: 4 }].repeat(7);
+
+        let dummy = RefIntervalMismatches::new(Interval::new("1".into(), 10..17), Strand::Forward, &refnuc, &sequenced);
+        for (expected, minmismatches, minfreq, mincov) in [
+            (vec![0..7], 0, 0f32, 0),
+            (vec![0..1, 3..7], 8, 0f32, 0),
+            (vec![0..1, 4..7], 9, 0.9f32, 9),
+            (vec![5..7], 10, 0.95f32, 10),
+        ] {
+            let filter = ByMismatches::new(minmismatches, minfreq, mincov);
+            assert_eq!(filter.ok_ranges(&dummy), expected);
+        }
+    }
 }

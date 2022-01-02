@@ -11,6 +11,10 @@ use bio_types::strand::{ReqStrand, Strand};
 use flate2::bufread::GzDecoder;
 use itertools::Itertools;
 
+use crate::core::mismatches::interval::IntermediateIntervalMismatches;
+use crate::core::mismatches::roi::IntermediateROIMismatches;
+use crate::core::stranding::predict::engines::{IntervalStrandPredictor, ROIStrandPredictor};
+
 #[derive(Clone)]
 pub struct StrandByGenomicAnnotation {
     exons: AnnotMap<String, ReqStrand>,
@@ -132,6 +136,56 @@ impl StrandByGenomicAnnotation {
         debug_assert!(supfeatures.first().unwrap().range().start == start);
         debug_assert!(supfeatures.last().unwrap().range().end == end);
         supfeatures
+    }
+}
+
+impl<T: IntermediateROIMismatches> ROIStrandPredictor<T> for StrandByGenomicAnnotation {
+    fn predict(&self, mut rois: Vec<T>) -> Vec<T> {
+        for r in &mut rois {
+            r.set_strand(self.predict(r.interval()));
+        }
+        rois
+    }
+}
+
+impl<T: IntermediateIntervalMismatches> IntervalStrandPredictor<T> for StrandByGenomicAnnotation {
+    fn predict(&self, blocks: Vec<T>) -> Vec<T> {
+        if blocks.is_empty() {
+            return blocks;
+        }
+
+        let mut result = Vec::with_capacity(blocks.len());
+        for mut i in blocks {
+            debug_assert!(i.strand().is_unknown());
+
+            // Split region into sub intervals with constant annotation if needed
+            let interval = i.interval();
+            let supfeatures = self.intervals_in(interval);
+            debug_assert!(
+                supfeatures.len() >= 1
+                    && supfeatures.first().unwrap().range().start == i.interval().range().start
+                    && supfeatures.last().unwrap().range().end == i.interval().range().end
+            );
+
+            if supfeatures.len() == 1 {
+                let strand = self.predict(interval);
+                i.set_strand(strand);
+                result.push(i);
+                continue;
+            }
+
+            let interst = interval.range().start;
+            let splits = supfeatures.iter().skip(1).map(|x| (x.range().start - interst) as usize).collect_vec();
+            let splited = i.split(&splits);
+
+            debug_assert!(splited.iter().map(|x| x.interval()).zip(supfeatures.iter()).all(|(x, y)| x == y));
+
+            for mut b in splited {
+                b.set_strand(self.predict(b.interval()));
+                result.push(b);
+            }
+        }
+        result
     }
 }
 

@@ -22,18 +22,16 @@ mod inner {
 }
 
 impl NucCounts {
-    pub fn from_sequence(sequence: &[Nucleotide]) -> Self {
-        let mut ncount = Self::zeros();
+    pub fn increment(&mut self, sequence: &[Nucleotide]) {
         for nuc in sequence {
             match nuc {
-                Nucleotide::A => ncount.A += 1,
-                Nucleotide::C => ncount.C += 1,
-                Nucleotide::G => ncount.G += 1,
-                Nucleotide::T => ncount.T += 1,
+                Nucleotide::A => self.A += 1,
+                Nucleotide::C => self.C += 1,
+                Nucleotide::G => self.G += 1,
+                Nucleotide::T => self.T += 1,
                 Nucleotide::Unknown => {}
             }
         }
-        ncount
     }
 
     #[inline]
@@ -110,9 +108,12 @@ mod tests {
 
     #[test]
     fn from_sequence() {
+        let mut counts = NucCounts { A: 1, C: 2, G: 3, T: 5 };
+
         let sequence = [
             [Nucleotide::A].repeat(7),
             [Nucleotide::C].repeat(10),
+            [Nucleotide::Unknown].repeat(5),
             [Nucleotide::G].repeat(3),
             [Nucleotide::T].repeat(2),
             [Nucleotide::Unknown].repeat(5),
@@ -121,10 +122,10 @@ mod tests {
         .flatten()
         .map(|x| *x)
         .collect_vec();
+        counts.increment(&sequence);
 
-        let expected = NucCounts { A: 7, C: 10, G: 3, T: 2 };
-        let result = NucCounts::from_sequence(&sequence);
-        assert_eq!(expected, result);
+        let expected = NucCounts { A: 8, C: 12, G: 6, T: 7 };
+        assert_eq!(expected, counts);
     }
 
     #[test]

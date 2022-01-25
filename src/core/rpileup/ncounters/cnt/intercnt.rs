@@ -1,3 +1,5 @@
+use std::ops::Range;
+
 use bio_types::genome::{AbstractInterval, Interval, Locus, Position};
 use bio_types::strand::{ReqStrand, Strand};
 use itertools::Itertools;
@@ -6,45 +8,56 @@ use crate::core::dna::{NucCounts, Nucleotide};
 use crate::core::mismatches::interval::RefIntervalMismatches;
 use crate::core::read::AlignedRead;
 use crate::core::rpileup::ncounters::filters::ReadsFilter;
-use crate::core::rpileup::ncounters::{NucCounter, NucCountingResult};
+use crate::core::rpileup::ncounters::{CountingResults, GroupedNucCounts, NucCounter, ToMismatches};
 use crate::core::rpileup::ReadsCollider;
+use crate::core::workload::SiteWorkload;
 
 use super::base::BaseNucCounter;
 
 pub struct IntervalNucCounts<'a> {
-    block: &'a Interval,
+    block: Interval,
     ncounts: &'a [NucCounts],
     strand: Strand,
 }
 
-impl<'a> NucCountingResult<'a, RefIntervalMismatches<'a>> for IntervalNucCounts<'a> {
-    fn interval(&self) -> &Interval {
-        &self.block
+impl<'a> AbstractInterval for IntervalNucCounts<'a> {
+    fn contig(&self) -> &str {
+        self.block.contig()
     }
 
+    fn range(&self) -> Range<Position> {
+        self.block.range()
+    }
+}
+
+impl<'a> CountingResults<'a> for IntervalNucCounts<'a> {
     fn ncounts(&self) -> &[NucCounts] {
         &self.ncounts
     }
+}
 
+impl<'a> ToMismatches<'a, RefIntervalMismatches<'a>> for IntervalNucCounts<'a> {
     fn mismatches(self, reference: &'a [Nucleotide]) -> Vec<RefIntervalMismatches<'a>> {
-        let object = RefIntervalMismatches::new(self.block.clone(), self.strand, reference, self.ncounts);
-        vec![object]
+        vec![RefIntervalMismatches::new(self.block, self.strand, reference, self.ncounts)]
     }
 }
 
 pub struct IntervalNucCounter<R: AlignedRead, Filter: ReadsFilter<R>> {
     base: BaseNucCounter<R, Filter>,
+    ranges: Vec<Range<u64>>,
 }
 
 impl<'a, R: AlignedRead, Filter: ReadsFilter<R>> ReadsCollider<'a, R> for IntervalNucCounter<R, Filter>
 where
     Self: 'a,
 {
-    type ColliderResult = IntervalNucCounts<'a>;
-    type Workload = Interval;
+    type ColliderResult = GroupedNucCounts<'a, IntervalNucCounts<'a>>;
+    type Workload = SiteWorkload;
 
     fn reset(&mut self, info: Self::Workload) {
-        self.base.reset(info);
+        let (interval, ranges) = info.dissolve();
+        self.base.reset(interval);
+        self.ranges = ranges;
     }
 
     fn collide(&mut self, read: &R) {
@@ -53,12 +66,24 @@ where
 
     fn finalize(&mut self) {}
 
-    fn result(&'a self) -> Vec<Self::ColliderResult> {
-        vec![IntervalNucCounts { block: self.base.interval(), ncounts: self.base.counted(), strand: Strand::Unknown }]
+    fn result(&'a self) -> Self::ColliderResult {
+        let (contig, start) = (self.base.interval().contig(), self.base.interval().range().start);
+        let items = self
+            .ranges
+            .iter()
+            .map(|x| {
+                let indx = (x.start - start) as usize..(x.end - start) as usize;
+                IntervalNucCounts {
+                    block: Interval::new(contig.into(), x.clone()),
+                    ncounts: &self.base.counted()[indx],
+                    strand: Strand::Unknown,
+                }
+            })
+            .collect();
+        GroupedNucCounts::new(self.base.interval().clone(), items)
     }
 }
 
-impl<'a, R: 'a + AlignedRead, Filter: 'a + ReadsFilter<R>> NucCounter<'a, R, RefIntervalMismatches<'a>>
-    for IntervalNucCounter<R, Filter>
-{
+impl<'a, R: 'a + AlignedRead, Filter: 'a + ReadsFilter<R>> NucCounter<'a, R> for IntervalNucCounter<R, Filter> {
+    type NucCounts = IntervalNucCounts<'a>;
 }

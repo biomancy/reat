@@ -13,15 +13,16 @@ use crate::core::workload::ROIWorkload;
 use std::collections::{HashMap, HashSet};
 
 pub fn work(pbar: ProgressBar, bamfiles: &[impl AsRef<Path>], matches: &ArgMatches) -> (Vec<ROIWorkload>, u32) {
-    let binsize = matches.value_of(shared::args::core::BINSIZE).unwrap().parse().unwrap();
-    pbar.set_message(format!("Splitting the genome into {}bp bins...", binsize));
-    let workload = ROIWorkload::from_hts(bamfiles, binsize);
-    pbar.finish_with_message(format!(
-        "Will summarize site editing for {} genome bins with max bin size {}",
-        workload.len(),
-        binsize
-    ));
-    (workload, binsize as u32)
+    // let binsize = matches.value_of(shared::args::core::BINSIZE).unwrap().parse().unwrap();
+    // pbar.set_message(format!("Splitting the genome into {}bp bins...", binsize));
+    // let workload = ROIWorkload::from_hts(bamfiles, binsize);
+    // pbar.finish_with_message(format!(
+    //     "Will summarize site editing for {} genome bins with max bin size {}",
+    //     workload.len(),
+    //     binsize
+    // ));
+    // (workload, binsize as u32)
+    todo!()
 }
 
 pub fn forcein(pbar: ProgressBar, matches: &ArgMatches) -> Option<HashMap<String, HashSet<u64>>> {

@@ -83,7 +83,7 @@ impl StrandByGenomicAnnotation {
         StrandByGenomicAnnotation { exons, genes }
     }
 
-    fn predict_by_index(&self, interval: &Interval, index: &AnnotMap<String, ReqStrand>) -> Strand {
+    fn predict_by_index(&self, interval: &impl AbstractInterval, index: &AnnotMap<String, ReqStrand>) -> Strand {
         let (start, end) = (interval.range().start, interval.range().end);
         let dummy = Contig::new(interval.contig().into(), start as isize, (end - start) as usize, Strand::Unknown);
         let intersected = index.find(&dummy).unique_by(|x| x.data()).collect_vec();
@@ -94,7 +94,7 @@ impl StrandByGenomicAnnotation {
         }
     }
 
-    pub fn predict(&self, interval: &Interval) -> Strand {
+    pub fn predict(&self, interval: &impl AbstractInterval) -> Strand {
         let byexons = self.predict_by_index(interval, &self.exons);
         if byexons.is_unknown() {
             self.predict_by_index(interval, &self.genes)
@@ -142,7 +142,7 @@ impl StrandByGenomicAnnotation {
 impl<T: IntermediateROIMismatches> ROIStrandPredictor<T> for StrandByGenomicAnnotation {
     fn predict(&self, mut rois: Vec<T>) -> Vec<T> {
         for r in &mut rois {
-            r.set_strand(self.predict(r.interval()));
+            r.set_strand(self.predict(r.roi()));
         }
         rois
     }

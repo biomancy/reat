@@ -77,7 +77,7 @@ impl<'a, Collider: ReadsCollider<'a, Record>> ReadsPileupEngine<'a, Record, Coll
         self.success = true;
     }
 
-    fn result(&'a self) -> Result<Vec<Collider::ColliderResult>, ()> {
+    fn result(&'a self) -> Result<Collider::ColliderResult, ()> {
         if self.success {
             Ok(self.collider.result())
         } else {

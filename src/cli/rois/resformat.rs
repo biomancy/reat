@@ -15,9 +15,18 @@ pub fn regions(saveto: &mut impl Write, summary: Vec<impl ROIMismatches>) {
         .expect(OUTPUT_IO_ERROR);
 
     for e in summary {
-        let (contig, range, strand) = (e.interval().contig(), e.interval().range(), e.strand().strand_symbol());
-        write!(saveto, "{}\t{}\t{}\t{}\t{}\t{}\t", contig, range.start, range.end, strand, e.name(), e.coverage())
-            .expect(OUTPUT_IO_ERROR);
+        let (contig, range, strand) = (e.roi().contig(), e.roi().range(), e.strand().strand_symbol());
+        write!(
+            saveto,
+            "{}\t{}\t{}\t{}\t{}\t{}\t",
+            contig,
+            range.start,
+            range.end,
+            strand,
+            e.roi().name(),
+            e.coverage()
+        )
+        .expect(OUTPUT_IO_ERROR);
         let seq = e.sequence();
         write!(saveto, "{}\t{}\t{}\t{}\t", seq.A, seq.T, seq.G, seq.C).expect(OUTPUT_IO_ERROR);
         let m = e.mismatches();
@@ -46,32 +55,35 @@ mod test {
     use crate::core::mismatches::roi::{MismatchesSummary, MockROIMismatches};
 
     use super::*;
+    use crate::core::workload::ROI;
 
     #[test]
     fn regions() {
-        let factory = |interval, name, strand, coverage, sequence, ncounts| {
+        let factory = |roi, strand, coverage, sequence, ncounts| {
             let mut dummy = MockROIMismatches::new();
-            dummy.expect_interval().return_const(interval);
-            dummy.expect_name().return_const(name);
+            let mut mismatches = MismatchesSummary::zeros();
+            mismatches.increment(sequence, ncounts);
+            let mut ncounts = NucCounts::zeros();
+            ncounts.increment(sequence);
+
+            dummy.expect_roi().return_const(roi);
             dummy.expect_strand().return_const(strand);
             dummy.expect_coverage().return_const(coverage);
-            dummy.expect_sequence().return_const(NucCounts::from_sequence(sequence));
-            dummy.expect_mismatches().return_const(MismatchesSummary::from_ncounts(sequence, ncounts));
+            dummy.expect_sequence().return_const(ncounts);
+            dummy.expect_mismatches().return_const(mismatches);
             dummy
         };
 
         let workload = vec![
             factory(
-                Interval::new("1".into(), 1..20),
-                "First".into(),
+                ROI::new(Interval::new("1".into(), 1..20), "First".into(), vec![1..20]),
                 Strand::Forward,
                 12u32,
                 &vec![Nucleotide::A, Nucleotide::Unknown],
                 &vec![NucCounts::new(1, 10, 100, 1000), NucCounts::new(1, 1, 1, 1)],
             ),
             factory(
-                Interval::new("3".into(), 30..31),
-                "".into(),
+                ROI::new(Interval::new("3".into(), 30..31), "First".into(), vec![1..20]),
                 Strand::Unknown,
                 190u32,
                 &vec![Nucleotide::C, Nucleotide::G],

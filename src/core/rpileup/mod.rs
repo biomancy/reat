@@ -19,5 +19,5 @@ pub trait ReadsPileupEngine<'a, R: AlignedRead, Collider: ReadsCollider<'a, R>> 
     // TODO: return not a vec, but simply a collider result;
     // Didn't find a way to override this type
     // TODO: create an issue
-    fn result(&'a self) -> Result<Vec<Collider::ColliderResult>, ()>;
+    fn result(&'a self) -> Result<Collider::ColliderResult, ()>;
 }

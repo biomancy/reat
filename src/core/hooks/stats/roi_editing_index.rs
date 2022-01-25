@@ -80,6 +80,7 @@ mod test {
 
     use crate::core::dna::NucCounts;
     use crate::core::mismatches::roi::MockROIMismatches;
+    use crate::core::workload::ROI;
 
     use super::*;
 
@@ -96,9 +97,9 @@ mod test {
 
     #[test]
     fn row() {
-        let factory = |interval, strand, coverage, sequence, mismatches| {
+        let factory = |roi, strand, coverage, sequence, mismatches| {
             let mut dummy = MockROIMismatches::new();
-            dummy.expect_interval().return_const(interval);
+            dummy.expect_roi().return_const(roi);
             dummy.expect_strand().return_const(strand);
             dummy.expect_coverage().return_const(coverage);
             dummy.expect_sequence().return_const(sequence);
@@ -133,8 +134,13 @@ mod test {
         forward.T.G = 15;
         forward.T.T = 16;
 
-        let forward =
-            factory(Interval::new("".into(), 1..2), Strand::Forward, 3u32, NucCounts::new(1, 1, 1, 1), forward);
+        let forward = factory(
+            ROI::new(Interval::new("".into(), 1..2), "".into(), vec![1..2]),
+            Strand::Forward,
+            3u32,
+            NucCounts::new(1, 1, 1, 1),
+            forward,
+        );
 
         let mut reverse = MismatchesSummary::zeros();
         // coverage - 14
@@ -161,8 +167,13 @@ mod test {
         reverse.T.G = 16;
         reverse.T.T = 17;
 
-        let reverse =
-            factory(Interval::new("".into(), 1..2), Strand::Reverse, 9u32, NucCounts::new(1, 1, 1, 1), reverse);
+        let reverse = factory(
+            ROI::new(Interval::new("".into(), 1..2), "".into(), vec![1..2]),
+            Strand::Reverse,
+            9u32,
+            NucCounts::new(1, 1, 1, 1),
+            reverse,
+        );
 
         let prehook = vec![forward, reverse];
         let posthook = dummy.hook(prehook);

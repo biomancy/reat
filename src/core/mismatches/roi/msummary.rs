@@ -28,26 +28,24 @@ impl MismatchesSummary {
         MismatchesSummary { A: NucCounts::zeros(), C: NucCounts::zeros(), G: NucCounts::zeros(), T: NucCounts::zeros() }
     }
 
-    pub fn from_ncounts(sequence: &[Nucleotide], ncounts: &[NucCounts]) -> Self {
-        let mut mismatches = MismatchesSummary::zeros();
+    pub fn increment(&mut self, sequence: &[Nucleotide], ncounts: &[NucCounts]) {
         for (seq, count) in zip(sequence, ncounts) {
             match seq {
                 Nucleotide::A => {
-                    mismatches.A += *count;
+                    self.A += *count;
                 }
                 Nucleotide::C => {
-                    mismatches.C += *count;
+                    self.C += *count;
                 }
                 Nucleotide::G => {
-                    mismatches.G += *count;
+                    self.G += *count;
                 }
                 Nucleotide::T => {
-                    mismatches.T += *count;
+                    self.T += *count;
                 }
                 _ => {}
             }
         }
-        mismatches
     }
 
     #[inline]
@@ -122,7 +120,8 @@ mod tests {
 
     #[test]
     fn from_counts() {
-        let mismatches = MismatchesSummary::from_ncounts(
+        let mut mismatches = MismatchesSummary::zeros();
+        mismatches.increment(
             &vec![Nucleotide::A, Nucleotide::Unknown, Nucleotide::C],
             &vec![
                 NucCounts { A: 10, C: 0, G: 15, T: 0 },
@@ -130,12 +129,12 @@ mod tests {
                 NucCounts { A: 9, C: 0, G: 8, T: 0 },
             ],
         );
-        let mut summary = MismatchesSummary::zeros();
-        summary.A.A = 10;
-        summary.A.G = 15;
-        summary.C.A = 9;
-        summary.C.G = 8;
+        let mut expected = MismatchesSummary::zeros();
+        expected.A.A = 10;
+        expected.A.G = 15;
+        expected.C.A = 9;
+        expected.C.G = 8;
 
-        assert_eq!(mismatches, summary);
+        assert_eq!(mismatches, expected);
     }
 }

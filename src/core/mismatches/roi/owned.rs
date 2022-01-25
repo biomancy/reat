@@ -5,28 +5,29 @@ use derive_more::Constructor;
 use crate::core::dna::{NucCounts, Nucleotide};
 use crate::core::mismatches::roi::borrowed::RefROIMismatches;
 use crate::core::mismatches::roi::{MismatchesSummary, ROIMismatches};
+use crate::core::workload::ROI;
 
 #[derive(Clone, Debug, Constructor)]
 pub struct OwnedROIMismatches {
-    interval: Interval,
+    roi: ROI,
     strand: Strand,
-    name: String,
+    masked: u32,
     coverage: u32,
     sequenced: NucCounts,
     mismatches: MismatchesSummary,
 }
 
 impl ROIMismatches for OwnedROIMismatches {
-    fn interval(&self) -> &Interval {
-        &self.interval
+    fn roi(&self) -> &ROI {
+        &self.roi
     }
 
     fn strand(&self) -> &Strand {
         &self.strand
     }
 
-    fn name(&self) -> &String {
-        &self.name
+    fn masked(&self) -> u32 {
+        self.masked
     }
 
     fn coverage(&self) -> u32 {
@@ -44,7 +45,7 @@ impl ROIMismatches for OwnedROIMismatches {
 
 impl From<RefROIMismatches<'_>> for OwnedROIMismatches {
     fn from(x: RefROIMismatches<'_>) -> Self {
-        let (interval, strand, name, coverage, sequenced, mismatches) = x.dissolve();
-        Self { interval: interval.clone(), strand, name: name.clone(), coverage, sequenced, mismatches }
+        let (roi, strand, masked, coverage, sequenced, mismatches) = x.dissolve();
+        Self { roi: roi.clone(), strand, masked, coverage, sequenced, mismatches }
     }
 }

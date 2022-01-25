@@ -9,5 +9,5 @@ pub trait ReadsCollider<'a, R: AlignedRead> {
     fn reset(&mut self, info: Self::Workload);
     fn collide(&mut self, read: &R);
     fn finalize(&mut self);
-    fn result(&'a self) -> Vec<Self::ColliderResult>;
+    fn result(&'a self) -> Self::ColliderResult;
 }

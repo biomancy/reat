@@ -81,6 +81,7 @@ mod tests {
 
     use crate::core::dna::{NucCounts, Nucleotide};
     use crate::core::mismatches::roi::{MismatchesSummary, OwnedROIMismatches};
+    use crate::core::workload::ROI;
 
     use super::*;
 
@@ -101,9 +102,9 @@ mod tests {
         dummy.T.T = 3;
 
         let mut dummy = OwnedROIMismatches::new(
-            Interval::new("".into(), 1..2),
+            ROI::new(Interval::new("".into(), 1..2), "".into(), vec![1..2]),
             Strand::Forward,
-            "".to_string(),
+            0,
             2,
             NucCounts::zeros(),
             dummy,

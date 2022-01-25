@@ -7,17 +7,18 @@ use bio_types::strand::{Same, Strand};
 use mockall::{mock, predicate::*};
 
 pub use borrowed::RefROIMismatches;
-pub use mismatches_summary::MismatchesSummary;
+pub use msummary::MismatchesSummary;
 pub use owned::OwnedROIMismatches;
 
 use crate::core::dna::NucCounts;
 use crate::core::dna::Nucleotide;
 use crate::core::mismatches::IntermediateMismatches;
+use crate::core::workload::ROI;
 
 pub trait ROIMismatches {
-    fn interval(&self) -> &Interval;
+    fn roi(&self) -> &ROI;
     fn strand(&self) -> &Strand;
-    fn name(&self) -> &String;
+    fn masked(&self) -> u32;
     fn coverage(&self) -> u32;
     fn sequence(&self) -> &NucCounts;
     fn mismatches(&self) -> &MismatchesSummary;
@@ -25,9 +26,9 @@ pub trait ROIMismatches {
 
 impl PartialEq for dyn ROIMismatches {
     fn eq(&self, other: &Self) -> bool {
-        self.interval() == other.interval()
+        self.roi() == other.roi()
             && self.strand().same(other.strand())
-            && self.name() == other.name()
+            && self.masked() == other.masked()
             && self.coverage() == other.coverage()
             && self.sequence() == other.sequence()
             && self.mismatches() == other.mismatches()
@@ -35,7 +36,7 @@ impl PartialEq for dyn ROIMismatches {
 }
 
 mod borrowed;
-mod mismatches_summary;
+mod msummary;
 mod owned;
 
 pub trait IntermediateROIMismatches: ROIMismatches + IntermediateMismatches {}
@@ -50,9 +51,9 @@ mock! {
         fn set_strand(&mut self, strand: Strand);
     }
     impl ROIMismatches for ROIMismatches {
-        fn interval(&self) -> &Interval;
+        fn roi(&self) -> &ROI;
         fn strand(&self) -> &Strand;
-        fn name(&self) -> &String;
+        fn masked(&self) -> u32;
         fn coverage(&self) -> u32;
         fn sequence(&self) -> &NucCounts;
         fn mismatches(&self) -> &MismatchesSummary;

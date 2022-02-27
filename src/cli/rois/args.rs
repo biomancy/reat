@@ -15,6 +15,8 @@ use crate::core::workload::ROIWorkload;
 use super::parse;
 use crate::cli::shared::stranding::Stranding;
 use crate::core::hooks::stats::ROIEditingIndex;
+use crate::core::mismatches::IntermediateMismatches;
+use crate::core::stranding::predict::algo::{StrandByAtoIEditing, StrandByGenomicAnnotation};
 use crate::core::stranding::predict::engines::ROIStrandingEngine;
 
 pub mod stats {
@@ -107,12 +109,11 @@ pub struct ROIArgs {
     pub workload: Vec<ROIWorkload>,
     pub maxwsize: u32,
     pub filter: ByMismatches,
-    pub stranding: Stranding,
     pub ei: Option<BufWriter<File>>,
 }
 
 impl ROIArgs {
-    pub fn new(_: &shared::args::CoreArgs, args: &ArgMatches, factory: &impl Fn() -> ProgressBar) -> Self {
+    pub fn new(core: &shared::args::CoreArgs, args: &ArgMatches, factory: &impl Fn() -> ProgressBar) -> Self {
         let filter = shared::parse::outfilter(
             factory(),
             output_filtering::MIN_MISMATCHES,
@@ -122,20 +123,20 @@ impl ROIArgs {
         );
         let ei = parse::editing_index(factory(), args);
 
-        let mut stranding: Option<Stranding> = Default::default();
+        // let mut stranding: Option<Stranding> = Default::default();
         let mut workload: Option<Vec<ROIWorkload>> = Default::default();
         let mut maxsize: Option<u32> = Default::default();
 
         let (pbarw, pbars) = (factory(), factory());
         rayon::scope(|s| {
             s.spawn(|_| {
-                let (w, m) = parse::work(pbarw, args);
+                let (w, m) = parse::work(pbarw, args, core.excluded.clone());
                 workload = Some(w);
                 maxsize = Some(m)
             });
-            s.spawn(|_| stranding = Some(shared::parse::stranding(pbars, args)));
+            // s.spawn(|_| strandpred = Some(shared::parse::stranding(pbars, args)));
         });
 
-        Self { workload: workload.unwrap(), maxwsize: maxsize.unwrap(), filter, stranding: stranding.unwrap(), ei }
+        Self { workload: workload.unwrap(), maxwsize: maxsize.unwrap(), filter, ei }
     }
 }

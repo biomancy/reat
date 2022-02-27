@@ -1,13 +1,24 @@
+use derive_getters::Dissolve;
 #[cfg(test)]
 use mockall::{automock, predicate::*};
 
-use crate::core::mismatches::roi::IntermediateROIMismatches;
-use crate::core::mismatches::IntermediateMismatches;
+pub use engine::REATStrandingEngine;
+
+use crate::core::mismatches::roi::BinnedROIMismatches;
+use crate::core::mismatches::site::BinnedSiteMismatches;
+use crate::core::mismatches::BatchedMismatches;
+
+pub use self::ctx::StrandingContext;
 
 pub mod algo;
-pub mod engines;
+mod ctx;
+mod engine;
 
-pub trait StrandingEngine<T: IntermediateMismatches> {
-    // TODO: It's a lot better to pass const objects but blocked mismatches can be split during stranding
+pub trait StrandingEngine<T: BatchedMismatches> {
+    fn add_algo(&mut self, algo: Box<dyn StrandingAlgo<T>>);
     fn strand(&self, items: Vec<T>) -> Vec<T>;
+}
+
+pub trait StrandingAlgo<T: BatchedMismatches> {
+    fn predict(&self, ctx: StrandingContext<T>) -> StrandingContext<T>;
 }

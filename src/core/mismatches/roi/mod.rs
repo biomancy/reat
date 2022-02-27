@@ -1,61 +1,47 @@
 use std::borrow::Borrow;
+use std::ops::Range;
 use std::path::Path;
 
-use bio_types::genome::Interval;
-use bio_types::strand::{Same, Strand};
-#[cfg(test)]
-use mockall::{mock, predicate::*};
+use bio_types::genome::{Interval, Position};
+use bio_types::strand::Strand;
 
-pub use borrowed::RefROIMismatches;
+pub use batched::REATBinnedROIMismatches;
+pub use flat::REATROIMismatches;
 pub use msummary::MismatchesSummary;
-pub use owned::OwnedROIMismatches;
 
 use crate::core::dna::NucCounts;
 use crate::core::dna::Nucleotide;
-use crate::core::mismatches::IntermediateMismatches;
+use crate::core::mismatches::BatchedMismatches;
 use crate::core::workload::ROI;
+
+mod batched;
+mod flat;
+mod msummary;
+
+pub type ROIMismatchesPreview = MismatchesSummary;
 
 pub trait ROIMismatches {
     fn roi(&self) -> &ROI;
-    fn strand(&self) -> &Strand;
-    fn masked(&self) -> u32;
+    fn strand(&self) -> Strand;
     fn coverage(&self) -> u32;
-    fn sequence(&self) -> &NucCounts;
+    fn prednuc(&self) -> NucCounts;
     fn mismatches(&self) -> &MismatchesSummary;
 }
 
-impl PartialEq for dyn ROIMismatches {
-    fn eq(&self, other: &Self) -> bool {
-        self.roi() == other.roi()
-            && self.strand().same(other.strand())
-            && self.masked() == other.masked()
-            && self.coverage() == other.coverage()
-            && self.sequence() == other.sequence()
-            && self.mismatches() == other.mismatches()
-    }
-}
-
-mod borrowed;
-mod msummary;
-mod owned;
-
-pub trait IntermediateROIMismatches: ROIMismatches + IntermediateMismatches {}
-impl<T: ROIMismatches + IntermediateMismatches> IntermediateROIMismatches for T {}
-#[cfg(test)]
-mock! {
-    pub ROIMismatches {}
-    impl IntermediateMismatches for ROIMismatches {
-        type Finalized = ();
-
-        fn finalize(self) -> <Self as IntermediateMismatches>::Finalized;
-        fn set_strand(&mut self, strand: Strand);
-    }
-    impl ROIMismatches for ROIMismatches {
-        fn roi(&self) -> &ROI;
-        fn strand(&self) -> &Strand;
-        fn masked(&self) -> u32;
-        fn coverage(&self) -> u32;
-        fn sequence(&self) -> &NucCounts;
-        fn mismatches(&self) -> &MismatchesSummary;
-    }
+pub trait BinnedROIMismatches: BatchedMismatches
+where
+    Self::Flattened: ROIMismatches,
+{
+    // Minimal enclosing interval for each roi
+    fn rois(&self) -> &[Range<Position>];
+    // Rois' pieces after filtering excluded regions
+    fn pieces(&self) -> &[Vec<Range<Position>>];
+    // Original bed intervals
+    fn premasked(&self) -> &[Range<Position>];
+    // Number of unique reads covering the given region
+    fn coverage(&self) -> &[u32];
+    // Number of predicted nucleotides in each ROI;
+    fn prednuc(&self) -> &[NucCounts];
+    // Number of mismatches between predicted and sequenced nucleotides
+    fn mismatches(&self) -> &[MismatchesSummary];
 }

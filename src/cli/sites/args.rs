@@ -20,7 +20,7 @@ pub mod output_filtering {
     pub const MIN_MISMATCHES: &str = "out-min-mismatches";
     pub const MIN_FREQ: &str = "out-min-freq";
     pub const MIN_COVERAGE: &str = "out-min-cov";
-    pub const FORCE_LIST: &str = "force-in";
+    pub const FORCE_LIST: &str = "force";
 
     pub const SECTION_NAME: &str = "Output hooks";
 

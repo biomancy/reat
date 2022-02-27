@@ -1,6 +1,6 @@
 use std::ops::Range;
 
-use bio_types::genome::{Interval, Locus};
+use bio_types::genome::{AbstractInterval, Interval, Locus};
 use bio_types::strand::Strand;
 #[cfg(test)]
 use mockall::{mock, predicate::*};
@@ -10,10 +10,14 @@ pub use owned::OwnedIntervalMismatches;
 
 use crate::core::dna::NucCounts;
 use crate::core::dna::Nucleotide;
+use crate::core::mismatches::roi::MismatchesSummary;
 use crate::core::mismatches::IntermediateMismatches;
 
 mod borrowed;
 mod owned;
+
+// А как быть с репликами? Добавить параметр, который будет определять число реплик.
+// И возвращать батч, где лежит sequenced &[[NucCounts, N]]
 
 pub trait IntervalMismatches {
     fn interval(&self) -> &Interval;

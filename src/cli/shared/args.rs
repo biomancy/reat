@@ -8,12 +8,14 @@ use indicatif::ProgressBar;
 use rust_htslib::bam::Record;
 
 use crate::cli::shared::stranding::Stranding;
+use crate::core::io::bed::BedRecord;
 use crate::core::io::fasta::BasicFastaReader;
 use crate::core::refpred::AutoRef;
 use crate::core::rpileup::ncounters::filters::{ReadsFilterByFlags, ReadsFilterByQuality, SequentialReadsFilter};
 
 use super::parse;
 use super::validate;
+use crate::core::stranding::predict::algo::{StrandByAtoIEditing, StrandByGenomicAnnotation};
 
 pub fn reqdefaults() -> ArgFlags {
     ArgSettings::Required | ArgSettings::TakesValue
@@ -33,6 +35,7 @@ pub mod core {
     pub const THREADS: &str = "threads";
     pub const SAVETO: &str = "saveto";
     pub const NAME: &str = "name";
+    pub const EXCLUDE_LIST: &str = "exclude";
 
     pub const SECTION_NAME: &str = "Core";
 
@@ -91,6 +94,10 @@ pub mod core {
                 .validator(validate::numeric(1, usize::MAX))
                 .default_value("1")
                 .long_help("Maximum number of threads to spawn at once"),
+            Arg::new(EXCLUDE_LIST).long(EXCLUDE_LIST).setting(defaults()).validator(validate::path).long_help(
+                "Path to a BED file with regions to exclude from the analysis. \
+                    In practice, they will be processed as having zero coverage.",
+            ),
         ];
         args.into_iter().map(|x| x.help_heading(Some(SECTION_NAME))).collect()
     }
@@ -288,6 +295,8 @@ pub struct CoreArgs {
     pub refnucpred: AutoRef<BasicFastaReader>,
     pub readfilter: SequentialReadsFilter<Record, ReadsFilterByQuality, ReadsFilterByFlags>,
     pub stranding: Stranding,
+    pub strandpred: (Option<StrandByGenomicAnnotation>, Option<StrandByAtoIEditing>),
+    pub excluded: Option<Vec<BedRecord>>,
     pub saveto: BufWriter<File>,
 }
 
@@ -299,7 +308,6 @@ impl CoreArgs {
 
         let reference = parse::reference(factory(), args);
         let refreader = BasicFastaReader::new(reference);
-
         Self {
             name,
             threads,
@@ -309,6 +317,8 @@ impl CoreArgs {
             refnucpred: parse::refnucpred(factory(), args, refreader),
             readfilter: parse::readfilter(factory(), args),
             stranding: parse::stranding(factory(), args),
+            strandpred: parse::strandpred(factory(), args),
+            excluded: parse::bedrecords(factory(), args, "Exclude regions", "No regions will be excluded"),
             saveto: parse::saveto(factory(), args),
         }
     }

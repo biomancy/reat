@@ -15,14 +15,15 @@ use crate::core::workload::ROIWorkload;
 
 use super::args;
 use crate::core::hooks::stats::ROIEditingIndex;
+use crate::core::io::bed::BedRecord;
 
-pub fn work(pbar: ProgressBar, matches: &ArgMatches) -> (Vec<ROIWorkload>, u32) {
+pub fn work(pbar: ProgressBar, matches: &ArgMatches, exclude: Option<Vec<BedRecord>>) -> (Vec<ROIWorkload>, u32) {
     let roi: &Path = matches.value_of(args::special::ROI).unwrap().as_ref();
     let binsize = matches.value_of(shared::args::core::BINSIZE).unwrap().parse().unwrap();
     pbar.set_message(format!("Parsing BED regions of interest from {}...", roi.display()));
 
     let roi = io::bed::parse(roi);
-    let workload = ROIWorkload::from_bed(roi, binsize, None);
+    let workload = ROIWorkload::from_bed(roi, binsize, exclude);
     let maxlen = workload.iter().max_by_key(|x| x.len()).map(|x| x.len()).unwrap_or(0);
     pbar.finish_with_message(format!(
         "Will summarize {} ROI editing for regions with max bin size {}",

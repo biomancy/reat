@@ -1,15 +1,37 @@
-use bio_types::genome::Locus;
+use std::ops::Range;
+
+use bio_types::genome::{AbstractLocus, Locus, Position};
 use bio_types::strand::Strand;
-#[cfg(test)]
-use mockall::{automock, predicate::*};
+
+pub use batched::REATBatchedSiteMismatches;
+pub use flat::REATSiteMismatches;
 
 use crate::core::dna::NucCounts;
 use crate::core::dna::Nucleotide;
 
-#[cfg_attr(test, automock)]
-pub trait SiteMismatches {
-    fn locus(&self) -> &Locus;
+use super::BatchedMismatches;
+
+mod batched;
+mod builder;
+mod flat;
+
+pub type SiteMismatchesPreview = (Nucleotide, NucCounts);
+
+pub trait SiteMismatches: AbstractLocus {
     fn strand(&self) -> Strand;
     fn refnuc(&self) -> Nucleotide;
-    fn ncounts(&self) -> &NucCounts;
+    fn prednuc(&self) -> Nucleotide;
+    fn sequenced(&self) -> NucCounts;
+}
+
+pub trait BinnedSiteMismatches: BatchedMismatches
+where
+    Self::Flattened: SiteMismatches,
+{
+    fn pos(&self) -> &[Position];
+    fn refnuc(&self) -> &[Nucleotide];
+    fn prednuc(&self) -> &[Nucleotide];
+    fn seqnuc(&self) -> &[NucCounts];
+    // Continuous blocks in the genome coordinates
+    fn blocks(&self) -> &[Range<Position>];
 }

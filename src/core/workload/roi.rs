@@ -18,7 +18,7 @@ use crate::core::io::bed::BedRecord;
 
 use super::utils;
 
-#[derive(Clone, Debug, Eq, PartialEq, Getters)]
+#[derive(Clone, Debug, Eq, PartialEq, Getters, Dissolve)]
 pub struct ROI {
     include: Vec<Range<u64>>,
     original: Interval,
@@ -41,12 +41,32 @@ impl ROI {
         debug_assert!(include.iter().all(|x| x.start >= roi.range().start && x.end <= roi.range().end));
         ROI { include, original: roi, name }
     }
+
+    pub fn masked(&self) -> u32 {
+        let mut nucin = 0;
+        for piece in &self.include {
+            nucin += piece.end - piece.start;
+        }
+        let total = self.original.range().end - self.original.range().start;
+
+        (total - nucin) as u32
+    }
 }
 
 #[derive(Clone, PartialEq, Debug, Dissolve, Getters)]
 pub struct ROIWorkload {
     bin: Interval,
     rois: Vec<ROI>,
+}
+
+impl AbstractInterval for ROIWorkload {
+    fn contig(&self) -> &str {
+        self.bin.contig()
+    }
+
+    fn range(&self) -> Range<Position> {
+        self.bin.range()
+    }
 }
 
 impl ROIWorkload {

@@ -3,11 +3,11 @@ use std::fmt::{Display, Formatter};
 use bio_types::strand::Strand;
 use derive_more::{Add, AddAssign};
 
-use crate::core::hooks::ProcessingHook;
+use crate::core::hooks::stats::EditingStat;
 use crate::core::io::Table;
 use crate::core::mismatches::roi::{MismatchesSummary, ROIMismatches};
 
-use super::EditingStat;
+use super::EditingStatHook;
 
 #[derive(Copy, Clone, Default, Add, AddAssign)]
 pub struct ROIEditingIndex {
@@ -50,9 +50,13 @@ impl Table for ROIEditingIndex {
     }
 }
 
-impl<T: ROIMismatches> ProcessingHook<T> for ROIEditingIndex {
-    fn hook(&mut self, objects: Vec<T>) -> Vec<T> {
-        for roi in &objects {
+impl<T: ROIMismatches> EditingStatHook<T> for ROIEditingIndex {
+    fn stype(&self) -> EditingStat {
+        EditingStat::ROIEditingIndex
+    }
+
+    fn hook(&mut self, objects: &[T]) {
+        for roi in objects {
             match roi.strand() {
                 Strand::Forward => {
                     self.accumulator += *roi.mismatches();
@@ -63,15 +67,10 @@ impl<T: ROIMismatches> ProcessingHook<T> for ROIEditingIndex {
                 Strand::Unknown => {}
             }
         }
-
-        objects
     }
-}
-
-impl<T: ROIMismatches> EditingStat<T> for ROIEditingIndex {
-    fn combine(stats: &[Self]) -> Self {
-        stats.iter().fold(Self::default(), |a, b| a + *b)
-    }
+    // fn combine(stats: Vec<Self>) -> Self {
+    //     stats.into_iter().fold(Self::default(), |a, b| a + b)
+    // }
 }
 
 #[cfg(test)]

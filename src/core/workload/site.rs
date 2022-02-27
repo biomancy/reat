@@ -7,7 +7,7 @@ use std::io::BufRead;
 use std::ops::Range;
 use std::path::Path;
 
-use bio_types::genome::{AbstractInterval, Interval};
+use bio_types::genome::{AbstractInterval, Interval, Position};
 use derive_getters::{Dissolve, Getters};
 use flate2::bufread::GzDecoder;
 use itertools::Itertools;
@@ -19,6 +19,16 @@ use super::utils;
 pub struct SiteWorkload {
     interval: Interval,
     include: Vec<Range<u64>>,
+}
+
+impl AbstractInterval for SiteWorkload {
+    fn contig(&self) -> &str {
+        self.interval.contig()
+    }
+
+    fn range(&self) -> Range<Position> {
+        self.interval.range()
+    }
 }
 
 impl SiteWorkload {

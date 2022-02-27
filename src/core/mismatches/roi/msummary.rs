@@ -55,10 +55,10 @@ impl MismatchesSummary {
 
     #[inline]
     pub fn mismatches(&self) -> u32 {
-        self.A.mismatches(&Nucleotide::A)
-            + self.C.mismatches(&Nucleotide::C)
-            + self.G.mismatches(&Nucleotide::G)
-            + self.T.mismatches(&Nucleotide::T)
+        self.A.mismatches(Nucleotide::A)
+            + self.C.mismatches(Nucleotide::C)
+            + self.G.mismatches(Nucleotide::G)
+            + self.T.mismatches(Nucleotide::T)
     }
 
     #[inline]

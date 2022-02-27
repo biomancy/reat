@@ -1,42 +1,34 @@
 use std::cell::RefCell;
 use std::marker::PhantomData;
 use std::ops::Range;
+use std::rc::Rc;
 use std::sync::Mutex;
 
 use bio_types::genome::{AbstractInterval, Interval, Position};
 use bio_types::strand::{ReqStrand, Strand};
-use itertools::zip;
+use itertools::{zip, Itertools};
 
 use crate::core::dna::{NucCounts, Nucleotide};
-use crate::core::mismatches::IntermediateMismatches;
+use crate::core::mismatches::BatchedMismatches;
 use crate::core::read::AlignedRead;
-use crate::core::rpileup::ncounters::{CountingResults, GroupedNucCounts, NucCounter, ToMismatches};
+use crate::core::rpileup::ncounters::{AggregatedNucCounts, NucCounter};
 use crate::core::rpileup::ReadsCollider;
 use crate::core::stranding::deduct::StrandDeductor;
 
-pub struct StrandedNucCounts<'a, NucCounterResult>
+pub struct StrandedBinnedNucCounts<'a, Inner>
 where
-    NucCounterResult: CountingResults<'a>,
+    Inner: AggregatedNucCounts<'a>,
 {
-    forward: NucCounterResult,
-    reverse: NucCounterResult,
-    ncounts: Vec<NucCounts>,
+    forward: Inner,
+    reverse: Inner,
+    idx: Range<usize>,
+    ncounts: Rc<Vec<NucCounts>>,
     marker: PhantomData<&'a ()>,
 }
 
-impl<'a, NucCounterResult> StrandedNucCounts<'a, NucCounterResult>
+impl<'a, Inner> AbstractInterval for StrandedBinnedNucCounts<'a, Inner>
 where
-    NucCounterResult: CountingResults<'a>,
-{
-    pub fn new(forward: NucCounterResult, reverse: NucCounterResult) -> Self {
-        let ncounts = zip(forward.ncounts(), reverse.ncounts()).map(|(x, y)| *x + *y).collect();
-        Self { forward, reverse, ncounts, marker: Default::default() }
-    }
-}
-
-impl<'a, NucCounterResult> AbstractInterval for StrandedNucCounts<'a, NucCounterResult>
-where
-    NucCounterResult: CountingResults<'a>,
+    Inner: AggregatedNucCounts<'a>,
 {
     fn contig(&self) -> &str {
         debug_assert_eq!(self.forward.contig(), self.reverse.contig());
@@ -49,58 +41,61 @@ where
     }
 }
 
-impl<'a, NucCounterResult> CountingResults<'a> for StrandedNucCounts<'a, NucCounterResult>
-where
-    NucCounterResult: CountingResults<'a>,
-{
-    fn ncounts(&self) -> &[NucCounts] {
-        &self.ncounts
-    }
-}
+// impl<'a, Inner> AggregatedNucCounts<'a> for StrandedBinnedNucCounts<'a, Inner>
+// where
+//     Inner: AggregatedNucCounts<'a>,
+// {
+//     fn elemrng(&self) -> &[Range<Position>] {
+//         debug_assert!(zip(self.forward.elemrng(), self.reverse.elemrng()).all(|(x, y)| x == y));
+//         self.forward.elemrng()
+//     }
+//
+//     fn seqnuc(&'a self) -> &'a [&'a [NucCounts]] {
+//         todo!()
+//     }
+// }
 
-impl<'a, NucCounterResult, Target> ToMismatches<'a, Target> for StrandedNucCounts<'a, NucCounterResult>
-where
-    NucCounterResult: CountingResults<'a> + ToMismatches<'a, Target>,
-    Target: IntermediateMismatches,
-{
-    fn mismatches(self, reference: &'a [Nucleotide]) -> Vec<Target> {
-        let mut results = Vec::new();
+// impl<'a, Inner, Target> ToMismatches<'a, Target> for StrandedBinnedNucCounts<'a, Inner>
+// where
+//     Inner: AggregatedNucCounts<'a> + ToMismatches<'a, Target>,
+//     Target: BinnedMismatches,
+// {
+//     type MismatchesPreview = Inner::MismatchesPreview;
+//
+//     fn mismatches(
+//         self,
+//         refnuc: Vec<&'a [Nucleotide]>,
+//         prednuc: Vec<&'a [Nucleotide]>,
+//         prefilter: impl Fn(Self::MismatchesPreview) -> bool,
+//     ) -> Vec<Target> {
+//         todo!()
+//     }
+// }
 
-        for (res, strand) in [
-            (self.forward.mismatches(reference), Strand::Forward),
-            (self.reverse.mismatches(reference), Strand::Reverse),
-        ] {
-            for mut r in res {
-                r.set_strand(strand);
-                results.push(r);
-            }
-        }
-        results
-    }
-}
-
-pub struct StrandedNucCounter<'a, R, Deductor, Counter>
+pub struct StrandedNucCounter<'a, R, Deductor, InnerNucCounter>
 where
     R: AlignedRead,
     Deductor: StrandDeductor<R>,
-    Counter: NucCounter<'a, R>,
-    Counter::Workload: Clone,
+    InnerNucCounter: NucCounter<'a, R>,
+    InnerNucCounter::Workload: Clone,
+    InnerNucCounter::ColliderResult: AggregatedNucCounts<'a>,
 {
-    forward: Counter,
-    reverse: Counter,
+    forward: InnerNucCounter,
+    reverse: InnerNucCounter,
     deductor: Deductor,
     phantom: PhantomData<(&'a R)>,
 }
 
-impl<'a, R, Deductor, Counter> ReadsCollider<'a, R> for StrandedNucCounter<'a, R, Deductor, Counter>
+impl<'a, R, Deductor, InnerNucCounter> ReadsCollider<'a, R> for StrandedNucCounter<'a, R, Deductor, InnerNucCounter>
 where
     R: AlignedRead,
     Deductor: StrandDeductor<R>,
-    Counter: NucCounter<'a, R>,
-    Counter::Workload: Clone,
+    InnerNucCounter: NucCounter<'a, R>,
+    InnerNucCounter::Workload: Clone,
+    InnerNucCounter::ColliderResult: AggregatedNucCounts<'a>,
 {
-    type ColliderResult = GroupedNucCounts<'a, StrandedNucCounts<'a, Counter::NucCounts>>;
-    type Workload = Counter::Workload;
+    type ColliderResult = StrandedBinnedNucCounts<'a, InnerNucCounter::ColliderResult>;
+    type Workload = InnerNucCounter::Workload;
 
     fn reset(&mut self, info: Self::Workload) {
         self.forward.reset(info.clone());
@@ -121,19 +116,47 @@ where
 
     fn result(&'a self) -> Self::ColliderResult {
         // Fetch results
-        let ((finter, forward), (frev, reverse)) = (self.forward.result().dissolve(), self.reverse.result().dissolve());
-        debug_assert_eq!(finter, frev);
-
-        // Calculate shared counts and return the proxy
-        let mut results = Vec::with_capacity(forward.len());
-        for (f, r) in zip(forward, reverse) {
-            debug_assert_eq!(f.contig(), r.contig());
-            debug_assert_eq!(f.range(), r.range());
-            results.push(StrandedNucCounts::new(f, r));
-        }
-
-        GroupedNucCounts::new(finter, results)
+        // let ((finter, forward), (frev, reverse)) = (self.forward.result().dissolve(), self.reverse.result().dissolve());
+        // debug_assert_eq!(finter, frev);
+        //
+        // // Calculate shared counts once to avoid repeated memory allocations
+        // let cnts = Rc::new(
+        //     zip(&forward, &reverse)
+        //         .map(|(f, r)| zip(f.ncounts(), r.ncounts()).map(|(c1, c2)| *c1 + *c2))
+        //         .flatten()
+        //         .collect_vec(),
+        // );
+        //
+        // let mut results = Vec::with_capacity(forward.len());
+        // let mut start = 0;
+        // for (f, r) in zip(forward, reverse) {
+        //     debug_assert_eq!(f.contig(), r.contig());
+        //     debug_assert_eq!(f.range(), r.range());
+        //
+        //     let end = start + f.ncounts().len();
+        //     results.push(StrandedNucCounts {
+        //         forward: f,
+        //         reverse: r,
+        //         idx: start..end,
+        //         ncounts: cnts.clone(),
+        //         marker: Default::default(),
+        //     });
+        //     start = end;
+        // }
+        //
+        // ASDAD::new(finter, results)
+        todo!()
     }
+}
+
+impl<'a, R, Deductor, InnerNucCounter> NucCounter<'a, R> for StrandedNucCounter<'a, R, Deductor, InnerNucCounter>
+where
+    R: AlignedRead,
+    Deductor: StrandDeductor<R>,
+    InnerNucCounter: NucCounter<'a, R>,
+    InnerNucCounter::Workload: Clone,
+    InnerNucCounter::ColliderResult: AggregatedNucCounts<'a>,
+{
 }
 
 // #[cfg(test)]

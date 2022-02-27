@@ -1,9 +1,9 @@
 #[cfg(test)]
 use mockall::{automock, predicate::*};
 
-pub use by_flags::ReadsFilterByFlags;
-pub use by_quality::ReadsFilterByQuality;
-pub use sequential::SequentialReadsFilter;
+pub use by_flags::ByFlags;
+pub use by_quality::ByQuality;
+pub use sequential::Sequential;
 
 use crate::core::read::AlignedRead;
 

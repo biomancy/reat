@@ -19,9 +19,7 @@ pub fn writable(rawpath: &str) -> Result<(), String> {
             return Ok(());
         }
     }
-    // Err(format!("Path {} seems to be not writable", rawpath))
-    // TODO Fix this!
-    Ok(())
+    Err(format!("Path {} seems to be not writable", rawpath))
 }
 
 pub fn stranding(stranding: &str) -> Result<(), String> {

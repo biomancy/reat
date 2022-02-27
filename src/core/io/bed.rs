@@ -7,9 +7,8 @@ use std::path::Path;
 use bio_types::genome::{AbstractInterval, Interval, Position};
 use derive_getters::Dissolve;
 use flate2::bufread::GzDecoder;
-use mockall::Any;
 
-#[derive(Eq, PartialEq, Debug, Dissolve)]
+#[derive(Eq, PartialEq, Debug, Clone, Dissolve)]
 pub struct BedRecord {
     pub name: String,
     pub interval: Interval,

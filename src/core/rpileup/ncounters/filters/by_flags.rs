@@ -4,12 +4,12 @@ use derive_more::Constructor;
 use super::{AlignedRead, ReadsFilter};
 
 #[derive(Constructor, Getters, Copy, Clone)]
-pub struct ReadsFilterByFlags {
+pub struct ByFlags {
     include: u16,
     exclude: u16,
 }
 
-impl<R: AlignedRead> ReadsFilter<R> for ReadsFilterByFlags {
+impl<R: AlignedRead> ReadsFilter<R> for ByFlags {
     #[inline]
     fn is_read_ok(&self, record: &R) -> bool {
         ((record.flags() & self.include) == self.include) && ((record.flags() & self.exclude) == 0)
@@ -28,7 +28,7 @@ mod tests {
 
     #[test]
     fn is_read_ok() {
-        let dummy = ReadsFilterByFlags::new(3, 3844);
+        let dummy = ByFlags::new(3, 3844);
 
         let mut read = MockRead::new();
 

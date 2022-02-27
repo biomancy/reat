@@ -69,7 +69,7 @@ impl NucCounts {
     }
 
     #[inline]
-    pub fn mismatches(&self, reference: &Nucleotide) -> u32 {
+    pub fn mismatches(&self, reference: Nucleotide) -> u32 {
         match reference {
             Nucleotide::A => self.C + self.G + self.T,
             Nucleotide::C => self.A + self.G + self.T,
@@ -138,11 +138,11 @@ mod tests {
     #[test]
     fn mismatches() {
         let dummy = NucCounts { A: 1, C: 2, G: 3, T: 4 };
-        assert_eq!(dummy.mismatches(&Nucleotide::A), 9);
-        assert_eq!(dummy.mismatches(&Nucleotide::C), 8);
-        assert_eq!(dummy.mismatches(&Nucleotide::G), 7);
-        assert_eq!(dummy.mismatches(&Nucleotide::T), 6);
-        assert_eq!(dummy.mismatches(&Nucleotide::Unknown), 10);
+        assert_eq!(dummy.mismatches(Nucleotide::A), 9);
+        assert_eq!(dummy.mismatches(Nucleotide::C), 8);
+        assert_eq!(dummy.mismatches(Nucleotide::G), 7);
+        assert_eq!(dummy.mismatches(Nucleotide::T), 6);
+        assert_eq!(dummy.mismatches(Nucleotide::Unknown), 10);
     }
 
     #[test]

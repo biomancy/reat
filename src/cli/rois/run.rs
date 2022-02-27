@@ -10,27 +10,60 @@ use crate::cli::shared;
 use crate::cli::shared::args::CoreArgs;
 use crate::cli::shared::stranding::Stranding;
 use crate::cli::shared::thread_cache::ThreadCache;
-use crate::core::hooks::stats::{EditingStat, ROIEditingIndex};
+use crate::core::hooks::engine::REATHooksEngine;
+use crate::core::hooks::stats::{EditingStatHook, ROIEditingIndex};
+use crate::core::hooks::HooksEngine;
+use crate::core::mismatches::roi::RefROIMismatches;
+use crate::core::rpileup::hts::HTSPileupEngine;
 use crate::core::rpileup::ncounters::cnt::ROINucCounter;
 use crate::core::runner::REATRunner;
 use crate::core::stranding::deduct::DeductStrandByDesign;
+use crate::core::stranding::predict::engines::ROIStrandingEngine;
 use crate::core::stranding::predict::StrandingEngine;
 use crate::core::workload::ROIWorkload;
 
 use super::args::ROIArgs;
 use super::resformat;
-use crate::core::rpileup::hts::HTSPileupEngine;
-use crate::core::stranding::predict::engines::ROIStrandingEngine;
 
 pub fn run(args: &ArgMatches, mut core: CoreArgs, factory: impl Fn() -> ProgressBar) {
     let args = ROIArgs::new(&core, args, &factory);
 
-    // 1 - Create Target NCounter
+    // Create strander
+    let strander = {
+        let mut engine = ROIStrandingEngine::new();
+        let (first, second) = core.strandpred;
+        if let Some(algo) = first {
+            engine.add(algo)
+        }
+        if let Some(algo) = second {
+            engine.add(algo)
+        }
+        engine
+    };
+    // Create the pileup engine
     let counter = ROINucCounter::new(args.maxwsize as usize, core.readfilter, core.trim5, core.trim3);
+    // Make it stranded if needed
+    todo!();
     let pileuper = HTSPileupEngine::new(core.bamfiles, counter);
-    let strander = ROIStrandingEngine::new();
 
-    let runner = REATRunner::new(core.refnucpred, strander, vec![], pileuper);
+    // Hooks
+    let mut hooks = REATHooksEngine::new();
+    hooks.add_filter(Box::new(args.filter));
+    if args.ei.is_some() {
+        hooks.add_stat(Box::new(ROIEditingIndex::default()));
+    }
+
+    // Create the runner
+    let mut runner = REATRunner::new(core.refnucpred, strander, hooks, pileuper);
+
+    let mut results = Vec::new();
+    for w in args.workload {
+        results.push(runner.run(w));
+    }
+
+    // Workload?
+    // Stats collapsing?
+    // etc...
 
     // let statbuilder = args.ei.as_ref().map(|_| EditingIndex::default());
     //

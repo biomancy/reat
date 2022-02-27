@@ -1,7 +1,6 @@
 use std::marker::PhantomData;
 
 // TODO: it should have a static variant based on a macro of some kind
-// TODO:
 // You create it for 1-12 arguments in a compile time
 // AND a from declaration for them using tuples
 use super::{AlignedRead, ReadsFilter};
@@ -30,19 +29,19 @@ use super::{AlignedRead, ReadsFilter};
 // sequential!(a, b, c);
 
 #[derive(Copy, Clone)]
-pub struct SequentialReadsFilter<R: AlignedRead, First: ReadsFilter<R>, Second: ReadsFilter<R>> {
+pub struct Sequential<R: AlignedRead, First: ReadsFilter<R>, Second: ReadsFilter<R>> {
     first: First,
     second: Second,
     phantom: PhantomData<fn() -> R>,
 }
 
-impl<R: AlignedRead, First: ReadsFilter<R>, Second: ReadsFilter<R>> SequentialReadsFilter<R, First, Second> {
+impl<R: AlignedRead, First: ReadsFilter<R>, Second: ReadsFilter<R>> Sequential<R, First, Second> {
     pub fn new(first: First, second: Second) -> Self {
-        SequentialReadsFilter { first, second, phantom: Default::default() }
+        Sequential { first, second, phantom: Default::default() }
     }
 }
 
-impl<R, First, Second> ReadsFilter<R> for SequentialReadsFilter<R, First, Second>
+impl<R, First, Second> ReadsFilter<R> for Sequential<R, First, Second>
 where
     R: AlignedRead,
     First: ReadsFilter<R>,

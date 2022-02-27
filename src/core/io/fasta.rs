@@ -1,5 +1,7 @@
+use std::ops::Range;
 use std::path::PathBuf;
 
+use bio_types::genome::Position;
 use bio_types::genome::{AbstractInterval, Interval};
 use derive_more::Constructor;
 #[cfg(test)]
@@ -9,7 +11,7 @@ use rust_htslib::faidx;
 use crate::core::dna::Nucleotide;
 
 pub trait FastaReader {
-    fn fetch(&mut self, interval: &Interval);
+    fn fetch(&mut self, contig: &str, range: Range<Position>);
     fn result(&self) -> &[Nucleotide];
 }
 
@@ -17,7 +19,7 @@ pub trait FastaReader {
 mock! {
     pub FastaReader {}
     impl FastaReader for FastaReader {
-        fn fetch(&mut self, interval: &Interval);
+        fn fetch(&mut self, contig: &str, range: Range<Position>);
         fn result(&self) -> &[Nucleotide];
     }
     impl Clone for FastaReader {
@@ -44,13 +46,13 @@ impl BasicFastaReader {
 }
 
 impl FastaReader for BasicFastaReader {
-    fn fetch(&mut self, interval: &Interval) {
+    fn fetch(&mut self, contig: &str, range: Range<Position>) {
         self.cache.clear();
 
         let iter = self
             .faidx
-            .fetch_seq(interval.contig(), interval.range().start as usize, interval.range().end as usize)
-            .unwrap_or_else(|_| panic!("Failed to fetch sequence for region {:?}", interval))
+            .fetch_seq(contig, range.start as usize, range.end as usize)
+            .unwrap_or_else(|_| panic!("Failed to fetch sequence for region {}:{}-{}", contig, range.start, range.end))
             .into_iter()
             .map(|x| Nucleotide::from(*x));
         self.cache.extend(iter);

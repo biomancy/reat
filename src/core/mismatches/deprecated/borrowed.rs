@@ -1,39 +1,3 @@
-use bio_types::genome::{AbstractInterval, Interval};
-use bio_types::strand::{ReqStrand, Strand};
-use derive_more::Constructor;
-
-use crate::core::dna::{NucCounts, Nucleotide};
-use crate::core::mismatches::interval::owned::OwnedIntervalMismatches;
-use crate::core::mismatches::interval::{IntervalMismatches, SeparableIntervalMismatches};
-use crate::core::mismatches::IntermediateMismatches;
-use std::ops::Range;
-
-#[derive(Constructor)]
-pub struct RefIntervalMismatches<'a> {
-    interval: Interval,
-    strand: Strand,
-    refnuc: &'a [Nucleotide],
-    ncounts: &'a [NucCounts],
-}
-
-impl IntervalMismatches for RefIntervalMismatches<'_> {
-    fn interval(&self) -> &Interval {
-        &self.interval
-    }
-
-    fn strand(&self) -> &Strand {
-        &self.strand
-    }
-
-    fn refnuc(&self) -> &[Nucleotide] {
-        self.refnuc
-    }
-
-    fn ncounts(&self) -> &[NucCounts] {
-        self.ncounts
-    }
-}
-
 impl SeparableIntervalMismatches for RefIntervalMismatches<'_> {
     fn split(self, indices: &[usize]) -> Vec<Self> {
         if indices.is_empty() {
@@ -78,17 +42,5 @@ impl SeparableIntervalMismatches for RefIntervalMismatches<'_> {
             refnuc: &self.refnuc[x.to_owned()],
             ncounts: &self.ncounts[x.to_owned()],
         }))
-    }
-}
-
-impl IntermediateMismatches for RefIntervalMismatches<'_> {
-    type Finalized = OwnedIntervalMismatches;
-
-    fn finalize(self) -> Self::Finalized {
-        self.into()
-    }
-
-    fn set_strand(&mut self, strand: Strand) {
-        self.strand = strand;
     }
 }

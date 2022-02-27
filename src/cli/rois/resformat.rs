@@ -5,26 +5,24 @@ use bio_types::genome::AbstractInterval;
 use crate::core::io::Table;
 use crate::core::mismatches::roi::ROIMismatches;
 
-// use crate::core::stats::ROIBasedStat;
-
 const OUTPUT_IO_ERROR: &str = "Failed to write ROI filters to the output TSV file.";
 const STATS_IO_ERROR: &str = "Failed to write statistics to the output TSV file.";
 
 pub fn regions(saveto: &mut impl Write, summary: Vec<impl ROIMismatches>) {
-    writeln!(saveto, "chr\tstart\tend\tstrand\tname\tcoverage\t#A\t#T\t#G\t#C\tA->A\tA->C\tA->G\tA->T\tC->A\tC->C\tC->G\tC->T\tG->A\tG->C\tG->G\tG->T\tT->A\tT->C\tT->G\tT->T")
+    writeln!(saveto, "chr\tstart\tend\tstrand\tname\tcoverage\t#masked\t#A\t#T\t#G\t#C\tA->A\tA->C\tA->G\tA->T\tC->A\tC->C\tC->G\tC->T\tG->A\tG->C\tG->G\tG->T\tT->A\tT->C\tT->G\tT->T")
         .expect(OUTPUT_IO_ERROR);
 
     for e in summary {
-        let (contig, range, strand) = (e.roi().contig(), e.roi().range(), e.strand().strand_symbol());
         write!(
             saveto,
-            "{}\t{}\t{}\t{}\t{}\t{}\t",
-            contig,
-            range.start,
-            range.end,
-            strand,
+            "{}\t{}\t{}\t{}\t{}\t{}\t{}\t",
+            e.roi().contig(),
+            e.roi().original().range().start,
+            e.roi().original().range().end,
+            e.strand().strand_symbol(),
             e.roi().name(),
-            e.coverage()
+            e.coverage(),
+            e.masked()
         )
         .expect(OUTPUT_IO_ERROR);
         let seq = e.sequence();
@@ -53,13 +51,13 @@ mod test {
     use crate::core::dna::NucCounts;
     use crate::core::dna::Nucleotide;
     use crate::core::mismatches::roi::{MismatchesSummary, MockROIMismatches};
+    use crate::core::workload::ROI;
 
     use super::*;
-    use crate::core::workload::ROI;
 
     #[test]
     fn regions() {
-        let factory = |roi, strand, coverage, sequence, ncounts| {
+        let factory = |roi, strand, coverage, masked, sequence, ncounts| {
             let mut dummy = MockROIMismatches::new();
             let mut mismatches = MismatchesSummary::zeros();
             mismatches.increment(sequence, ncounts);
@@ -69,6 +67,7 @@ mod test {
             dummy.expect_roi().return_const(roi);
             dummy.expect_strand().return_const(strand);
             dummy.expect_coverage().return_const(coverage);
+            dummy.expect_masked().return_const(masked);
             dummy.expect_sequence().return_const(ncounts);
             dummy.expect_mismatches().return_const(mismatches);
             dummy
@@ -79,13 +78,15 @@ mod test {
                 ROI::new(Interval::new("1".into(), 1..20), "First".into(), vec![1..20]),
                 Strand::Forward,
                 12u32,
+                0u32,
                 &vec![Nucleotide::A, Nucleotide::Unknown],
                 &vec![NucCounts::new(1, 10, 100, 1000), NucCounts::new(1, 1, 1, 1)],
             ),
             factory(
-                ROI::new(Interval::new("3".into(), 30..31), "First".into(), vec![1..20]),
+                ROI::new(Interval::new("3".into(), 30..32), "".into(), vec![30..31]),
                 Strand::Unknown,
                 190u32,
+                1u32,
                 &vec![Nucleotide::C, Nucleotide::G],
                 &vec![NucCounts::new(1, 2, 3, 4), NucCounts::new(5, 6, 7, 8)],
             ),
@@ -94,19 +95,19 @@ mod test {
         super::regions(&mut saveto, workload);
 
         let result = String::from_utf8(saveto).unwrap();
-        let expected = "chr\tstart\tend\tstrand\tname\tcoverage\t\
+        let expected = "chr\tstart\tend\tstrand\tname\tcoverage\t#masked\t\
                               #A\t#T\t#G\t#C\t\
                               A->A\tA->C\tA->G\tA->T\t\
                               C->A\tC->C\tC->G\tC->T\t\
                               G->A\tG->C\tG->G\tG->T\t\
                               T->A\tT->C\tT->G\tT->T\n\
-                              1\t1\t20\t+\tFirst\t12\t\
+                              1\t1\t20\t+\tFirst\t12\t0\t\
                               1\t0\t0\t0\t\
                               1\t10\t100\t1000\t\
                               0\t0\t0\t0\t\
                               0\t0\t0\t0\t\
                               0\t0\t0\t0\n\
-                              3\t30\t31\t.\t\t190\t\
+                              3\t30\t32\t.\t\t190\t1\t\
                               0\t0\t1\t1\t\
                               0\t0\t0\t0\t\
                               1\t2\t3\t4\t\

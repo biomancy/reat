@@ -1,6 +1,6 @@
 use std::fs::File;
 use std::io::BufWriter;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::str::FromStr;
 
 use clap::ArgMatches;
@@ -9,16 +9,17 @@ use itertools::Itertools;
 use rust_htslib::bam::Record;
 
 use crate::cli::shared::stranding::Stranding;
+use crate::core::hooks::filters::ByMismatches;
+use crate::core::io::bed;
 use crate::core::io::fasta::{BasicFastaReader, FastaReader};
 use crate::core::mismatches::IntermediateMismatches;
 use crate::core::refpred::AutoRef;
 use crate::core::rpileup::ncounters::filters::{ReadsFilterByFlags, ReadsFilterByQuality, SequentialReadsFilter};
 use crate::core::stranding::deduct::StrandSpecificExperimentDesign;
+use crate::core::stranding::predict::algo::{StrandByAtoIEditing, StrandByGenomicAnnotation};
 use crate::core::stranding::predict::StrandingEngine;
 
 use super::args;
-use crate::core::hooks::filters::ByMismatches;
-use crate::core::stranding::predict::algo::{StrandByAtoIEditing, StrandByGenomicAnnotation};
 
 pub fn readfilter(
     pbar: ProgressBar,
@@ -97,10 +98,10 @@ pub fn stranding(pbar: ProgressBar, matches: &ArgMatches) -> Stranding {
     stranding
 }
 
-pub fn strandpred<T: IntermediateMismatches>(
+pub fn strandpred(
     pbar: ProgressBar,
     matches: &ArgMatches,
-) -> (Option<StrandByAtoIEditing>, Option<StrandByGenomicAnnotation>) {
+) -> (Option<StrandByGenomicAnnotation>, Option<StrandByAtoIEditing>) {
     pbar.set_draw_delta(10_000);
     pbar.set_message("Parsing strand prediction parameters...");
 
@@ -123,21 +124,21 @@ pub fn strandpred<T: IntermediateMismatches>(
         .value_of(args::stranding::ANNOTATION)
         .map(|x| Some(StrandByGenomicAnnotation::from_gff3(x.as_ref(), |_| pbar.inc(1))))
         .unwrap_or(None);
-    let result = (byediting, byfeatures);
+    let result = (byfeatures, byediting);
 
     let msg = "Strand prediction";
     match &result {
         (None, None) => {
             unreachable!()
         }
-        (None, Some(_)) => pbar.finish_with_message(format!("{}: by genomic features", msg)),
-        (Some(x), None) => pbar.finish_with_message(format!(
+        (Some(_), None) => pbar.finish_with_message(format!("{}: by genomic features", msg)),
+        (None, Some(x)) => pbar.finish_with_message(format!(
             "{}: by A->I editing[min mismatches={}, min freq={}]",
             msg,
             x.minmismatches(),
             x.minfreq()
         )),
-        (Some(x), Some(_)) => pbar.finish_with_message(format!(
+        (Some(_), Some(x)) => pbar.finish_with_message(format!(
             "{}: by genomic features IF FAIL by A->I editing[min mismatches={}, min freq={}]",
             msg,
             x.minmismatches(),
@@ -224,4 +225,17 @@ pub fn outfilter(
         result.minfreq()
     ));
     result
+}
+
+pub fn bedrecords(pbar: ProgressBar, matches: &ArgMatches, title: &str, nothing: &str) -> Option<Vec<bed::BedRecord>> {
+    pbar.set_message("Parsing excluded regions...");
+
+    if let Some(path) = matches.value_of(args::core::EXCLUDE_LIST) {
+        let bed = bed::parse(Path::new(path));
+        pbar.finish_with_message(format!("{}: {} regions in total", title, bed.len()));
+        Some(bed)
+    } else {
+        pbar.finish_with_message(nothing.to_owned());
+        None
+    }
 }

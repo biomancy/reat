@@ -6,43 +6,89 @@ use bio_types::strand::{ReqStrand, Strand};
 use itertools::{zip, Itertools};
 
 use crate::core::dna::{NucCounts, Nucleotide};
-use crate::core::mismatches::roi::RefROIMismatches;
+use crate::core::mismatches::roi::{BinnedROIMismatches, REATBinnedROIMismatches};
 use crate::core::read::AlignedRead;
 use crate::core::rpileup::ncounters::filters::ReadsFilter;
-use crate::core::rpileup::ncounters::{CountingResults, GroupedNucCounts, NucCounter, ToMismatches};
+use crate::core::rpileup::ncounters::{AggregatedNucCounts, AggregatedNucCountsItem, NucCounter};
 use crate::core::rpileup::ReadsCollider;
 use crate::core::workload::{ROIWorkload, ROI};
 
 use super::base::BaseNucCounter;
 
-pub struct ROINucCounts<'a> {
-    coverage: u32,
-    roi: &'a ROI,
+pub struct BinnedROINucCounts<'a> {
+    bin: Interval,
     strand: Strand,
-    ncounts: &'a [NucCounts],
+    coverage: Vec<u32>,
+    // Flattened ROI structure
+    rois: Vec<Range<Position>>,
+    pieces: Vec<Vec<Range<Position>>>,
+    premasked: Vec<Range<Position>>,
+    names: Vec<String>,
+    // Counts in each roi
+    seqnuc: Vec<&'a [NucCounts]>,
 }
 
-impl<'a> AbstractInterval for ROINucCounts<'a> {
+impl<'a> AbstractInterval for BinnedROINucCounts<'a> {
     fn contig(&self) -> &str {
-        self.roi.contig()
+        self.bin.contig()
     }
 
     fn range(&self) -> Range<Position> {
-        self.roi.range()
+        self.bin.range()
     }
 }
 
-impl<'a> CountingResults<'a> for ROINucCounts<'a> {
-    fn ncounts(&self) -> &[NucCounts] {
-        self.ncounts
+impl<'a> AggregatedNucCounts<'a> for BinnedROINucCounts<'a> {
+    type Meta = (u32, ROI);
+
+    fn items(&'a self) -> &'a [AggregatedNucCountsItem<'a, Self::Meta>] {
+        todo!()
+    }
+
+    fn consume(self) -> Vec<AggregatedNucCountsItem<'a, Self::Meta>> {
+        todo!()
     }
 }
 
-impl<'a> ToMismatches<'a, RefROIMismatches<'a>> for ROINucCounts<'a> {
-    fn mismatches(self, reference: &'a [Nucleotide]) -> Vec<RefROIMismatches<'a>> {
-        vec![RefROIMismatches::new(self.roi, self.strand, self.coverage, reference, self.ncounts)]
-    }
-}
+// impl<'a> AggregatedNucCounts<'a> for BinnedROINucCounts<'a> {
+//     fn elemrng(&self) -> &[Range<Position>] {
+//         &self.rois
+//     }
+//
+//     fn seqnuc(&'a self) -> &'a [&'a [NucCounts]] {
+//         &self.seqnuc
+//     }
+// }
+
+// impl<'a, 'b> ToMismatches<'a, REATBinnedROIMismatches> for BinnedROINucCounts<'a> {
+//     type MismatchesPreview = ();
+//
+//     fn mismatches(
+//         self,
+//         refnuc: Vec<&'a [Nucleotide]>,
+//         prednuc: Vec<&'a [Nucleotide]>,
+//         prefilter: impl Fn(Self::MismatchesPreview) -> bool,
+//     ) -> Vec<REATBinnedROIMismatches> {
+//         todo!()
+//         // debug_assert!(
+//         //     (roi.range().end - roi.range().start) as usize == reference.len() && reference.len() == sequenced.len()
+//         // );
+//         // // Calculate mismatches only over the retained subintervals
+//         // let (mut cnts, mut mismatches) = (NucCounts::zeros(), MismatchesSummary::zeros());
+//         // let start = roi.range().start;
+//         // let mut nucin = 0;
+//         // for piece in roi.include() {
+//         //     nucin += piece.end - piece.start;
+//         //
+//         //     let idx = (piece.start - start) as usize..(piece.end - start) as usize;
+//         //     cnts.increment(&reference[idx.clone()]);
+//         //     mismatches.increment(&reference[idx.clone()], &sequenced[idx])
+//         // }
+//         //
+//         // let total = roi.original().range().end - roi.original().range().start;
+//         // Self { roi, strand, masked: (total - nucin) as u32, coverage, sequence: cnts, mismatches }
+//     }
+// }
 
 pub struct ROINucCounter<R: AlignedRead, Filter: ReadsFilter<R>> {
     base: BaseNucCounter<R, Filter>,
@@ -63,7 +109,7 @@ impl<R: AlignedRead, Filter: ReadsFilter<R>> ROINucCounter<R, Filter> {
 }
 
 impl<'a, R: AlignedRead, Filter: ReadsFilter<R>> ReadsCollider<'a, R> for ROINucCounter<R, Filter> {
-    type ColliderResult = GroupedNucCounts<'a, ROINucCounts<'a>>;
+    type ColliderResult = BinnedROINucCounts<'a>;
     type Workload = ROIWorkload;
 
     fn reset(&mut self, info: Self::Workload) {
@@ -94,21 +140,20 @@ impl<'a, R: AlignedRead, Filter: ReadsFilter<R>> ReadsCollider<'a, R> for ROINuc
     fn finalize(&mut self) {}
 
     fn result(&'a self) -> Self::ColliderResult {
-        let ncounts = self.base.counted();
-        let interval = self.base.interval();
-        let binstart = interval.range().start as usize;
-
-        let mut results = Vec::with_capacity(self.rois.len());
-        for (coverage, roi) in zip(&self.coverage, &self.rois) {
-            debug_assert_eq!(roi.original().contig(), interval.contig());
-            let (start, end) = (roi.range().start as usize, roi.range().end as usize);
-            let roicnts = &ncounts[start - binstart..end - binstart];
-            results.push(ROINucCounts { coverage: *coverage, roi, strand: Strand::Unknown, ncounts: roicnts });
-        }
-        GroupedNucCounts::new(interval.clone(), results)
+        // let ncounts = self.base.counted();
+        // let interval = self.base.interval();
+        // let binstart = interval.range().start as usize;
+        //
+        // let mut results = Vec::with_capacity(self.rois.len());
+        // for (coverage, roi) in zip(&self.coverage, &self.rois) {
+        //     debug_assert_eq!(roi.original().contig(), interval.contig());
+        //     let (start, end) = (roi.range().start as usize, roi.range().end as usize);
+        //     let roicnts = &ncounts[start - binstart..end - binstart];
+        //     results.push(ROINucCounts { coverage: *coverage, roi, strand: Strand::Unknown, ncounts: roicnts });
+        // }
+        // ASDAD::new(interval.clone(), results)
+        todo!()
     }
 }
 
-impl<'a, R: 'a + AlignedRead, Filter: 'a + ReadsFilter<R>> NucCounter<'a, R> for ROINucCounter<R, Filter> {
-    type NucCounts = ROINucCounts<'a>;
-}
+impl<'a, R: 'a + AlignedRead, Filter: 'a + ReadsFilter<R>> NucCounter<'a, R> for ROINucCounter<R, Filter> {}

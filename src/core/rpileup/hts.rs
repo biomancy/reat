@@ -1,3 +1,4 @@
+use std::marker::PhantomData;
 use std::path::PathBuf;
 
 use bio_types::genome::{AbstractInterval, Interval};
@@ -5,8 +6,7 @@ use itertools::Itertools;
 use rust_htslib::bam::{IndexedReader, Read, Record};
 
 use crate::core::read::AlignedRead;
-use crate::core::rpileup::{ReadsCollider, ReadsPileupEngine};
-use std::marker::PhantomData;
+use crate::core::rpileup::{ReadsCollider, ReadsCollidingEngine};
 
 pub struct HTSPileupEngine<'a, Collider: ReadsCollider<'a, Record>> {
     collider: Collider,
@@ -35,17 +35,23 @@ impl<'a, Collider: ReadsCollider<'a, Record>> HTSPileupEngine<'a, Collider> {
     }
 }
 
-impl<'a, Collider: ReadsCollider<'a, Record>> ReadsPileupEngine<'a, Record, Collider>
+impl<'a, Collider: ReadsCollider<'a, Record>> ReadsCollidingEngine<'a, Record, Collider>
     for HTSPileupEngine<'a, Collider>
 {
-    fn run(&mut self, interval: Interval, cwork: Collider::Workload) {
+    fn run(&mut self, cwork: Collider::Workload) {
         let toread = self
             .htsreaders
             .iter_mut()
-            .filter(|x| x.header().target_names().contains(&interval.contig().as_bytes()))
+            .filter(|x| x.header().target_names().contains(&cwork.contig().as_bytes()))
             .map(|x| {
-                x.fetch((interval.contig(), interval.range().start, interval.range().end))
-                    .unwrap_or_else(|_| panic!("Failed to fetch filters for {:?} (HTS file corrupted?)", interval));
+                x.fetch((cwork.contig(), cwork.range().start, cwork.range().end)).unwrap_or_else(|_| {
+                    panic!(
+                        "Failed to fetch reads for {}:{}-{} (HTS file corrupted?)",
+                        cwork.contig(),
+                        cwork.range().start,
+                        cwork.range().end
+                    )
+                });
 
                 let mut record = Record::new();
                 let r = x.read(&mut record);

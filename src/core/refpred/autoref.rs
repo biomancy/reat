@@ -1,7 +1,7 @@
 use std::ops::Range;
 use std::path::PathBuf;
 
-use bio_types::genome::Interval;
+use bio_types::genome::{Interval, Position};
 use itertools::zip;
 use rust_htslib::faidx;
 
@@ -52,10 +52,10 @@ impl<T: FastaReader> RefEngine for AutoRef<T> {
         self.ranges.clear();
     }
 
-    fn run(&mut self, interval: &Interval, sequenced: &[NucCounts]) {
+    fn run(&mut self, contig: &str, range: Range<Position>, sequenced: &[NucCounts]) {
         self.flatcache.reserve(self.flatcache.len() + sequenced.len());
 
-        self.reader.fetch(interval);
+        self.reader.fetch(contig, range);
         let reference = self.reader.result();
 
         let begin = self.flatcache.len();
@@ -68,7 +68,7 @@ impl<T: FastaReader> RefEngine for AutoRef<T> {
         self.ranges.push((begin, end));
     }
 
-    fn results(&self) -> Vec<&[Nucleotide]> {
+    fn results(&self) -> &[Nucleotide] {
         self.ranges.iter().map(|(start, end)| &self.flatcache[*start..*end]).collect()
     }
 }
@@ -88,10 +88,12 @@ impl<T: FastaReader + Clone> Clone for AutoRef<T> {
 
 #[cfg(test)]
 mod tests {
+    use bio_types::genome::AbstractInterval;
+    use mockall::Sequence;
+
     use crate::core::io::fasta::MockFastaReader;
 
     use super::*;
-    use mockall::Sequence;
 
     #[test]
     fn infer() {
@@ -137,7 +139,7 @@ mod tests {
 
         dummy.reset();
         for ind in 0..sequenced.len() {
-            dummy.run(&intervals[ind], &sequenced[ind].0);
+            dummy.run(intervals[ind].contig(), intervals[ind].range(), &sequenced[ind].0);
         }
         let result = dummy.results();
         assert_eq!(result.len(), sequenced.len());

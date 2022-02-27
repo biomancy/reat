@@ -1,28 +1,34 @@
-use bio_types::genome::{AbstractInterval, Interval};
-use bio_types::strand::{ReqStrand, Strand};
-use derive_getters::{Dissolve, Getters};
+use std::ops::Range;
 
-pub use groupcnt::GroupedNucCounts;
+use bio_types::genome::{AbstractInterval, Interval, Position};
+use bio_types::strand::{ReqStrand, Strand};
 
 pub use crate::core::dna::NucCounts;
 use crate::core::dna::Nucleotide;
+use crate::core::mismatches::BatchedMismatches;
 use crate::core::read::AlignedRead;
 use crate::core::rpileup::ReadsCollider;
 
 pub mod cnt;
 pub mod filters;
-mod groupcnt;
 
-pub trait NucCounter<'a, R: AlignedRead>:
-    ReadsCollider<'a, R, ColliderResult = GroupedNucCounts<'a, Self::NucCounts>>
+pub trait NucCounter<'a, R: AlignedRead>: ReadsCollider<'a, R>
+where
+    Self::ColliderResult: AggregatedNucCounts<'a>,
 {
-    type NucCounts: CountingResults<'a>;
 }
 
-pub trait CountingResults<'a>: AbstractInterval {
-    fn ncounts(&self) -> &[NucCounts];
+pub struct AggregatedNucCountsItem<'a, Meta> {
+    pub meta: Meta,
+    pub range: Range<Position>,
+    pub forward: Option<&'a [NucCounts]>,
+    pub reverse: Option<&'a [NucCounts]>,
+    pub unstranded: Option<&'a [NucCounts]>,
 }
 
-pub trait ToMismatches<'a, T> {
-    fn mismatches(self, reference: &'a [Nucleotide]) -> Vec<T>;
+pub trait AggregatedNucCounts<'a>: AbstractInterval {
+    type Meta;
+
+    fn items(&'a self) -> &'a [AggregatedNucCountsItem<'a, Self::Meta>];
+    fn consume(self) -> Vec<AggregatedNucCountsItem<'a, Self::Meta>>;
 }

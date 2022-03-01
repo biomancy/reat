@@ -6,7 +6,7 @@ use bio_types::strand::{ReqStrand, Strand};
 use itertools::{zip, Itertools};
 
 use crate::core::dna::{NucCounts, Nucleotide};
-use crate::core::mismatches::roi::{BinnedROIMismatches, REATBinnedROIMismatches};
+use crate::core::mismatches::roi::{BatchedROIMismatches, REATBatchedROIMismatches};
 use crate::core::read::AlignedRead;
 use crate::core::rpileup::ncounters::filters::ReadsFilter;
 use crate::core::rpileup::ncounters::{AggregatedNucCounts, AggregatedNucCountsItem, NucCounter};
@@ -15,80 +15,42 @@ use crate::core::workload::{ROIWorkload, ROI};
 
 use super::base::BaseNucCounter;
 
-pub struct BinnedROINucCounts<'a> {
-    bin: Interval,
-    strand: Strand,
-    coverage: Vec<u32>,
-    // Flattened ROI structure
-    rois: Vec<Range<Position>>,
-    pieces: Vec<Vec<Range<Position>>>,
-    premasked: Vec<Range<Position>>,
-    names: Vec<String>,
-    // Counts in each roi
-    seqnuc: Vec<&'a [NucCounts]>,
+pub struct ROINucCountsInfo<'a> {
+    pub coverage: u32,
+    pub roi: &'a ROI,
 }
 
-impl<'a> AbstractInterval for BinnedROINucCounts<'a> {
+pub struct ROINucCounts<'a> {
+    contig: &'a str,
+    range: Range<Position>,
+    items: Vec<AggregatedNucCountsItem<'a, ROINucCountsInfo<'a>>>,
+}
+
+impl<'a> AbstractInterval for ROINucCounts<'a> {
     fn contig(&self) -> &str {
-        self.bin.contig()
+        self.contig
     }
 
     fn range(&self) -> Range<Position> {
-        self.bin.range()
+        self.range.clone()
     }
 }
 
-impl<'a> AggregatedNucCounts<'a> for BinnedROINucCounts<'a> {
-    type Meta = (u32, ROI);
+impl<'a> AggregatedNucCounts<'a> for ROINucCounts<'a> {
+    type ItemInfo = ROINucCountsInfo<'a>;
 
-    fn items(&'a self) -> &'a [AggregatedNucCountsItem<'a, Self::Meta>] {
-        todo!()
+    fn items(&'a self) -> &'a [AggregatedNucCountsItem<'a, Self::ItemInfo>] {
+        &self.items
     }
 
-    fn consume(self) -> Vec<AggregatedNucCountsItem<'a, Self::Meta>> {
-        todo!()
+    fn items_mut<'b>(&'b mut self) -> &'b mut [AggregatedNucCountsItem<'a, Self::ItemInfo>] {
+        &mut self.items
+    }
+
+    fn consume(self) -> (&'a str, Vec<AggregatedNucCountsItem<'a, Self::ItemInfo>>) {
+        (&self.contig, self.items)
     }
 }
-
-// impl<'a> AggregatedNucCounts<'a> for BinnedROINucCounts<'a> {
-//     fn elemrng(&self) -> &[Range<Position>] {
-//         &self.rois
-//     }
-//
-//     fn seqnuc(&'a self) -> &'a [&'a [NucCounts]] {
-//         &self.seqnuc
-//     }
-// }
-
-// impl<'a, 'b> ToMismatches<'a, REATBinnedROIMismatches> for BinnedROINucCounts<'a> {
-//     type MismatchesPreview = ();
-//
-//     fn mismatches(
-//         self,
-//         refnuc: Vec<&'a [Nucleotide]>,
-//         prednuc: Vec<&'a [Nucleotide]>,
-//         prefilter: impl Fn(Self::MismatchesPreview) -> bool,
-//     ) -> Vec<REATBinnedROIMismatches> {
-//         todo!()
-//         // debug_assert!(
-//         //     (roi.range().end - roi.range().start) as usize == reference.len() && reference.len() == sequenced.len()
-//         // );
-//         // // Calculate mismatches only over the retained subintervals
-//         // let (mut cnts, mut mismatches) = (NucCounts::zeros(), MismatchesSummary::zeros());
-//         // let start = roi.range().start;
-//         // let mut nucin = 0;
-//         // for piece in roi.include() {
-//         //     nucin += piece.end - piece.start;
-//         //
-//         //     let idx = (piece.start - start) as usize..(piece.end - start) as usize;
-//         //     cnts.increment(&reference[idx.clone()]);
-//         //     mismatches.increment(&reference[idx.clone()], &sequenced[idx])
-//         // }
-//         //
-//         // let total = roi.original().range().end - roi.original().range().start;
-//         // Self { roi, strand, masked: (total - nucin) as u32, coverage, sequence: cnts, mismatches }
-//     }
-// }
 
 pub struct ROINucCounter<R: AlignedRead, Filter: ReadsFilter<R>> {
     base: BaseNucCounter<R, Filter>,
@@ -109,7 +71,7 @@ impl<R: AlignedRead, Filter: ReadsFilter<R>> ROINucCounter<R, Filter> {
 }
 
 impl<'a, R: AlignedRead, Filter: ReadsFilter<R>> ReadsCollider<'a, R> for ROINucCounter<R, Filter> {
-    type ColliderResult = BinnedROINucCounts<'a>;
+    type ColliderResult = ROINucCounts<'a>;
     type Workload = ROIWorkload;
 
     fn reset(&mut self, info: Self::Workload) {
@@ -140,19 +102,25 @@ impl<'a, R: AlignedRead, Filter: ReadsFilter<R>> ReadsCollider<'a, R> for ROINuc
     fn finalize(&mut self) {}
 
     fn result(&'a self) -> Self::ColliderResult {
-        // let ncounts = self.base.counted();
-        // let interval = self.base.interval();
-        // let binstart = interval.range().start as usize;
-        //
-        // let mut results = Vec::with_capacity(self.rois.len());
-        // for (coverage, roi) in zip(&self.coverage, &self.rois) {
-        //     debug_assert_eq!(roi.original().contig(), interval.contig());
-        //     let (start, end) = (roi.range().start as usize, roi.range().end as usize);
-        //     let roicnts = &ncounts[start - binstart..end - binstart];
-        //     results.push(ROINucCounts { coverage: *coverage, roi, strand: Strand::Unknown, ncounts: roicnts });
-        // }
-        // ASDAD::new(interval.clone(), results)
-        todo!()
+        let (contig, range) = (self.base.interval().contig(), self.base.interval().range());
+        let instart = range.start as usize;
+
+        let mut items = Vec::with_capacity(self.rois.len());
+        for (coverage, roi) in zip(&self.coverage, &self.rois) {
+            debug_assert_eq!(roi.original().contig(), contig);
+            let (start, end) = (roi.range().start as usize, roi.range().end as usize);
+            let roicnts = &self.base.counted()[start - instart..end - instart];
+            let info = ROINucCountsInfo { coverage: *coverage, roi };
+
+            items.push(AggregatedNucCountsItem {
+                info,
+                range: roi.range(),
+                forward: None,
+                reverse: None,
+                unstranded: Some(roicnts),
+            })
+        }
+        ROINucCounts { contig, range, items }
     }
 }
 

@@ -12,7 +12,7 @@ use bio_types::strand::{ReqStrand, Strand};
 use flate2::bufread::GzDecoder;
 use itertools::Itertools;
 
-use crate::core::mismatches::roi::{BinnedROIMismatches, REATBinnedROIMismatches};
+use crate::core::mismatches::roi::{BatchedROIMismatches, REATBatchedROIMismatches};
 use crate::core::mismatches::site::{BinnedSiteMismatches, REATBatchedSiteMismatches};
 use crate::core::mismatches::BatchedMismatches;
 use crate::core::stranding::predict::ctx::StrandingAlgoResult;
@@ -142,8 +142,11 @@ impl StrandByGenomicAnnotation {
     }
 }
 
-impl StrandingAlgo<REATBinnedROIMismatches> for StrandByGenomicAnnotation {
-    fn predict(&self, mut ctx: StrandingContext<REATBinnedROIMismatches>) -> StrandingContext<REATBinnedROIMismatches> {
+impl StrandingAlgo<REATBatchedROIMismatches> for StrandByGenomicAnnotation {
+    fn predict(
+        &self,
+        mut ctx: StrandingContext<REATBatchedROIMismatches>,
+    ) -> StrandingContext<REATBatchedROIMismatches> {
         ctx.apply(|x| {
             StrandingAlgoResult::EachElement(
                 x.rois().iter().map(|range| self.predict(x.contig(), range.clone())).collect(),

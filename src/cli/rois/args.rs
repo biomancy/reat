@@ -8,16 +8,11 @@ use indicatif::ProgressBar;
 use crate::cli::shared;
 use crate::cli::shared::args::{defaults, reqdefaults};
 use crate::cli::shared::validate;
-use crate::core::hooks::filters::ByMismatches;
-use crate::core::stranding::predict::StrandingEngine;
-use crate::core::workload::ROIWorkload;
 
 use super::parse;
-use crate::cli::shared::stranding::Stranding;
-use crate::core::hooks::stats::ROIEditingIndex;
-use crate::core::mismatches::IntermediateMismatches;
-use crate::core::stranding::predict::algo::{StrandByAtoIEditing, StrandByGenomicAnnotation};
-use crate::core::stranding::predict::engines::ROIStrandingEngine;
+use crate::core::mismatches::prefilters;
+use crate::core::rpileup::ncounters::filters;
+use crate::core::workload::ROIWorkload;
 
 pub mod stats {
     use super::*;
@@ -108,7 +103,7 @@ pub fn all<'a>() -> Vec<Arg<'a>> {
 pub struct ROIArgs {
     pub workload: Vec<ROIWorkload>,
     pub maxwsize: u32,
-    pub filter: ByMismatches,
+    pub filter: prefilters::ByMismatches,
     pub ei: Option<BufWriter<File>>,
 }
 

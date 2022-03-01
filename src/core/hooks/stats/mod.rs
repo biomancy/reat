@@ -1,5 +1,7 @@
 use std::fmt::Display;
 
+use crate::core::hooks::Hook;
+use crate::core::mismatches::BatchedMismatches;
 #[cfg(test)]
 use mockall::mock;
 
@@ -7,11 +9,10 @@ pub use roi_editing_index::ROIEditingIndex;
 
 mod roi_editing_index;
 
-pub enum EditingStat {
-    ROIEditingIndex,
+pub enum TypedEditingStat {
+    ROIEditingIndex(Box<ROIEditingIndex>),
 }
 
-pub trait EditingStatHook<T> {
-    fn stype(&self) -> EditingStat;
-    fn hook(&mut self, objects: &[T]);
+pub trait EditingStat<T: BatchedMismatches>: Hook<T> {
+    fn downcast(self: Box<Self>) -> TypedEditingStat;
 }

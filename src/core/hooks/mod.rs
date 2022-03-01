@@ -1,35 +1,23 @@
 #[cfg(test)]
 use mockall::{automock, predicate::*};
 
-use crate::core::hooks::filters::{AlwaysRetainFilter, Filter};
-use crate::core::hooks::stats::{EditingStat, EditingStatHook};
-use crate::core::io::bed::BedRecord;
+use crate::core::hooks::filters::Filter;
+use crate::core::hooks::stats::{EditingStat, TypedEditingStat};
 use crate::core::mismatches::roi::ROIMismatches;
-use crate::core::mismatches::BinnedMismatches;
+use crate::core::mismatches::{BatchedMismatches, MismatchesIntermediate};
 
 pub mod engine;
 pub mod filters;
 pub mod stats;
 
-pub trait Hook<T: BinnedMismatches> {
-    fn on_created(&mut self, toretain: &mut Vec<T>, items: &mut Vec<T>);
-    fn on_stranded(&mut self, toretain: &mut Vec<T>, items: &mut Vec<T>);
-    fn on_finish(&mut self, toretain: &mut Vec<T>, items: &mut Vec<T>);
+pub trait Hook<T: BatchedMismatches> {
+    fn on_created(&mut self, mismatches: &mut MismatchesIntermediate<T>) {}
+    fn on_stranded(&mut self, mismatches: &mut MismatchesIntermediate<T>) {}
+    fn on_finish(&mut self, mismatches: &mut MismatchesIntermediate<T>) {}
 }
 
-// No master filter for now. All simple filtering will be done prior to storing mismatches (in the counter)
-// Retaining now can be defined there as well.
-pub trait MasterFilter<T: BinnedMismatches>: Hook<T> {
-    type MismatchesPreview;
-    fn prefilter(&self, preview: &Self::MismatchesPreview) -> bool;
-}
-
-pub trait StatsCalculator<T: BinnedMismatches>: Hook<T> {
-    fn results(self) -> ();
-}
-
-pub trait HooksEngine<T: BinnedMismatches, F: MasterFilter<T>, S: StatsCalculator<T>>: Hook<T> {
-    // Stats are called after filtering at each stage
-    fn stats(&self) -> &S;
-    fn filter(&self) -> &F;
+// Stats must be called after filtering at each stage
+pub trait HooksEngine<T: BatchedMismatches>: Hook<T> {
+    fn stats(&self) -> &[Box<dyn EditingStat<T>>];
+    fn filters(&self) -> &[Box<dyn Filter<T>>];
 }

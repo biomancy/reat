@@ -6,37 +6,29 @@ use indicatif::ProgressBar;
 use itertools::{zip, Itertools};
 use rayon::prelude::*;
 
-use crate::cli::shared;
+use crate::cli::rois::args::ROIArgs;
 use crate::cli::shared::args::CoreArgs;
-use crate::cli::shared::stranding::Stranding;
-use crate::cli::shared::thread_cache::ThreadCache;
 use crate::core::hooks::engine::REATHooksEngine;
-use crate::core::hooks::stats::{EditingStatHook, ROIEditingIndex};
-use crate::core::hooks::HooksEngine;
-use crate::core::mismatches::roi::RefROIMismatches;
+use crate::core::hooks::stats::ROIEditingIndex;
+use crate::core::mismatches::prefilters;
+use crate::core::mismatches::roi::REATROIMismatchesBuilder;
 use crate::core::rpileup::hts::HTSPileupEngine;
 use crate::core::rpileup::ncounters::cnt::ROINucCounter;
 use crate::core::runner::REATRunner;
-use crate::core::stranding::deduct::DeductStrandByDesign;
-use crate::core::stranding::predict::engines::ROIStrandingEngine;
-use crate::core::stranding::predict::StrandingEngine;
-use crate::core::workload::ROIWorkload;
-
-use super::args::ROIArgs;
-use super::resformat;
+use crate::core::stranding::predict::{REATStrandingEngine, StrandingEngine};
 
 pub fn run(args: &ArgMatches, mut core: CoreArgs, factory: impl Fn() -> ProgressBar) {
     let args = ROIArgs::new(&core, args, &factory);
 
     // Create strander
     let strander = {
-        let mut engine = ROIStrandingEngine::new();
+        let mut engine = REATStrandingEngine::new();
         let (first, second) = core.strandpred;
         if let Some(algo) = first {
-            engine.add(algo)
+            engine.add_algo(Box::new(algo))
         }
         if let Some(algo) = second {
-            engine.add(algo)
+            engine.add_algo(Box::new(algo))
         }
         engine
     };
@@ -48,13 +40,19 @@ pub fn run(args: &ArgMatches, mut core: CoreArgs, factory: impl Fn() -> Progress
 
     // Hooks
     let mut hooks = REATHooksEngine::new();
-    hooks.add_filter(Box::new(args.filter));
-    if args.ei.is_some() {
-        hooks.add_stat(Box::new(ROIEditingIndex::default()));
-    }
+    // hooks.add_filter(Box::new(args.filter));
+    // if args.ei.is_some() {
+    //     hooks.add_stat(Box::new(ROIEditingIndex::default()));
+    // }
+
+    todo!();
+    let retainer = prefilters::retain::RetainROIFromList::new(vec![]);
+    let prefilter = prefilters::ByMismatches::from(args.filter);
+
+    let builder = REATROIMismatchesBuilder::new(core.refnucpred, Some(retainer), Some(prefilter));
 
     // Create the runner
-    let mut runner = REATRunner::new(core.refnucpred, strander, hooks, pileuper);
+    let mut runner = REATRunner::new(builder, strander, pileuper, hooks);
 
     let mut results = Vec::new();
     for w in args.workload {

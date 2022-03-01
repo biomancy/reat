@@ -31,7 +31,7 @@ pub trait BatchedMismatches: AbstractInterval + Sized {
 }
 
 #[derive(Clone)]
-pub struct PreFilteredBatchedMismatches<T: BatchedMismatches> {
+pub struct MismatchesIntermediate<T: BatchedMismatches> {
     pub retained: Vec<T>,
     pub other: Vec<T>,
 }
@@ -39,5 +39,5 @@ pub struct PreFilteredBatchedMismatches<T: BatchedMismatches> {
 pub trait BatchedMismatchesBuilder<'a, NucCounts: AggregatedNucCounts<'a>> {
     type Mismatches: BatchedMismatches;
 
-    fn build(&mut self, nc: NucCounts) -> PreFilteredBatchedMismatches<Self::Mismatches>;
+    fn build(&mut self, nc: NucCounts) -> MismatchesIntermediate<Self::Mismatches>;
 }

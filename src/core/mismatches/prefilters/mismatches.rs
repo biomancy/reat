@@ -18,12 +18,13 @@ pub struct ByMismatches {
 
 impl ByMismatches {
     #[inline]
-    fn ok_roi(&self, x: &ROIMismatchesPreview) -> bool {
+    pub fn ok_roi(&self, x: &ROIMismatchesPreview) -> bool {
         let (cov, mismatch) = (x.coverage(), x.mismatches());
         x.coverage() >= self.mincov && mismatch >= self.minmismatches && mismatch as f32 / cov as f32 >= self.minfreq
     }
 
-    fn ok_site(&self, x: &SiteMismatchesPreview) -> bool {
+    #[inline]
+    pub fn ok_site(&self, x: &SiteMismatchesPreview) -> bool {
         let cov = x.1.coverage();
         let mismatch = x.1.mismatches(x.0);
         cov >= self.mincov && mismatch >= self.minmismatches && mismatch as f32 / cov as f32 >= self.minfreq

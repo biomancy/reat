@@ -9,9 +9,9 @@ use crate::core::mismatches::roi::MismatchesSummary;
 use crate::core::mismatches::{BatchedMismatches, Restranded};
 use crate::core::workload::{ROIWorkload, ROI};
 
-use super::BinnedROIMismatches;
+use super::BatchedROIMismatches;
 
-pub struct REATBinnedROIMismatches {
+pub struct REATBatchedROIMismatches {
     contig: String,
     range: Range<Position>,
     strand: Strand,
@@ -24,8 +24,15 @@ pub struct REATBinnedROIMismatches {
     mismatches: Vec<MismatchesSummary>,
 }
 
-impl REATBinnedROIMismatches {
-    pub fn new() -> Self {
+impl REATBatchedROIMismatches {
+    pub fn new(
+        contig: String,
+        strand: Strand,
+        rois: Vec<&ROI>,
+        coverage: Vec<u32>,
+        prednuc: Vec<NucCounts>,
+        mismatches: Vec<MismatchesSummary>,
+    ) -> Self {
         // Calculate mismatches only over the retained subintervals
         // debug_assert!(
         //     (roi.range().end - roi.range().start) as usize == prednuc.len() && prednuc.len() == sequenced.len()
@@ -42,7 +49,7 @@ impl REATBinnedROIMismatches {
     }
 }
 
-impl AbstractInterval for REATBinnedROIMismatches {
+impl AbstractInterval for REATBatchedROIMismatches {
     fn contig(&self) -> &str {
         &self.contig
     }
@@ -52,7 +59,7 @@ impl AbstractInterval for REATBinnedROIMismatches {
     }
 }
 
-impl BatchedMismatches for REATBinnedROIMismatches {
+impl BatchedMismatches for REATBatchedROIMismatches {
     type Flattened = REATROIMismatches;
 
     fn strand(&self) -> Strand {
@@ -76,17 +83,9 @@ impl BatchedMismatches for REATBinnedROIMismatches {
     }
 }
 
-impl BinnedROIMismatches for REATBinnedROIMismatches {
+impl BatchedROIMismatches for REATBatchedROIMismatches {
     fn rois(&self) -> &[Range<Position>] {
         &self.rois
-    }
-
-    fn pieces(&self) -> &[Vec<Range<Position>>] {
-        &self.pieces
-    }
-
-    fn premasked(&self) -> &[Range<Position>] {
-        &self.premasked
     }
 
     fn coverage(&self) -> &[u32] {

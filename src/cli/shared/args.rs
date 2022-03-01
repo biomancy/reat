@@ -11,10 +11,10 @@ use crate::cli::shared::stranding::Stranding;
 use crate::core::io::bed::BedRecord;
 use crate::core::io::fasta::BasicFastaReader;
 use crate::core::refpred::AutoRef;
-use crate::core::rpileup::ncounters::filters::{ReadsFilterByFlags, ReadsFilterByQuality, SequentialReadsFilter};
 
 use super::parse;
 use super::validate;
+use crate::core::rpileup::ncounters::filters;
 use crate::core::stranding::predict::algo::{StrandByAtoIEditing, StrandByGenomicAnnotation};
 
 pub fn reqdefaults() -> ArgFlags {
@@ -293,7 +293,7 @@ pub struct CoreArgs {
     pub trim3: u16,
     pub bamfiles: Vec<PathBuf>,
     pub refnucpred: AutoRef<BasicFastaReader>,
-    pub readfilter: SequentialReadsFilter<Record, ReadsFilterByQuality, ReadsFilterByFlags>,
+    pub readfilter: filters::Sequential<Record, filters::ByQuality, filters::ByFlags>,
     pub stranding: Stranding,
     pub strandpred: (Option<StrandByGenomicAnnotation>, Option<StrandByAtoIEditing>),
     pub excluded: Option<Vec<BedRecord>>,

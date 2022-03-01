@@ -4,7 +4,7 @@ use mockall::{automock, predicate::*};
 
 pub use engine::REATStrandingEngine;
 
-use crate::core::mismatches::roi::BinnedROIMismatches;
+use crate::core::mismatches::roi::BatchedROIMismatches;
 use crate::core::mismatches::site::BinnedSiteMismatches;
 use crate::core::mismatches::BatchedMismatches;
 

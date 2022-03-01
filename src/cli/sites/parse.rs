@@ -8,7 +8,7 @@ use indicatif::ProgressBar;
 
 use crate::cli::shared;
 use crate::cli::sites::args::output_filtering::FORCE_LIST;
-use crate::core::hooks::filters::ByMismatches;
+use crate::core::mismatches::prefilters;
 use crate::core::workload::ROIWorkload;
 use std::collections::{HashMap, HashSet};
 
@@ -71,14 +71,14 @@ pub fn outfilter(
     freq_key: &str,
     cov_key: &str,
     matches: &ArgMatches,
-) -> ByMismatches {
+) -> prefilters::ByMismatches {
     pbar.set_message("Parsing hooks options...");
     let (minmismatches, minfreq, mincov) = (
         matches.value_of(mismatch_key).unwrap().parse().unwrap(),
         matches.value_of(freq_key).unwrap().parse().unwrap(),
         matches.value_of(cov_key).unwrap().parse().unwrap(),
     );
-    let result = ByMismatches::new(minmismatches, minfreq, mincov);
+    let result = prefilters::ByMismatches::new(minmismatches, minfreq, mincov);
     pbar.finish_with_message(format!(
         "Filtering options: min coverage >= {}; mismatches min number >= {}, min frequency >= {}",
         result.mincov(),

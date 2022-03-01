@@ -9,35 +9,33 @@ use itertools::Itertools;
 use rust_htslib::bam::Record;
 
 use crate::cli::shared::stranding::Stranding;
-use crate::core::hooks::filters::ByMismatches;
 use crate::core::io::bed;
-use crate::core::io::fasta::{BasicFastaReader, FastaReader};
-use crate::core::mismatches::IntermediateMismatches;
+use crate::core::io::fasta::FastaReader;
+use crate::core::mismatches::prefilters;
 use crate::core::refpred::AutoRef;
-use crate::core::rpileup::ncounters::filters::{ReadsFilterByFlags, ReadsFilterByQuality, SequentialReadsFilter};
+use crate::core::rpileup::ncounters::filters;
 use crate::core::stranding::deduct::StrandSpecificExperimentDesign;
 use crate::core::stranding::predict::algo::{StrandByAtoIEditing, StrandByGenomicAnnotation};
-use crate::core::stranding::predict::StrandingEngine;
 
 use super::args;
 
 pub fn readfilter(
     pbar: ProgressBar,
     matches: &ArgMatches,
-) -> SequentialReadsFilter<Record, ReadsFilterByQuality, ReadsFilterByFlags> {
+) -> filters::Sequential<Record, filters::ByQuality, filters::ByFlags> {
     pbar.set_message("Parsing filters filter options...");
     let (mapq, allow_mapq_255, phread) = (
         matches.value_of(args::reads_filtering::MAPQ).unwrap().parse().unwrap(),
         matches.is_present(args::reads_filtering::ALLOW_MAPQ_255),
         matches.value_of(args::reads_filtering::PHREAD).unwrap().parse().unwrap(),
     );
-    let byquality = ReadsFilterByQuality::new(mapq, allow_mapq_255, phread);
+    let byquality = filters::ByQuality::new(mapq, allow_mapq_255, phread);
 
     let (include, exclude) = (
         matches.value_of(args::reads_filtering::INCLUDE_FLAGS).unwrap().parse().unwrap(),
         matches.value_of(args::reads_filtering::EXCLUDE_FLAGS).unwrap().parse().unwrap(),
     );
-    let byflags = ReadsFilterByFlags::new(include, exclude);
+    let byflags = filters::ByFlags::new(include, exclude);
 
     let msg = format!(
         "Reads filter options: require flags {}, disallow flags {}, mapq >= {}, phread >= {}. ",
@@ -52,7 +50,7 @@ pub fn readfilter(
         pbar.finish_with_message(msg + "Mapq = 255 is NOT allowed.");
     }
 
-    SequentialReadsFilter::new(byquality, byflags)
+    filters::Sequential::new(byquality, byflags)
 }
 
 pub fn trimming(pbar: ProgressBar, matches: &ArgMatches) -> (u16, u16) {
@@ -210,14 +208,14 @@ pub fn outfilter(
     freq_key: &str,
     cov_key: &str,
     matches: &ArgMatches,
-) -> ByMismatches {
+) -> prefilters::ByMismatches {
     pbar.set_message("Parsing filtering options...");
     let (minmismatches, minfreq, mincov) = (
         matches.value_of(mismatch_key).unwrap().parse().unwrap(),
         matches.value_of(freq_key).unwrap().parse().unwrap(),
         matches.value_of(cov_key).unwrap().parse().unwrap(),
     );
-    let result = ByMismatches::new(minmismatches, minfreq, mincov);
+    let result = prefilters::ByMismatches::new(minmismatches, minfreq, mincov);
     pbar.finish_with_message(format!(
         "Filtering options: min coverage >= {}; mismatches min number >= {}, min frequency >= {}",
         result.mincov(),

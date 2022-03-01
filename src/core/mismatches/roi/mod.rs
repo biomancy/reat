@@ -5,7 +5,8 @@ use std::path::Path;
 use bio_types::genome::{Interval, Position};
 use bio_types::strand::Strand;
 
-pub use batched::REATBinnedROIMismatches;
+pub use batched::REATBatchedROIMismatches;
+pub use builder::REATROIMismatchesBuilder;
 pub use flat::REATROIMismatches;
 pub use msummary::MismatchesSummary;
 
@@ -15,6 +16,7 @@ use crate::core::mismatches::BatchedMismatches;
 use crate::core::workload::ROI;
 
 mod batched;
+mod builder;
 mod flat;
 mod msummary;
 
@@ -26,18 +28,19 @@ pub trait ROIMismatches {
     fn coverage(&self) -> u32;
     fn prednuc(&self) -> NucCounts;
     fn mismatches(&self) -> &MismatchesSummary;
+    fn masked(&self) -> u32;
 }
 
-pub trait BinnedROIMismatches: BatchedMismatches
+pub trait BatchedROIMismatches: BatchedMismatches
 where
     Self::Flattened: ROIMismatches,
 {
     // Minimal enclosing interval for each roi
     fn rois(&self) -> &[Range<Position>];
     // Rois' pieces after filtering excluded regions
-    fn pieces(&self) -> &[Vec<Range<Position>>];
+    // fn pieces(&self) -> &[Vec<Range<Position>>];
     // Original bed intervals
-    fn premasked(&self) -> &[Range<Position>];
+    // fn premasked(&self) -> &[Range<Position>];
     // Number of unique reads covering the given region
     fn coverage(&self) -> &[u32];
     // Number of predicted nucleotides in each ROI;

@@ -4,6 +4,7 @@ use bio_types::genome::{AbstractLocus, Locus, Position};
 use bio_types::strand::Strand;
 
 pub use batched::REATBatchedSiteMismatches;
+pub use builder::REATSiteMismatchesBuilder;
 pub use flat::REATSiteMismatches;
 
 use crate::core::dna::NucCounts;

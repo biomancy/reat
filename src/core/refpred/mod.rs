@@ -11,9 +11,13 @@ use crate::core::dna::Nucleotide;
 
 mod autoref;
 
+pub struct RefEngineResult<'a> {
+    pub predicted: &'a [Nucleotide],
+    pub reference: &'a [Nucleotide],
+}
+
 #[cfg_attr(test, automock)]
 pub trait RefEngine {
-    fn reset(&mut self);
     fn run(&mut self, contig: &str, range: Range<Position>, sequenced: &[NucCounts]);
-    fn results<'a>(&'a self) -> &'a [Nucleotide];
+    fn results(&self) -> RefEngineResult<'_>;
 }

@@ -8,10 +8,7 @@ use super::parse;
 use crate::cli::shared;
 use crate::cli::shared::args::defaults;
 use crate::cli::shared::validate;
-use crate::core::hooks::filters::ByMismatches;
-use crate::core::mismatches::interval::RefIntervalMismatches;
-use crate::core::stranding::predict::engines::IntervalStrandingEngine;
-use crate::core::stranding::predict::StrandingEngine;
+use crate::core::mismatches::prefilters;
 use crate::core::workload::ROIWorkload;
 
 pub mod output_filtering {
@@ -70,7 +67,7 @@ pub fn all<'a>() -> Vec<Arg<'a>> {
 pub struct LociArgs {
     pub workload: Vec<ROIWorkload>,
     pub maxwsize: u32,
-    pub filter: ByMismatches,
+    pub filter: prefilters::ByMismatches,
     // pub stranding: IntervalStrandingEngine<BorrowedIntervalMismatches<'a>>,
     // pub forcelist: Option<HashMap<String, HashSet<u64>>>,
 }

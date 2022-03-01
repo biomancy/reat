@@ -13,6 +13,7 @@ pub struct REATROIMismatches {
     roi: ROI,
     strand: Strand,
     coverage: u32,
+    masked: u32,
     prednuc: NucCounts,
     mismatches: MismatchesSummary,
 }
@@ -36,5 +37,9 @@ impl ROIMismatches for REATROIMismatches {
 
     fn mismatches(&self) -> &MismatchesSummary {
         &self.mismatches
+    }
+
+    fn masked(&self) -> u32 {
+        self.masked
     }
 }

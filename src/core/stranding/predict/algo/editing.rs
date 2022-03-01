@@ -4,7 +4,7 @@ use derive_more::Constructor;
 use itertools::zip;
 
 use crate::core::dna::{NucCounts, Nucleotide};
-use crate::core::mismatches::roi::{BinnedROIMismatches, MismatchesSummary, REATBinnedROIMismatches};
+use crate::core::mismatches::roi::{BatchedROIMismatches, MismatchesSummary, REATBatchedROIMismatches};
 use crate::core::mismatches::site::{BinnedSiteMismatches, REATBatchedSiteMismatches};
 use crate::core::mismatches::BatchedMismatches;
 use crate::core::stranding::predict::ctx::StrandingAlgoResult;
@@ -75,8 +75,11 @@ impl StrandByAtoIEditing {
     }
 }
 
-impl StrandingAlgo<REATBinnedROIMismatches> for StrandByAtoIEditing {
-    fn predict(&self, mut ctx: StrandingContext<REATBinnedROIMismatches>) -> StrandingContext<REATBinnedROIMismatches> {
+impl StrandingAlgo<REATBatchedROIMismatches> for StrandByAtoIEditing {
+    fn predict(
+        &self,
+        mut ctx: StrandingContext<REATBatchedROIMismatches>,
+    ) -> StrandingContext<REATBatchedROIMismatches> {
         ctx.apply(|x| StrandingAlgoResult::EachElement((x.mismatches().iter().map(|m| self.roipred(m)).collect())));
         ctx
     }

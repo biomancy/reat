@@ -13,7 +13,7 @@ pub trait SitesRetainer {
 }
 
 pub trait ROIRetainer {
-    fn filter(&self, interval: &Interval, name: &str) -> bool;
+    fn filter(&self, contig: &str, range: &Range<Position>, name: &str) -> bool;
 }
 
 // pub trait RetainableROIs {

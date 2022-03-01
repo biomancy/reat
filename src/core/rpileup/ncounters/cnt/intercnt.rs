@@ -17,66 +17,36 @@ use crate::core::workload::SiteWorkload;
 use super::base::BaseNucCounter;
 
 pub struct IntervalNucCounts<'a> {
-    bin: Interval,
-    strand: Strand,
-    intervals: Vec<Range<Position>>,
-    seqnuc: Vec<&'a [NucCounts]>,
+    contig: &'a str,
+    range: Range<Position>,
+    items: Vec<AggregatedNucCountsItem<'a, ()>>,
 }
 
 impl<'a> AggregatedNucCounts<'a> for IntervalNucCounts<'a> {
-    type Meta = ();
+    type ItemInfo = ();
 
-    fn items(&'a self) -> &'a [AggregatedNucCountsItem<'a, Self::Meta>] {
-        todo!()
+    fn items(&'a self) -> &'a [AggregatedNucCountsItem<'a, Self::ItemInfo>] {
+        &self.items
     }
 
-    fn consume(self) -> Vec<AggregatedNucCountsItem<'a, Self::Meta>> {
-        todo!()
+    fn items_mut<'b>(&'b mut self) -> &'b mut [AggregatedNucCountsItem<'a, Self::ItemInfo>] {
+        &mut self.items
+    }
+
+    fn consume(self) -> (&'a str, Vec<AggregatedNucCountsItem<'a, Self::ItemInfo>>) {
+        (self.contig, self.items)
     }
 }
 
 impl<'a> AbstractInterval for IntervalNucCounts<'a> {
     fn contig(&self) -> &str {
-        self.bin.contig()
+        self.contig
     }
 
     fn range(&self) -> Range<Position> {
-        self.bin.range()
+        self.range.clone()
     }
 }
-
-// impl<'a> AggregatedNucCounts<'a> for BinnedIntervalNucCounts<'a> {
-//     fn elemrng(&self) -> &[Range<Position>] {
-//         &self.intervals
-//     }
-//
-//     fn seqnuc(&'a self) -> &'a [&'a [NucCounts]] {
-//         &self.seqnuc
-//     }
-// }
-
-// impl<'a> ToMismatches<'a, REATBinnedSiteMismatches> for BinnedIntervalNucCounts<'a> {
-//     type MismatchesPreview = (&'a Nucleotide, &'a NucCounts);
-//
-//     fn mismatches(
-//         self,
-//         refnuc: Vec<&'a [Nucleotide]>,
-//         prednuc: Vec<&'a [Nucleotide]>,
-//         prefilter: impl Fn(Self::MismatchesPreview) -> bool,
-//     ) -> Vec<REATBinnedSiteMismatches> {
-//         debug_assert!([refnuc.len(), prednuc.len(), self.seqnuc.len(), self.intervals.len()].iter().all_equal());
-//
-//         let res = izip!(self.intervals.into_iter(), refnuc.into_iter(), prednuc.into_iter(), self.seqnuc.into_iter())
-//             .into_iter()
-//             .map(|(ranges, refn, predn, seqn)| {
-//                 izip!(ranges, refn, predn, seqn).filter(|(loci, rn, pn, sn)| prefilter((pn, sn)))
-//             })
-//             .flatten();
-//         let (loci, refnuc, prednuc, seqnuc) = multiunzip(res);
-//
-//         vec![REATBinnedSiteMismatches::new(self.bin.contig().into(), self.strand, loci, refnuc, prednuc, seqnuc)]
-//     }
-// }
 
 pub struct IntervalNucCounter<R: AlignedRead, Filter: ReadsFilter<R>> {
     base: BaseNucCounter<R, Filter>,
@@ -103,21 +73,24 @@ where
     fn finalize(&mut self) {}
 
     fn result(&'a self) -> Self::ColliderResult {
-        // let (contig, start) = (self.base.interval().contig(), self.base.interval().range().start);
-        // let items = self
-        //     .ranges
-        //     .iter()
-        //     .map(|x| {
-        //         let indx = (x.start - start) as usize..(x.end - start) as usize;
-        //         IntervalNucCounts {
-        //             block: Interval::new(contig.into(), x.clone()),
-        //             ncounts: &self.base.counted()[indx],
-        //             strand: Strand::Unknown,
-        //         }
-        //     })
-        //     .collect();
-        // ASDAD::new(self.base.interval().clone(), items)
-        todo!()
+        let (contig, range) = (self.base.interval().contig(), self.base.interval().range());
+        let start = range.start;
+
+        let items = self
+            .ranges
+            .iter()
+            .map(|x| {
+                let indx = (x.start - start) as usize..(x.end - start) as usize;
+                AggregatedNucCountsItem {
+                    info: (),
+                    range: x.clone(),
+                    forward: None,
+                    reverse: None,
+                    unstranded: Some(&self.base.counted()[indx]),
+                }
+            })
+            .collect();
+        Self::ColliderResult { contig, range, items }
     }
 }
 

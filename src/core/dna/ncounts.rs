@@ -1,5 +1,4 @@
 use std::cmp::max;
-use std::iter::Sum;
 
 pub use inner::NucCounts;
 

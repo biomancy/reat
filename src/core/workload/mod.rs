@@ -1,6 +1,4 @@
-use std::cmp::Ordering;
-
-pub use roi::{ROIWorkload, ROI};
+pub use roi::{ROI, ROIWorkload};
 pub use site::SiteWorkload;
 
 mod roi;

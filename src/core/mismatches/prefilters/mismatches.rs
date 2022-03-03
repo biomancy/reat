@@ -1,8 +1,5 @@
-use std::ops::Range;
-
 use derive_getters::Getters;
 use derive_more::Constructor;
-use itertools::zip;
 
 use crate::core::mismatches::roi::ROIMismatchesPreview;
 use crate::core::mismatches::site::SiteMismatchesPreview;
@@ -47,12 +44,8 @@ impl MismatchesPreFilter<SiteMismatchesPreview> for ByMismatches {
 
 #[cfg(test)]
 mod tests {
-    use bio_types::genome::Interval;
-    use bio_types::strand::Strand;
-
     use crate::core::dna::{NucCounts, Nucleotide};
     use crate::core::mismatches::roi::MismatchesSummary;
-    use crate::core::workload::ROI;
 
     use super::*;
 
@@ -88,6 +81,7 @@ mod tests {
             assert_eq!(filter.ok_roi(&dummy), expected, "{} {} {}", minmismatches, minfreq, mincov);
         }
     }
+
     #[test]
     fn ok_site() {
         let mut dummy: SiteMismatchesPreview = (Nucleotide::A, NucCounts { A: 1, C: 2, G: 3, T: 4 });

@@ -7,16 +7,15 @@ use std::path::Path;
 
 use bio::data_structures::annot_map::AnnotMap;
 use bio_types::annot::contig::Contig;
-use bio_types::genome::{AbstractInterval, AbstractLocus, Interval, Position};
+use bio_types::genome::{AbstractInterval, Position};
 use bio_types::strand::{ReqStrand, Strand};
 use flate2::bufread::GzDecoder;
 use itertools::Itertools;
 
 use crate::core::mismatches::roi::{BatchedROIMismatches, REATBatchedROIMismatches};
-use crate::core::mismatches::site::{BinnedSiteMismatches, REATBatchedSiteMismatches};
-use crate::core::mismatches::BatchedMismatches;
-use crate::core::stranding::predict::ctx::StrandingAlgoResult;
-use crate::core::stranding::predict::{StrandingAlgo, StrandingContext};
+use crate::core::mismatches::site::{BatchedSiteMismatches, REATBatchedSiteMismatches};
+use crate::core::mismatches::StrandingCounts;
+use crate::core::stranding::predict::{StrandingAlgo, StrandingAlgoResult};
 
 #[derive(Clone)]
 pub struct StrandByGenomicAnnotation {
@@ -143,59 +142,55 @@ impl StrandByGenomicAnnotation {
 }
 
 impl StrandingAlgo<REATBatchedROIMismatches> for StrandByGenomicAnnotation {
-    fn predict(
-        &self,
-        mut ctx: StrandingContext<REATBatchedROIMismatches>,
-    ) -> StrandingContext<REATBatchedROIMismatches> {
-        ctx.apply(|x| {
-            StrandingAlgoResult::EachElement(
-                x.rois().iter().map(|range| self.predict(x.contig(), range.clone())).collect(),
-            )
-        });
-        ctx
+    fn predict(&self, x: &REATBatchedROIMismatches) -> StrandingAlgoResult {
+        let mut counts = StrandingCounts::default();
+        let strands = x
+            .postmasked()
+            .iter()
+            .map(|range| {
+                let strand = self.predict(x.contig(), range.clone());
+                counts[strand] += 1;
+                strand
+            })
+            .collect();
+        StrandingAlgoResult::EachElement((strands, counts))
     }
 }
 
 impl StrandingAlgo<REATBatchedSiteMismatches> for StrandByGenomicAnnotation {
-    fn predict(
-        &self,
-        mut ctx: StrandingContext<REATBatchedSiteMismatches>,
-    ) -> StrandingContext<REATBatchedSiteMismatches> {
-        ctx.apply(|x| {
-            // Get all annotated features in the given region (=regions with constant annotation)
-            let features = self.features_in(x);
-            debug_assert!(
-                features.len() >= 1
-                    && features.first().unwrap().start == x.range().start
-                    && features.last().unwrap().end == x.range().end
-            );
+    fn predict(&self, x: &REATBatchedSiteMismatches) -> StrandingAlgoResult {
+        // Get all annotated features in the given region (=regions with constant annotation)
+        let features = self.features_in(x);
+        debug_assert!(
+            features.len() >= 1
+                && features.first().unwrap().start == x.range().start
+                && features.last().unwrap().end == x.range().end
+        );
 
-            if features.len() == 1 {
-                let strand = self.predict(x.contig(), x.range());
-                return StrandingAlgoResult::AllElements(strand);
+        if features.len() == 1 {
+            let strand = self.predict(x.contig(), x.range());
+            return StrandingAlgoResult::AllElements(strand);
+        }
+
+        let mut strands = Vec::with_capacity(x.pos().len());
+        let mut counts = StrandingCounts::default();
+
+        let mut iter = features.into_iter();
+        let mut feature = iter.next().unwrap();
+        let mut strand = None;
+        for &pos in x.pos() {
+            // While site is not inside the feature
+            while !(feature.start <= pos && pos < feature.end) {
+                feature = iter.next().unwrap();
+                strand = None;
             }
+            // Predict strand for the current feature
+            let strand = strand.unwrap_or_else(|| self.predict(x.contig(), feature.clone()));
+            counts[strand] += 1;
+            strands.push(strand);
+        }
 
-            let mut strands = Vec::with_capacity(x.pos().len());
-
-            let mut iter = features.into_iter();
-            let mut feature = iter.next().unwrap();
-            let mut strand = None;
-            for &pos in x.pos() {
-                // While site is not inside the feature
-                while !(feature.start <= pos && pos < feature.end) {
-                    feature = iter.next().unwrap();
-                    strand = None;
-                }
-                // Predict strand for the current feature
-                if strand.is_none() {
-                    strand = Some(self.predict(x.contig(), feature.clone()));
-                }
-                strands.push(strand.unwrap());
-            }
-
-            StrandingAlgoResult::EachElement(strands)
-        });
-        ctx
+        StrandingAlgoResult::EachElement((strands, counts))
     }
 }
 

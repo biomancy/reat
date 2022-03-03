@@ -1,41 +1,35 @@
-use std::cell::RefCell;
-use std::marker::PhantomData;
-use std::ops::Range;
-use std::rc::Rc;
-use std::sync::Mutex;
+use bio_types::strand::ReqStrand;
+use itertools::zip;
 
-use bio_types::genome::{AbstractInterval, Interval, Position};
-use bio_types::strand::{ReqStrand, Strand};
-use itertools::{zip, Itertools};
-
-use crate::core::dna::{NucCounts, Nucleotide};
-use crate::core::mismatches::BatchedMismatches;
 use crate::core::read::AlignedRead;
 use crate::core::rpileup::ncounters::{AggregatedNucCounts, NucCounter};
 use crate::core::rpileup::ReadsCollider;
 use crate::core::stranding::deduct::StrandDeductor;
 
-pub struct StrandedNucCounter<'a, R, Deductor, InnerNucCounter>
-where
-    R: AlignedRead,
-    Deductor: StrandDeductor<R>,
-    InnerNucCounter: NucCounter<'a, R>,
-    InnerNucCounter::ColliderResult: AggregatedNucCounts<'a>,
-{
+#[derive(Clone)]
+pub struct StrandedNucCounter<Deductor, InnerNucCounter> {
     forward: InnerNucCounter,
     reverse: InnerNucCounter,
     deductor: Deductor,
-    phantom: PhantomData<(&'a R)>,
 }
 
-impl<'a, R, Deductor, InnerNucCounter> ReadsCollider<'a, R> for StrandedNucCounter<'a, R, Deductor, InnerNucCounter>
-where
-    R: AlignedRead,
-    Deductor: StrandDeductor<R>,
-    InnerNucCounter: NucCounter<'a, R>,
-    InnerNucCounter::Workload: Clone,
-    InnerNucCounter::ColliderResult: AggregatedNucCounts<'a>,
-    <<InnerNucCounter as ReadsCollider<'a, R>>::ColliderResult as AggregatedNucCounts<'a>>::ItemInfo: PartialEq,
+impl<Deductor, InnerNucCounter> StrandedNucCounter<Deductor, InnerNucCounter>
+    where
+        InnerNucCounter: Clone,
+{
+    pub fn new(base: InnerNucCounter, deductor: Deductor) -> Self {
+        Self { forward: base.clone(), reverse: base, deductor }
+    }
+}
+
+impl<'a, R, Deductor, InnerNucCounter> ReadsCollider<'a, R> for StrandedNucCounter<Deductor, InnerNucCounter>
+    where
+        R: AlignedRead,
+        Deductor: StrandDeductor<R>,
+        InnerNucCounter: NucCounter<'a, R>,
+        InnerNucCounter::Workload: Clone,
+        InnerNucCounter::ColliderResult: AggregatedNucCounts<'a>,
+        <<InnerNucCounter as ReadsCollider<'a, R>>::ColliderResult as AggregatedNucCounts<'a>>::ItemInfo: PartialEq,
 {
     type ColliderResult = InnerNucCounter::ColliderResult;
     type Workload = InnerNucCounter::Workload;
@@ -60,9 +54,10 @@ where
 
     fn result(&'a self) -> Self::ColliderResult {
         let (mut fwd, mut rev) = (self.forward.result(), self.reverse.result());
+        debug_assert_eq!(fwd.items().len(), rev.items().len());
 
         for (f, r) in zip(fwd.items_mut(), rev.items_mut()) {
-            debug_assert!(f.unstranded.is_some() && r.unstranded.is_none());
+            debug_assert!(f.unstranded.is_some() && r.unstranded.is_some());
             debug_assert!(f.forward.is_none() && f.reverse.is_none() && r.forward.is_none() && r.reverse.is_none());
             debug_assert!(f.info == r.info);
 
@@ -74,45 +69,15 @@ where
     }
 }
 
-// impl<'a, R, Deductor, InnerNucCounter> NucCounter<'a, R> for StrandedNucCounter<'a, R, Deductor, InnerNucCounter>
-// where
-//     R: AlignedRead,
-//     Deductor: StrandDeductor<R>,
-//     InnerNucCounter: NucCounter<'a, R>,
-//     InnerNucCounter::Workload: Clone,
-//     InnerNucCounter::ColliderResult: AggregatedNucCounts<'a>,
-//     <<InnerNucCounter as ReadsCollider<'a, R>>::ColliderResult as AggregatedNucCounts<'a>>::ItemInfo: PartialEq,
-// {
-// }
-
-// Fetch results
-// let ((finter, forward), (frev, reverse)) = (self.forward.result().dissolve(), self.reverse.result().dissolve());
-// debug_assert_eq!(finter, frev);
-//
-// // Calculate shared counts once to avoid repeated memory allocations
-// let cnts = Rc::new(
-//     zip(&forward, &reverse)
-//         .map(|(f, r)| zip(f.ncounts(), r.ncounts()).map(|(c1, c2)| *c1 + *c2))
-//         .flatten()
-//         .collect_vec(),
-// );
-//
-// let mut results = Vec::with_capacity(forward.len());
-// let mut start = 0;
-// for (f, r) in zip(forward, reverse) {
-//     debug_assert_eq!(f.contig(), r.contig());
-//     debug_assert_eq!(f.range(), r.range());
-//
-//     let end = start + f.ncounts().len();
-//     results.push(StrandedNucCounts {
-//         forward: f,
-//         reverse: r,
-//         idx: start..end,
-//         ncounts: cnts.clone(),
-//         marker: Default::default(),
-//     });
-//     start = end;
-// }
+impl<'a, R, Deductor, InnerNucCounter> NucCounter<'a, R> for StrandedNucCounter<Deductor, InnerNucCounter>
+    where
+        R: AlignedRead,
+        Deductor: StrandDeductor<R>,
+        InnerNucCounter: NucCounter<'a, R>,
+        InnerNucCounter::Workload: Clone,
+        InnerNucCounter::ColliderResult: AggregatedNucCounts<'a>,
+        <<InnerNucCounter as ReadsCollider<'a, R>>::ColliderResult as AggregatedNucCounts<'a>>::ItemInfo: PartialEq,
+{}
 
 // #[cfg(test)]
 // mod tests {

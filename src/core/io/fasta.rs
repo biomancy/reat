@@ -2,8 +2,6 @@ use std::ops::Range;
 use std::path::PathBuf;
 
 use bio_types::genome::Position;
-use bio_types::genome::{AbstractInterval, Interval};
-use derive_more::Constructor;
 #[cfg(test)]
 use mockall::mock;
 use rust_htslib::faidx;
@@ -32,7 +30,9 @@ pub struct BasicFastaReader {
     cache: Vec<Nucleotide>,
     path: PathBuf,
 }
+
 unsafe impl Send for BasicFastaReader {}
+
 unsafe impl Sync for BasicFastaReader {}
 
 impl BasicFastaReader {

@@ -1,6 +1,6 @@
 use std::ops::Range;
 
-use bio_types::genome::{Interval, Position};
+use bio_types::genome::Position;
 #[cfg(test)]
 use mockall::{automock, predicate::*};
 

@@ -10,25 +10,21 @@ pub enum Nucleotide {
     Unknown,
 }
 
+impl Nucleotide {
+    pub fn symbol(&self) -> &str {
+        match self {
+            Nucleotide::A => "A",
+            Nucleotide::C => "C",
+            Nucleotide::G => "G",
+            Nucleotide::T => "T",
+            Nucleotide::Unknown => "N",
+        }
+    }
+}
+
 impl Display for Nucleotide {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Nucleotide::A => {
-                write!(f, "A")
-            }
-            Nucleotide::C => {
-                write!(f, "C")
-            }
-            Nucleotide::G => {
-                write!(f, "G")
-            }
-            Nucleotide::T => {
-                write!(f, "T")
-            }
-            Nucleotide::Unknown => {
-                write!(f, "N")
-            }
-        }
+        write!(f, "{}", self.symbol())
     }
 }
 
@@ -64,16 +60,16 @@ pub enum ReqNucleotide {
     T,
 }
 
-impl From<Nucleotide> for ReqNucleotide {
-    fn from(nuc: Nucleotide) -> Self {
-        match nuc {
-            Nucleotide::A => ReqNucleotide::A,
-            Nucleotide::C => ReqNucleotide::C,
-            Nucleotide::G => ReqNucleotide::G,
-            Nucleotide::T => ReqNucleotide::T,
-            Nucleotide::Unknown => {
-                panic!("Can't cast Nucleotide::Unknown to the ReqNucleotide")
-            }
-        }
-    }
-}
+// impl From<Nucleotide> for ReqNucleotide {
+//     fn from(nuc: Nucleotide) -> Self {
+//         match nuc {
+//             Nucleotide::A => ReqNucleotide::A,
+//             Nucleotide::C => ReqNucleotide::C,
+//             Nucleotide::G => ReqNucleotide::G,
+//             Nucleotide::T => ReqNucleotide::T,
+//             Nucleotide::Unknown => {
+//                 panic!("Can't cast Nucleotide::Unknown to the ReqNucleotide")
+//             }
+//         }
+//     }
+// }

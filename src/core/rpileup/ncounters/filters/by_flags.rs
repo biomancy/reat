@@ -23,8 +23,9 @@ impl<R: AlignedRead> ReadsFilter<R> for ByFlags {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use crate::core::read::MockRead;
+
+    use super::*;
 
     #[test]
     fn is_read_ok() {

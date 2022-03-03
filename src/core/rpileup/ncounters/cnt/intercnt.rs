@@ -1,13 +1,7 @@
 use std::ops::Range;
 
-use bio_types::genome::{AbstractInterval, Interval, Locus, Position};
-use bio_types::strand::{ReqStrand, Strand};
-use itertools::izip;
-use itertools::multiunzip;
-use itertools::Itertools;
+use bio_types::genome::{AbstractInterval, Position};
 
-use crate::core::dna::{NucCounts, Nucleotide};
-use crate::core::mismatches::site::{BinnedSiteMismatches, REATBatchedSiteMismatches};
 use crate::core::read::AlignedRead;
 use crate::core::rpileup::ncounters::filters::ReadsFilter;
 use crate::core::rpileup::ncounters::{AggregatedNucCounts, AggregatedNucCountsItem, NucCounter};
@@ -25,11 +19,11 @@ pub struct IntervalNucCounts<'a> {
 impl<'a> AggregatedNucCounts<'a> for IntervalNucCounts<'a> {
     type ItemInfo = ();
 
-    fn items(&'a self) -> &'a [AggregatedNucCountsItem<'a, Self::ItemInfo>] {
+    fn items(&self) -> &[AggregatedNucCountsItem<'a, Self::ItemInfo>] {
         &self.items
     }
 
-    fn items_mut<'b>(&'b mut self) -> &'b mut [AggregatedNucCountsItem<'a, Self::ItemInfo>] {
+    fn items_mut(&mut self) -> &mut [AggregatedNucCountsItem<'a, Self::ItemInfo>] {
         &mut self.items
     }
 
@@ -48,15 +42,19 @@ impl<'a> AbstractInterval for IntervalNucCounts<'a> {
     }
 }
 
+#[derive(Clone)]
 pub struct IntervalNucCounter<R: AlignedRead, Filter: ReadsFilter<R>> {
     base: BaseNucCounter<R, Filter>,
     ranges: Vec<Range<u64>>,
 }
 
-impl<'a, R: AlignedRead, Filter: ReadsFilter<R>> ReadsCollider<'a, R> for IntervalNucCounter<R, Filter>
-where
-    Self: 'a,
-{
+impl<R: AlignedRead, Filter: ReadsFilter<R>> IntervalNucCounter<R, Filter> {
+    pub fn new(base: BaseNucCounter<R, Filter>) -> Self {
+        Self { base, ranges: vec![] }
+    }
+}
+
+impl<'a, R: AlignedRead, Filter: ReadsFilter<R>> ReadsCollider<'a, R> for IntervalNucCounter<R, Filter> {
     type ColliderResult = IntervalNucCounts<'a>;
     type Workload = SiteWorkload;
 
@@ -94,4 +92,4 @@ where
     }
 }
 
-impl<'a, R: 'a + AlignedRead, Filter: 'a + ReadsFilter<R>> NucCounter<'a, R> for IntervalNucCounter<R, Filter> {}
+impl<'a, R: AlignedRead, Filter: ReadsFilter<R>> NucCounter<'a, R> for IntervalNucCounter<R, Filter> {}

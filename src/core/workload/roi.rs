@@ -1,53 +1,53 @@
-use std::cmp::min;
-use std::cmp::Ordering;
-use std::ffi::OsStr;
-use std::fs::File;
-use std::io;
-use std::io::BufRead;
 use std::ops::Range;
-use std::path::Path;
 
 use bio_types::genome::{AbstractInterval, Interval, Position};
+use bio_types::strand::{Same, Strand};
 use derive_getters::{Dissolve, Getters};
-use flate2::bufread::GzDecoder;
-use itertools::Itertools;
-use rust_htslib::bam::{IndexedReader, Read};
 
-use crate::core::io::bed;
 use crate::core::io::bed::BedRecord;
 
 use super::utils;
 
-#[derive(Clone, Debug, Eq, PartialEq, Getters, Dissolve)]
+#[derive(Clone, Debug, Getters, Dissolve)]
 pub struct ROI {
-    include: Vec<Range<u64>>,
-    original: Interval,
+    interval: Interval,
     name: String,
+    strand: Strand,
+    subintervals: Vec<Range<u64>>,
+}
+
+impl PartialEq for ROI {
+    fn eq(&self, other: &Self) -> bool {
+        self.interval == other.interval
+            && self.name == other.name
+            && self.strand.same(&other.strand)
+            && self.subintervals == other.subintervals
+    }
 }
 
 impl AbstractInterval for ROI {
     fn contig(&self) -> &str {
-        self.original.contig()
+        self.interval.contig()
     }
 
     fn range(&self) -> Range<Position> {
-        self.include.first().unwrap().start..self.include.last().unwrap().end
+        self.subintervals.first().unwrap().start..self.subintervals.last().unwrap().end
     }
 }
 
 impl ROI {
-    pub fn new(roi: Interval, name: String, include: Vec<Range<u64>>) -> Self {
-        debug_assert!(!include.is_empty());
-        debug_assert!(include.iter().all(|x| x.start >= roi.range().start && x.end <= roi.range().end));
-        ROI { include, original: roi, name }
+    pub fn new(roi: Interval, name: String, strand: Strand, subintervals: Vec<Range<u64>>) -> Self {
+        debug_assert!(!subintervals.is_empty());
+        debug_assert!(subintervals.iter().all(|x| x.start >= roi.range().start && x.end <= roi.range().end));
+        ROI { interval: roi, name, strand, subintervals }
     }
 
-    pub fn masked(&self) -> u32 {
+    pub fn nucmasked(&self) -> u32 {
         let mut nucin = 0;
-        for piece in &self.include {
+        for piece in &self.subintervals {
             nucin += piece.end - piece.start;
         }
-        let total = self.original.range().end - self.original.range().start;
+        let total = self.interval.range().end - self.interval.range().start;
 
         (total - nucin) as u32
     }
@@ -71,7 +71,7 @@ impl AbstractInterval for ROIWorkload {
 
 impl ROIWorkload {
     pub fn new(bin: Interval, rois: Vec<ROI>) -> Self {
-        debug_assert!(rois.iter().all(|x| bin.contig() == x.original.contig()
+        debug_assert!(rois.iter().all(|x| bin.contig() == x.interval.contig()
             && bin.range().contains(&x.range().start)
             && bin.range().contains(&x.range().end)));
         ROIWorkload { bin, rois }
@@ -84,16 +84,16 @@ impl ROIWorkload {
         assert!(binsize > 0, "Binsize must be > 0");
 
         // 1. Subtract from rois all the excluded regions and create ROI objects
-        let rois = if let Some(bl) = exclude {
-            utils::subtract(rois, bl)
+        let rois = if let Some(exclude) = exclude {
+            utils::subtract(rois, exclude)
                 .into_iter()
-                .map(|x| ROI::new(x.inner.interval, x.inner.name, x.retained))
+                .map(|x| ROI::new(x.inner.interval, x.inner.name, x.inner.strand, x.retained))
                 .collect()
         } else {
             rois.into_iter()
                 .map(|x| {
                     let range = x.interval.range();
-                    ROI::new(x.interval, x.name, vec![range])
+                    ROI::new(x.interval, x.name, x.strand, vec![range])
                 })
                 .collect()
         };
@@ -103,7 +103,7 @@ impl ROIWorkload {
     }
 
     #[inline]
-    pub fn len(&self) -> u64 {
-        self.bin.range().end - self.bin.range().start
+    pub fn len(&self) -> usize {
+        (self.bin.range().end - self.bin.range().start) as usize
     }
 }

@@ -11,10 +11,13 @@ use super::StrandDeductor;
 pub enum StrandSpecificExperimentDesign {
     // Notation (+ <- sequenced read orientation, - <- parent transcript orientation) => +-
     // Single end experiments
-    Same, // forward read -> forward transcript (++, --)
-    Flip, // forward read -> reverse transcript (+-, -+)
+    Same,
+    // forward read -> forward transcript (++, --)
+    Flip,
+    // forward read -> reverse transcript (+-, -+)
     // Paired end experiments
-    Same1Flip2, // read1 same as the transcript, read2 flipped (++/--, +-/-+)
+    Same1Flip2,
+    // read1 same as the transcript, read2 flipped (++/--, +-/-+)
     Flip1Same2, // read1 flipped, read2 same as the transcript (+-/-+, ++/--)
 }
 
@@ -27,10 +30,10 @@ impl Display for StrandSpecificExperimentDesign {
 impl StrandSpecificExperimentDesign {
     pub fn symbol(&self) -> &str {
         match self {
-            StrandSpecificExperimentDesign::Same => "s",
-            StrandSpecificExperimentDesign::Flip => "f",
-            StrandSpecificExperimentDesign::Same1Flip2 => "s/f",
-            StrandSpecificExperimentDesign::Flip1Same2 => "f/s",
+            StrandSpecificExperimentDesign::Same => "s (++, --)",
+            StrandSpecificExperimentDesign::Flip => "f (+-, -+)",
+            StrandSpecificExperimentDesign::Same1Flip2 => "s/f (++/--, +-/-+)",
+            StrandSpecificExperimentDesign::Flip1Same2 => "f/s (+-/-+, ++/--)",
         }
     }
 }
@@ -83,7 +86,12 @@ mod tests {
     #[test]
     fn symbol_and_format() {
         use StrandSpecificExperimentDesign::*;
-        for (symbol, design) in [("s", Same), ("f", Flip), ("s/f", Same1Flip2), ("f/s", Flip1Same2)] {
+        for (symbol, design) in [
+            ("s (++, --)", Same),
+            ("f (+-, -+)", Flip),
+            ("s/f (++/--, +-/-+)", Same1Flip2),
+            ("f/s (+-/-+, ++/--)", Flip1Same2),
+        ] {
             assert_eq!(design.symbol(), symbol);
             assert_eq!(format!("{}", design), symbol);
         }

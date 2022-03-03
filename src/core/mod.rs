@@ -7,4 +7,5 @@ pub mod refpred;
 pub mod rpileup;
 pub mod runner;
 pub mod stranding;
+pub mod strandutil;
 pub mod workload;

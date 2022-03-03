@@ -1,22 +1,19 @@
-use std::marker::PhantomData;
 use std::path::PathBuf;
 
-use bio_types::genome::{AbstractInterval, Interval};
+use bio_types::genome::AbstractInterval;
 use itertools::Itertools;
 use rust_htslib::bam::{IndexedReader, Read, Record};
 
-use crate::core::read::AlignedRead;
 use crate::core::rpileup::{ReadsCollider, ReadsCollidingEngine};
 
-pub struct HTSPileupEngine<'a, Collider: ReadsCollider<'a, Record>> {
+pub struct HTSPileupEngine<Collider> {
     collider: Collider,
     htsreaders: Vec<IndexedReader>,
     htsfiles: Vec<PathBuf>,
     success: bool,
-    marker: PhantomData<&'a ()>,
 }
 
-impl<'a, Collider: ReadsCollider<'a, Record>> HTSPileupEngine<'a, Collider> {
+impl<Collider: for<'a> ReadsCollider<'a, Record>> HTSPileupEngine<Collider> {
     pub fn new(htsfiles: Vec<PathBuf>, collider: Collider) -> Self {
         let htsreaders: Vec<IndexedReader> = htsfiles
             .iter()
@@ -31,14 +28,12 @@ impl<'a, Collider: ReadsCollider<'a, Record>> HTSPileupEngine<'a, Collider> {
             })
             .collect();
 
-        Self { collider, htsreaders, htsfiles, success: false, marker: Default::default() }
+        Self { collider, htsreaders, htsfiles, success: false }
     }
 }
 
-impl<'a, Collider: ReadsCollider<'a, Record>> ReadsCollidingEngine<'a, Record, Collider>
-    for HTSPileupEngine<'a, Collider>
-{
-    fn run(&mut self, cwork: Collider::Workload) {
+impl<Collider: for<'a> ReadsCollider<'a, Record>> ReadsCollidingEngine<Record, Collider> for HTSPileupEngine<Collider> {
+    fn run(&mut self, cwork: <Collider as ReadsCollider<'_, Record>>::Workload) {
         let toread = self
             .htsreaders
             .iter_mut()
@@ -83,7 +78,7 @@ impl<'a, Collider: ReadsCollider<'a, Record>> ReadsCollidingEngine<'a, Record, C
         self.success = true;
     }
 
-    fn result(&'a self) -> Result<Collider::ColliderResult, ()> {
+    fn result(&self) -> Result<<Collider as ReadsCollider<'_, Record>>::ColliderResult, ()> {
         if self.success {
             Ok(self.collider.result())
         } else {
@@ -92,7 +87,7 @@ impl<'a, Collider: ReadsCollider<'a, Record>> ReadsCollidingEngine<'a, Record, C
     }
 }
 
-impl<'a, Collider: ReadsCollider<'a, Record> + Clone> Clone for HTSPileupEngine<'a, Collider> {
+impl<Collider: for<'a> ReadsCollider<'a, Record> + Clone> Clone for HTSPileupEngine<Collider> {
     fn clone(&self) -> Self {
         Self::new(self.htsfiles.clone(), self.collider.clone())
     }

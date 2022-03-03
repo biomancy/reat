@@ -1,14 +1,13 @@
-use bio_types::strand::{Same, Strand};
+use bio_types::strand::Strand;
 use derive_getters::Getters;
 use derive_more::Constructor;
 use itertools::zip;
 
 use crate::core::dna::{NucCounts, Nucleotide};
 use crate::core::mismatches::roi::{BatchedROIMismatches, MismatchesSummary, REATBatchedROIMismatches};
-use crate::core::mismatches::site::{BinnedSiteMismatches, REATBatchedSiteMismatches};
-use crate::core::mismatches::BatchedMismatches;
-use crate::core::stranding::predict::ctx::StrandingAlgoResult;
-use crate::core::stranding::predict::{StrandingAlgo, StrandingContext};
+use crate::core::mismatches::site::{BatchedSiteMismatches, REATBatchedSiteMismatches};
+use crate::core::mismatches::StrandingCounts;
+use crate::core::stranding::predict::{StrandingAlgo, StrandingAlgoResult};
 
 #[derive(Constructor, Getters, Copy, Clone)]
 pub struct StrandByAtoIEditing {
@@ -76,26 +75,33 @@ impl StrandByAtoIEditing {
 }
 
 impl StrandingAlgo<REATBatchedROIMismatches> for StrandByAtoIEditing {
-    fn predict(
-        &self,
-        mut ctx: StrandingContext<REATBatchedROIMismatches>,
-    ) -> StrandingContext<REATBatchedROIMismatches> {
-        ctx.apply(|x| StrandingAlgoResult::EachElement((x.mismatches().iter().map(|m| self.roipred(m)).collect())));
-        ctx
+    fn predict(&self, x: &REATBatchedROIMismatches) -> StrandingAlgoResult {
+        let mut counts = StrandingCounts::default();
+        let strands = x
+            .mismatches()
+            .iter()
+            .map(|m| {
+                let strand = self.roipred(m);
+                counts[strand] += 1;
+                strand
+            })
+            .collect();
+
+        StrandingAlgoResult::EachElement((strands, counts))
     }
 }
 
 impl StrandingAlgo<REATBatchedSiteMismatches> for StrandByAtoIEditing {
-    fn predict(
-        &self,
-        mut ctx: StrandingContext<REATBatchedSiteMismatches>,
-    ) -> StrandingContext<REATBatchedSiteMismatches> {
-        ctx.apply(|x| {
-            StrandingAlgoResult::EachElement(
-                (zip(x.prednuc(), x.seqnuc()).map(|(pn, sn)| self.nucpred(sn, pn))).collect(),
-            )
-        });
-        ctx
+    fn predict(&self, x: &REATBatchedSiteMismatches) -> StrandingAlgoResult {
+        let mut counts = StrandingCounts::default();
+        let strands = (zip(x.prednuc(), x.seqnuc()).map(|(pn, sn)| {
+            let strand = self.nucpred(sn, pn);
+            counts[strand] += 1;
+            strand
+        }))
+        .collect();
+
+        StrandingAlgoResult::EachElement((strands, counts))
     }
 }
 

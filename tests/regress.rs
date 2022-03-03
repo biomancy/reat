@@ -11,7 +11,7 @@ use indicatif::{MultiProgress, ProgressBar};
 use rayon::ThreadPoolBuilder;
 use tempfile::NamedTempFile;
 
-use rada::cli;
+use reat::cli;
 
 mod paths;
 

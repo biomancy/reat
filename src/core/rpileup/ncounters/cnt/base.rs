@@ -3,7 +3,7 @@ use std::marker::PhantomData;
 use std::ops::Range;
 
 use bio_types::genome::{AbstractInterval, Interval};
-use bio_types::strand::{ReqStrand, Strand};
+use bio_types::strand::ReqStrand;
 use rust_htslib::bam::record::Cigar;
 
 use crate::core::dna::NucCounts;
@@ -179,15 +179,19 @@ mod tests {
         pub fn Z() -> NucCounts {
             NucCounts::zeros()
         }
+
         pub fn A() -> NucCounts {
             NucCounts::A(1)
         }
+
         pub fn C() -> NucCounts {
             NucCounts::C(1)
         }
+
         pub fn G() -> NucCounts {
             NucCounts::G(1)
         }
+
         pub fn T() -> NucCounts {
             NucCounts::T(1)
         }
@@ -195,27 +199,35 @@ mod tests {
         pub fn M(x: u32) -> Cigar {
             Match(x)
         }
+
         pub fn X(x: u32) -> Cigar {
             Diff(x)
         }
+
         pub fn E(x: u32) -> Cigar {
             Equal(x)
         }
+
         pub fn D(x: u32) -> Cigar {
             Del(x)
         }
+
         pub fn N(x: u32) -> Cigar {
             RefSkip(x)
         }
+
         pub fn H(x: u32) -> Cigar {
             HardClip(x)
         }
+
         pub fn P(x: u32) -> Cigar {
             Pad(x)
         }
+
         pub fn S(x: u32) -> Cigar {
             SoftClip(x)
         }
+
         pub fn I(x: u32) -> Cigar {
             Ins(x)
         }
@@ -437,7 +449,6 @@ mod tests {
     #[test]
     fn is_record_ok() {
         let contig = "".to_string();
-        let interval = Interval::new(contig.clone(), 0..10);
         let wrong_contig = "!".to_string();
         for (isok, ctg, result) in [
             (true, &contig, true),

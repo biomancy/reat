@@ -2,13 +2,11 @@ use itertools::zip;
 
 use crate::core::hooks::filters::Filter;
 use crate::core::hooks::Hook;
-use crate::core::mismatches::prefilters::MismatchesPreFilter;
-use crate::core::mismatches::roi::{
-    BatchedROIMismatches, MismatchesSummary, REATBatchedROIMismatches, REATROIMismatches,
-};
-use crate::core::mismatches::site::{BinnedSiteMismatches, REATBatchedSiteMismatches};
-use crate::core::mismatches::{prefilters, BatchedMismatches, MismatchesIntermediate};
+use crate::core::mismatches::roi::{BatchedROIMismatches, REATBatchedROIMismatches};
+use crate::core::mismatches::site::{BatchedSiteMismatches, REATBatchedSiteMismatches};
+use crate::core::mismatches::{prefilters, BatchedMismatches, FilteredBatchedMismatches};
 
+#[derive(Clone)]
 pub struct ByMismatches {
     inner: prefilters::ByMismatches,
 }
@@ -56,15 +54,17 @@ impl ByMismatches {
 }
 
 impl Hook<REATBatchedROIMismatches> for ByMismatches {
-    fn on_stranded(&mut self, mm: &mut MismatchesIntermediate<REATBatchedROIMismatches>) {
+    fn on_finish(&mut self, mm: &mut FilteredBatchedMismatches<REATBatchedROIMismatches>) {
         mm.other = std::mem::take(&mut mm.other).into_iter().filter_map(|x| self.filter_rois(x)).collect();
     }
 }
+
 impl Filter<REATBatchedROIMismatches> for ByMismatches {}
 
 impl Hook<REATBatchedSiteMismatches> for ByMismatches {
-    fn on_stranded(&mut self, mm: &mut MismatchesIntermediate<REATBatchedSiteMismatches>) {
+    fn on_finish(&mut self, mm: &mut FilteredBatchedMismatches<REATBatchedSiteMismatches>) {
         mm.other = std::mem::take(&mut mm.other).into_iter().filter_map(|x| self.filter_intervals(x)).collect();
     }
 }
+
 impl Filter<REATBatchedSiteMismatches> for ByMismatches {}

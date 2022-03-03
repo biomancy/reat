@@ -1,17 +1,7 @@
-use std::cmp::min;
-use std::cmp::Ordering;
-use std::ffi::OsStr;
-use std::fs::File;
-use std::io;
-use std::io::BufRead;
 use std::ops::Range;
-use std::path::Path;
 
 use bio_types::genome::{AbstractInterval, Interval, Position};
 use derive_getters::{Dissolve, Getters};
-use flate2::bufread::GzDecoder;
-use itertools::Itertools;
-use rust_htslib::bam::{IndexedReader, Read};
 
 use super::utils;
 
@@ -39,8 +29,8 @@ impl SiteWorkload {
     ) -> Vec<SiteWorkload> {
         assert!(binsize > 0, "Binsize must be > 0");
         // Subtract excluded if needed
-        if let Some(bl) = exclude {
-            intervals = utils::subtract(intervals, bl)
+        if let Some(excluded) = exclude {
+            intervals = utils::subtract(intervals, excluded)
                 .into_iter()
                 .map(|x| {
                     let contig = x.inner.contig().to_owned();

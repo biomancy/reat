@@ -1,17 +1,16 @@
 use std::ops::Range;
-use std::path::PathBuf;
 
-use bio_types::genome::{Interval, Position};
+use bio_types::genome::Position;
 use itertools::zip;
-use rust_htslib::faidx;
 
-use crate::core::dna::NucCounts;
 use crate::core::dna::{Nucleotide, ReqNucleotide};
+use crate::core::dna::NucCounts;
 use crate::core::io::fasta::FastaReader;
 use crate::core::refpred::RefEngineResult;
 
 use super::RefEngine;
 
+#[derive(Clone)]
 pub struct AutoRef<T: FastaReader> {
     mincoverage: u32,
     minfreq: f32,
@@ -37,7 +36,7 @@ impl<T: FastaReader> AutoRef<T> {
                 // check for a potential hyper-editing site
                 let skip_hyperediting = self.skip_hyperediting
                     && ((assembly == Nucleotide::A && nuc == ReqNucleotide::G)
-                        || (assembly == Nucleotide::T && nuc == ReqNucleotide::C));
+                    || (assembly == Nucleotide::T && nuc == ReqNucleotide::C));
 
                 return if skip_hyperediting { assembly } else { nuc.into() };
             }
@@ -65,21 +64,9 @@ impl<T: FastaReader> RefEngine for AutoRef<T> {
     }
 }
 
-impl<T: FastaReader + Clone> Clone for AutoRef<T> {
-    fn clone(&self) -> Self {
-        Self {
-            mincoverage: self.mincoverage,
-            minfreq: self.minfreq,
-            skip_hyperediting: self.skip_hyperediting,
-            cache: Vec::new(),
-            reader: self.reader.clone(),
-        }
-    }
-}
-
 #[cfg(test)]
 mod tests {
-    use bio_types::genome::AbstractInterval;
+    use bio_types::genome::{AbstractInterval, Interval};
     use mockall::Sequence;
 
     use crate::core::io::fasta::MockFastaReader;
@@ -103,40 +90,39 @@ mod tests {
         }
     }
 
-    // #[test]
-    // fn results() {
-    //     let intervals = vec![Interval::new("".into(), 1..4), Interval::new("chr1".into(), 100..105)];
-    //     let sequenced = vec![
-    //         (
-    //             vec![NucCounts::A(1000), NucCounts::G(30), NucCounts::zeros()],
-    //             vec![Nucleotide::G, Nucleotide::G, Nucleotide::A],
-    //             vec![Nucleotide::A, Nucleotide::G, Nucleotide::A],
-    //         ),
-    //         (
-    //             vec![NucCounts::G(12), NucCounts::G(10), NucCounts::C(32), NucCounts::T(16)],
-    //             vec![Nucleotide::Unknown, Nucleotide::Unknown, Nucleotide::Unknown],
-    //             vec![Nucleotide::G, Nucleotide::G, Nucleotide::C],
-    //         ),
-    //     ];
-    //
-    //     let mut reader = MockFastaReader::new();
-    //     let mut seq = Sequence::new();
-    //     for ind in 0..intervals.len() {
-    //         reader.expect_fetch().once().return_const(()).in_sequence(&mut seq);
-    //         reader.expect_result().once().return_const(sequenced[ind].1.clone()).in_sequence(&mut seq);
-    //     }
-    //
-    //     let mut dummy = AutoRef::new(10, 1f32, false, reader);
-    //
-    //     for ind in 0..sequenced.len() {
-    //         dummy.run(intervals[ind].contig(), intervals[ind].range(), &sequenced[ind].0);
-    //     }
-    //     let result = dummy.results();
-    //     assert_eq!(result.len(), sequenced.len());
-    //     for ind in 0..sequenced.len() {
-    //         assert_eq!(result[ind], sequenced[ind].2)
-    //     }
-    // }
+    #[test]
+    fn results() {
+        let intervals = vec![Interval::new("".into(), 1..4), Interval::new("chr1".into(), 100..105)];
+        let sequenced = vec![
+            (
+                vec![NucCounts::A(1000), NucCounts::G(30), NucCounts::zeros()],
+                vec![Nucleotide::G, Nucleotide::G, Nucleotide::A],
+                vec![Nucleotide::A, Nucleotide::G, Nucleotide::A],
+            ),
+            (
+                vec![NucCounts::G(12), NucCounts::G(10), NucCounts::C(32), NucCounts::T(16)],
+                vec![Nucleotide::Unknown, Nucleotide::Unknown, Nucleotide::Unknown, Nucleotide::Unknown],
+                vec![Nucleotide::G, Nucleotide::G, Nucleotide::C, Nucleotide::T],
+            ),
+        ];
+
+        let mut reader = MockFastaReader::new();
+        let mut seq = Sequence::new();
+        for ind in 0..intervals.len() {
+            reader.expect_fetch().once().return_const(()).in_sequence(&mut seq);
+            reader.expect_result().once().return_const(sequenced[ind].1.clone()).in_sequence(&mut seq);
+            reader.expect_result().once().return_const(sequenced[ind].1.clone()).in_sequence(&mut seq);
+        }
+
+        let mut dummy = AutoRef::new(10, 1f32, false, reader);
+
+        for ind in 0..sequenced.len() {
+            dummy.run(intervals[ind].contig(), intervals[ind].range(), &sequenced[ind].0);
+            let result = dummy.results();
+            assert_eq!(result.reference, sequenced[ind].1);
+            assert_eq!(result.predicted, sequenced[ind].2);
+        }
+    }
 
     #[test]
     fn skip_hyper_editing() {

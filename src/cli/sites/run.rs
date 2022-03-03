@@ -1,144 +1,54 @@
-use std::cell::RefCell;
-use std::collections::{HashMap, HashSet};
-use std::ops::DerefMut;
+use std::collections::HashMap;
 
-use bio_types::genome::{AbstractInterval, AbstractLocus, Locus};
 use clap::ArgMatches;
 use indicatif::ProgressBar;
-use itertools::zip;
-use rayon::prelude::*;
 
-use crate::cli::loci::args::LociArgs;
-use crate::cli::loci::resformat;
 use crate::cli::shared;
 use crate::cli::shared::args::CoreArgs;
 use crate::cli::shared::stranding::Stranding;
-use crate::cli::shared::thread_cache::ThreadCache;
-use crate::core::hooks::filters::FilteringEngine;
-// use crate::core::runner::BaseRunner;
-use crate::core::runner::Runner;
-use crate::core::stranding::deduct::DeductStrandByDesign;
-use crate::core::stranding::predict::StrandingEngine;
-use crate::core::summary::SiteSummary;
-use crate::core::workload::ROIWorkload;
+use crate::cli::sites::args::SiteArgs;
+use crate::core::hooks::engine::REATHooksEngine;
+use crate::core::mismatches::site::{REATBatchedSiteMismatches, REATSiteMismatchesBuilder};
+use crate::core::rpileup::hts::HTSPileupEngine;
+use crate::core::rpileup::ncounters::cnt::{BaseNucCounter, IntervalNucCounter, StrandedNucCounter};
+use crate::core::runner::REATRunner;
 
 pub fn run(args: &ArgMatches, mut core: CoreArgs, factory: impl Fn() -> ProgressBar) {
-    // let args = LociArgs::new(&core, args, &factory);
-    //
-    // // Callbacks to track progress
-    // let pbar = factory();
-    // pbar.set_style(shared::style::run::running());
-    // pbar.set_draw_delta((core.threads * 10) as u64);
-    // pbar.set_length(args.workload.len() as u64);
-    //
-    // let oniter = |_: &[LocusSummary]| pbar.inc(1);
-    // let onfinish = |intervals: &[LocusSummary], filters: u32| {
-    //     pbar.set_style(shared::style::run::finished());
-    //     pbar.finish_with_message(format!("Finished with {} site, total processed filters: {}", intervals.len(), filters))
-    // };
-    //
-    // let filters = match core.stranding {
-    //     Stranding::Unstranded => {
-    //         let counter =
-    //             BaseNucCounter::new(core.readfilter, FlatBuffer::new(args.maxwsize as usize), core.trim5, core.trim3);
-    //         let runner = BaseRunner::new(core.bamfiles, core.reference, counter, core.refnucpred);
-    //         process(args.workload, runner, args.stranding, args.filter, args.forcelist, oniter, onfinish)
-    //     }
-    //     Stranding::Stranded(design) => {
-    //         let deductor = DeductStrandByDesign::new(design);
-    //         let forward = BaseNucCounter::new(
-    //             core.readfilter.clone(),
-    //             FlatBuffer::new(args.maxwsize as usize),
-    //             core.trim5,
-    //             core.trim3,
-    //         );
-    //         let reverse =
-    //             BaseNucCounter::new(core.readfilter, FlatBuffer::new(args.maxwsize as usize), core.trim5, core.trim3);
-    //         let counter = StrandedNucCounter::new(forward, reverse, deductor);
-    //         let runner = BaseRunner::new(core.bamfiles, core.reference, counter, core.refnucpred);
-    //         process(args.workload, runner, args.stranding, args.filter, args.forcelist, oniter, onfinish)
-    //     }
-    // };
-    //
-    // resformat::site(&mut core.saveto, filters);
+    let args = SiteArgs::new(&mut core, args, &factory);
+
+    // Strander & Hooks don't require any further processing
+    let mut strander = args.stranding;
+    let hooks: REATHooksEngine<REATBatchedSiteMismatches> = REATHooksEngine::new();
+
+    // Mismatchs builder. Always with prefilter since there are no site-level stats right now
+    let builder = REATSiteMismatchesBuilder::new(args.maxwsize, core.refnucpred, args.retain, Some(args.prefilter));
+
+    // Initialize basic counter
+    let counter = BaseNucCounter::new(args.maxwsize, core.readfilter, core.trim5, core.trim3);
+    let counter = IntervalNucCounter::new(counter);
+
+    let mut saveto = csv::WriterBuilder::new().from_writer(core.saveto);
+    match core.stranding {
+        Stranding::Unstranded => {
+            // Compose strander + pileuper
+            let pileuper = HTSPileupEngine::new(core.bamfiles, counter);
+            // Launch the processing
+            let runner = REATRunner::new(builder, strander, pileuper, hooks);
+            shared::run(args.workload, runner, factory(), &mut saveto, HashMap::new()).unwrap();
+        }
+        Stranding::Stranded(x) => {
+            // Remove all stranding algorithm -> they are not required
+            strander.clear();
+            // Compose strander + pileuper
+            let deductor = crate::core::stranding::deduct::DeductStrandByDesign::new(x);
+            let pileuper = HTSPileupEngine::new(core.bamfiles, StrandedNucCounter::new(counter, deductor));
+
+            // Launch the processing
+            let runner = REATRunner::new(builder, strander, pileuper, hooks);
+            shared::run(args.workload, runner, factory(), &mut saveto, HashMap::new()).unwrap();
+        }
+    };
 }
-//
-// pub fn process<
-//     Rnr: Runner + Clone + Send,
-//     StrandPred: LocusStrandPredictor + Clone + Send,
-//     OnIteration: Fn(&[LocusSummary]) + Sync,
-//     OnFinish: FnOnce(&[LocusSummary], u32),
-// >(
-//     workload: Vec<ROIWorkload>,
-//     runner: Rnr,
-//     stranding: StrandPred,
-//     filter: impl FilteringEngine + Clone + Send,
-//     forcelist: Option<HashMap<String, HashSet<u64>>>,
-//     oniter: OnIteration,
-//     onfinish: OnFinish,
-// ) -> Vec<LocusSummary> {
-//     let ctxstore = ThreadCache::new(move || RefCell::new((runner.clone(), stranding.clone(), &filter)));
-//     let results: Vec<LocusSummary> = workload
-//         .into_par_iter()
-//         .map(|w| {
-//             let mut ctx = ctxstore.get().borrow_mut();
-//             let (rnr, stranding, filter) = ctx.deref_mut();
-//             let result = doiter(w, rnr, stranding, filter, forcelist.as_ref());
-//             oniter(&result);
-//             result
-//         })
-//         .flatten()
-//         .collect();
-//
-//     let mapped = ctxstore.dissolve().map(|x| x.into_inner().0.mapped()).sum();
-//     onfinish(&results, mapped);
-//
-//     results
-// }
-//
-// fn doiter(
-//     w: ROIWorkload,
-//     rnr: &mut impl Runner,
-//     stranding: &impl LocusStrandPredictor,
-//     filter: &impl FilteringEngine,
-//     forcelist: Option<&HashMap<String, HashSet<u64>>>,
-// ) -> Vec<LocusSummary> {
-//     let (mut unstranded, stranded): (Vec<LocusSummary>, Vec<LocusSummary>) = rnr
-//         .run(w)
-//         .into_iter()
-//         .filter(|x| x.cnts.coverage > 0)
-//         .map(|x| {
-//             let startpos = x.interval.range().start;
-//             let contig = x.interval.contig();
-//             zip(x.reference, x.cnts.nuc).enumerate().map(move |(offset, (nuc, cnt))| {
-//                 LocusSummary::new(Locus::new(contig.into(), startpos + offset as u64), x.strand, *nuc, *cnt)
-//             })
-//         })
-//         .flatten()
-//         .partition(|x: &LocusSummary| x.strand.is_unknown());
-//
-//     let strands = stranding.batch_predict(&unstranded);
-//     for (item, strand) in zip(&mut unstranded, strands) {
-//         item.strand = strand;
-//     }
-//
-//     unstranded
-//         .into_iter()
-//         .chain(stranded.into_iter())
-//         .filter(|x| {
-//             if filter.is_ok(x) {
-//                 return true;
-//             }
-//
-//             if let Some(z) = forcelist {
-//                 let forced = z.get(x.locus.contig()).map(|set| set.contains(&x.locus.pos()));
-//                 forced.is_some() && forced.unwrap()
-//             } else {
-//                 false
-//             }
-//         })
-//         .collect()
-// }
 
 // #[cfg(test)]
 // mod test {

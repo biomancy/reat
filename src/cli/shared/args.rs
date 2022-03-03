@@ -11,11 +11,10 @@ use crate::cli::shared::stranding::Stranding;
 use crate::core::io::bed::BedRecord;
 use crate::core::io::fasta::BasicFastaReader;
 use crate::core::refpred::AutoRef;
+use crate::core::rpileup::ncounters::filters;
 
 use super::parse;
 use super::validate;
-use crate::core::rpileup::ncounters::filters;
-use crate::core::stranding::predict::algo::{StrandByAtoIEditing, StrandByGenomicAnnotation};
 
 pub fn reqdefaults() -> ArgFlags {
     ArgSettings::Required | ArgSettings::TakesValue
@@ -45,7 +44,7 @@ pub mod core {
                 .short('i')
                 .long(INPUT)
                 .setting(reqdefaults())
-                .multiple(true)
+                .multiple_values(true)
                 .validator(validate::path)
                 .long_help(
                     "Path to the input BAM file(s). \
@@ -54,7 +53,7 @@ pub mod core {
                 ),
             Arg::new(REFERENCE).short('r').long(REFERENCE).setting(reqdefaults()).validator(validate::path).long_help(
                 "Indexed fasta file with a reference genome assembly. \
-                    Contig / chromosome names must match the entries in the BAM header (s)",
+                    Contig / chromosome names must match the entries in the BAM header(s)",
             ),
             Arg::new(BINSIZE)
                 .long(BINSIZE)
@@ -94,10 +93,11 @@ pub mod core {
                 .validator(validate::numeric(1, usize::MAX))
                 .default_value("1")
                 .long_help("Maximum number of threads to spawn at once"),
-            Arg::new(EXCLUDE_LIST).long(EXCLUDE_LIST).setting(defaults()).validator(validate::path).long_help(
-                "Path to a BED file with regions to exclude from the analysis. \
-                    In practice, they will be processed as having zero coverage.",
-            ),
+            Arg::new(EXCLUDE_LIST)
+                .long(EXCLUDE_LIST)
+                .setting(defaults())
+                .validator(validate::path)
+                .long_help("Path to a BED file with regions to exclude from the analysis"),
         ];
         args.into_iter().map(|x| x.help_heading(Some(SECTION_NAME))).collect()
     }
@@ -107,7 +107,7 @@ pub mod reads_filtering {
     use super::*;
 
     pub const MAPQ: &str = "mapq";
-    pub const ALLOW_MAPQ_255: &str = "mapq-255";
+    pub const NO_MAPQ_255: &str = "no-mapq-255";
     pub const INCLUDE_FLAGS: &str = "in-flags";
     pub const EXCLUDE_FLAGS: &str = "ex-flags";
     pub const PHREAD: &str = "phread";
@@ -124,14 +124,14 @@ pub mod reads_filtering {
                 .validator(validate::numeric(0u8, 254u8))
                 .default_value("1")
                 .long_help(
-                    "Count only filters with mapq ≥ threshold. \
-                    Note that filters with mapq = 255 are skipped by default\
+                    "Count only reads with mapq ≥ threshold. \
+                    Note that reads with mapq = 255 are NOT skipped by default\
                     (mapq 255 means \"not available\" according to the SAM spec)",
                 ),
-            Arg::new(ALLOW_MAPQ_255).long(ALLOW_MAPQ_255).setting(defaults()).takes_value(false).long_help(
-                "Count filters with mapq=255. \
-                Useful for aligners that do not fully conform to the SAM specification \
-                (e.g. STAR with default parameters)",
+            Arg::new(NO_MAPQ_255).long(NO_MAPQ_255).setting(defaults()).takes_value(false).long_help(
+                "Skip reads with mapq=255. \
+                Note, some aligners don't fully conform to the SAM specification \
+                (e.g., STAR with default parameters use mapq=255 for unique alignments)",
             ),
             Arg::new(INCLUDE_FLAGS)
                 .long(INCLUDE_FLAGS)
@@ -139,8 +139,8 @@ pub mod reads_filtering {
                 .validator(validate::numeric(0u16, 4095u16))
                 .default_value("0")
                 .long_help(
-                    "Include only filters for which all the specified BAM flags are set. \
-                    For example, a value of 3 will result in keeping only filters that were mapped in proper pairs. \
+                    "Include only reads for which all the specified BAM flags are set. \
+                    For example, a value of 3 will result in keeping only reads that were mapped in proper pairs. \
                     Use zero(0) to disable this filter",
                 ),
             Arg::new(EXCLUDE_FLAGS)
@@ -149,8 +149,8 @@ pub mod reads_filtering {
                 .validator(validate::numeric(0u16, 4095u16))
                 .default_value("2820")
                 .long_help(
-                    "Exclude filters for which any of the specified BAM flags are set. \
-                    For example, a value of 2820 will result in skipping unmapped filters, \
+                    "Exclude reads for which any of the specified BAM flags are set. \
+                    For example, a value of 2820 will result in skipping unmapped reads, \
                     supplementary and secondary alignments, filters that fail platform/vendor quality checks. \
                     Use zero(0) to disable this filter",
                 ),
@@ -161,8 +161,8 @@ pub mod reads_filtering {
                 .default_value("20")
                 .long_help(
                     "Count only bases with phread ≥ threshold. \
-                    For reference, Phread is defined as -10 log₁₀[error probability], \
-                    so Phread = 20 means 1 error in 100 base calls",
+                    For a reference, phread is defined as -10 log₁₀[error probability], \
+                    so phread = 20 means 1 error in 100 base calls",
                 ),
             Arg::new(TRIM5)
                 .short('5')
@@ -209,9 +209,9 @@ pub mod autoref {
                 .default_value("20")
                 .long_help(
                     "Automatically correct reference sequence for site with coverage ≥ the threshold. \
-                    In short, there is no reason to use the assembly nucleotide \"T \" if we have sequenced 100% \"A \". \
+                    In short, there is no reason to use the assembly nucleotide \"T\" if we have sequenced 100% \"A\". \
                     This heuristic is especially useful in regions of low complexity(or simple repeats), \
-                    where such SNPs can affect the editing estimation."
+                    where such SNPs can affect the editing estimation.",
                 ),
             Arg::new(MIN_FREQ)
                 .long(MIN_FREQ)
@@ -220,16 +220,12 @@ pub mod autoref {
                 .default_value("0.95")
                 .long_help(
                     "Automatically correct reference sequence for site with the most common nucleotide \
-                    frequency ≥ cutoff"
+                    frequency ≥ cutoff",
                 ),
-            Arg::new(HYPEREDITING)
-                .long(HYPEREDITING)
-                .setting(defaults())
-                .takes_value(false)
-                .long_help(
-                    "Turn on the \"hyperediting\" mode, i.e. do not correct(replace) A with G and T with C. \
-                    This will ensure that potentially hyper-editable sites are not accidentally lost"
-                )
+            Arg::new(HYPEREDITING).long(HYPEREDITING).setting(defaults()).takes_value(false).long_help(
+                "Turn on the \"hyperediting\" mode, i.e. do not correct(replace) A with G and T with C. \
+                    This will ensure that potentially hyper-editable sites are not accidentally lost",
+            ),
         ];
         args.into_iter().map(|x| x.help_heading(Some(SECTION_NAME))).collect()
     }
@@ -260,7 +256,7 @@ pub mod stranding {
                 .default_value("50")
                 .long_help(
                     "Automatically predict strand based on the observed A->I editing for locus/ROI with \
-                    A->G mismatches >= threshold. It is a fallback strand prediction heuristic, used only for the \
+                    A->G/T->C mismatches >= threshold. It is a fallback strand prediction heuristic, used only for the \
                     unstranded libraries. Not relevant for organisms without active ADAR-like enzymes.",
                 ),
             Arg::new(MIN_FREQ)
@@ -270,7 +266,7 @@ pub mod stranding {
                 .default_value("0.05")
                 .long_help(
                     "Automatically predict strand based on the observed A->I editing for locus/ROI with \
-                    A->G freq >= threshold (freq = ∑ A->G / (∑ A->G + ∑ A->A))",
+                    A->G/T->C freq >= threshold (freq = ∑ A->G / (∑ A->G + ∑ A->A))",
                 ),
         ];
         args.into_iter().map(|x| x.help_heading(Some(SECTION_NAME))).collect()
@@ -286,6 +282,8 @@ pub fn all<'a>() -> Vec<Arg<'a>> {
         .collect()
 }
 
+type ReadsFilter = filters::Sequential<Record, filters::ByQuality, filters::ByFlags>;
+
 pub struct CoreArgs {
     pub name: String,
     pub threads: usize,
@@ -293,9 +291,8 @@ pub struct CoreArgs {
     pub trim3: u16,
     pub bamfiles: Vec<PathBuf>,
     pub refnucpred: AutoRef<BasicFastaReader>,
-    pub readfilter: filters::Sequential<Record, filters::ByQuality, filters::ByFlags>,
+    pub readfilter: ReadsFilter,
     pub stranding: Stranding,
-    pub strandpred: (Option<StrandByGenomicAnnotation>, Option<StrandByAtoIEditing>),
     pub excluded: Option<Vec<BedRecord>>,
     pub saveto: BufWriter<File>,
 }
@@ -317,8 +314,7 @@ impl CoreArgs {
             refnucpred: parse::refnucpred(factory(), args, refreader),
             readfilter: parse::readfilter(factory(), args),
             stranding: parse::stranding(factory(), args),
-            strandpred: parse::strandpred(factory(), args),
-            excluded: parse::bedrecords(factory(), args, "Exclude regions", "No regions will be excluded"),
+            excluded: parse::excluded(factory(), args),
             saveto: parse::saveto(factory(), args),
         }
     }

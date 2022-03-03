@@ -1,12 +1,9 @@
 use std::ops::Range;
 
 use bio::data_structures::interval_tree::IntervalTree;
-use bio_types::genome::{AbstractInterval, Interval, Locus, Position};
-use bio_types::strand::{ReqStrand, Strand};
+use bio_types::genome::{AbstractInterval, Position};
 use itertools::{zip, Itertools};
 
-use crate::core::dna::{NucCounts, Nucleotide};
-use crate::core::mismatches::roi::{BatchedROIMismatches, REATBatchedROIMismatches};
 use crate::core::read::AlignedRead;
 use crate::core::rpileup::ncounters::filters::ReadsFilter;
 use crate::core::rpileup::ncounters::{AggregatedNucCounts, AggregatedNucCountsItem, NucCounter};
@@ -15,6 +12,7 @@ use crate::core::workload::{ROIWorkload, ROI};
 
 use super::base::BaseNucCounter;
 
+#[derive(PartialEq)]
 pub struct ROINucCountsInfo<'a> {
     pub coverage: u32,
     pub roi: &'a ROI,
@@ -39,11 +37,11 @@ impl<'a> AbstractInterval for ROINucCounts<'a> {
 impl<'a> AggregatedNucCounts<'a> for ROINucCounts<'a> {
     type ItemInfo = ROINucCountsInfo<'a>;
 
-    fn items(&'a self) -> &'a [AggregatedNucCountsItem<'a, Self::ItemInfo>] {
+    fn items(&self) -> &[AggregatedNucCountsItem<'a, Self::ItemInfo>] {
         &self.items
     }
 
-    fn items_mut<'b>(&'b mut self) -> &'b mut [AggregatedNucCountsItem<'a, Self::ItemInfo>] {
+    fn items_mut(&mut self) -> &mut [AggregatedNucCountsItem<'a, Self::ItemInfo>] {
         &mut self.items
     }
 
@@ -52,6 +50,7 @@ impl<'a> AggregatedNucCounts<'a> for ROINucCounts<'a> {
     }
 }
 
+#[derive(Clone)]
 pub struct ROINucCounter<R: AlignedRead, Filter: ReadsFilter<R>> {
     base: BaseNucCounter<R, Filter>,
     rois: Vec<ROI>,
@@ -60,13 +59,8 @@ pub struct ROINucCounter<R: AlignedRead, Filter: ReadsFilter<R>> {
 }
 
 impl<R: AlignedRead, Filter: ReadsFilter<R>> ROINucCounter<R, Filter> {
-    pub fn new(maxbuf: usize, filter: Filter, trim5: u16, trim3: u16) -> Self {
-        Self {
-            base: BaseNucCounter::new(maxbuf, filter, trim5, trim3),
-            rois: vec![],
-            coverage: vec![],
-            index: Default::default(),
-        }
+    pub fn new(base: BaseNucCounter<R, Filter>) -> Self {
+        Self { base, rois: vec![], coverage: vec![], index: Default::default() }
     }
 }
 
@@ -75,8 +69,8 @@ impl<'a, R: AlignedRead, Filter: ReadsFilter<R>> ReadsCollider<'a, R> for ROINuc
     type Workload = ROIWorkload;
 
     fn reset(&mut self, info: Self::Workload) {
-        let (interval, rois) = info.dissolve();
-        self.base.reset(interval);
+        let (bin, rois) = info.dissolve();
+        self.base.reset(bin);
         self.rois = rois;
 
         // Coverage for each roi
@@ -93,8 +87,9 @@ impl<'a, R: AlignedRead, Filter: ReadsFilter<R>> ReadsCollider<'a, R> for ROINuc
     }
 
     fn collide(&mut self, read: &R) {
-        let hits = self.base.count(read).iter().map(|x| self.index.find(x)).flatten().map(|x| x.data()).unique();
-        for ind in hits {
+        let covered_rois =
+            self.base.count(read).iter().map(|x| self.index.find(x)).flatten().map(|x| x.data()).unique();
+        for ind in covered_rois {
             self.coverage[*ind] += 1;
         }
     }
@@ -107,7 +102,7 @@ impl<'a, R: AlignedRead, Filter: ReadsFilter<R>> ReadsCollider<'a, R> for ROINuc
 
         let mut items = Vec::with_capacity(self.rois.len());
         for (coverage, roi) in zip(&self.coverage, &self.rois) {
-            debug_assert_eq!(roi.original().contig(), contig);
+            debug_assert_eq!(roi.interval().contig(), contig);
             let (start, end) = (roi.range().start as usize, roi.range().end as usize);
             let roicnts = &self.base.counted()[start - instart..end - instart];
             let info = ROINucCountsInfo { coverage: *coverage, roi };

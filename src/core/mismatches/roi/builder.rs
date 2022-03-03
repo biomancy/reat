@@ -7,13 +7,13 @@ use crate::core::dna::{NucCounts, Nucleotide};
 use crate::core::mismatches::prefilters::retain::ROIRetainer;
 use crate::core::mismatches::prefilters::MismatchesPreFilter;
 use crate::core::mismatches::roi::{MismatchesSummary, REATBatchedROIMismatches, ROIMismatchesPreview};
-use crate::core::mismatches::site::REATBatchedSiteMismatches;
-use crate::core::mismatches::{BatchedMismatchesBuilder, MismatchesIntermediate};
+use crate::core::mismatches::{BatchedMismatchesBuilder, FilteredBatchedMismatches};
 use crate::core::refpred::{RefEngine, RefEngineResult};
 use crate::core::rpileup::ncounters::cnt::ROINucCounts;
 use crate::core::rpileup::ncounters::AggregatedNucCounts;
 use crate::core::workload::ROI;
 
+#[derive(Clone)]
 pub struct REATROIMismatchesBuilder<RE: RefEngine, RR: ROIRetainer, MP: MismatchesPreFilter<ROIMismatchesPreview>> {
     buffer: Vec<NucCounts>,
     refpred: RE,
@@ -27,27 +27,26 @@ where
     RR: ROIRetainer,
     MP: MismatchesPreFilter<ROIMismatchesPreview>,
 {
-    pub fn new(refpred: RE, retainer: Option<RR>, prefilter: Option<MP>) -> Self {
-        Self { buffer: vec![], refpred, retainer, prefilter }
+    pub fn new(maxsize: usize, refpred: RE, retainer: Option<RR>, prefilter: Option<MP>) -> Self {
+        Self { buffer: Vec::with_capacity(maxsize), refpred, retainer, prefilter }
     }
 
     fn process(
         &self,
         contig: &'a str,
         ncrange: &Range<Position>,
-        info: &'a <ROINucCounts<'a> as AggregatedNucCounts<'a>>::ItemInfo,
+        info: &<ROINucCounts<'a> as AggregatedNucCounts<'a>>::ItemInfo,
         cnt: &'a [NucCounts],
         refpred: &RefEngineResult<'_>,
         retain: &mut HelperBuilder<'a>,
         other: &mut HelperBuilder<'a>,
     ) {
         let roi = info.roi;
-        debug_assert!(contig == info.roi.contig());
-        debug_assert!(ncrange.start <= roi.range().start && ncrange.end >= roi.range().end);
+        debug_assert!(contig == roi.contig());
 
         // Get mismatches
         let (cnts, mismatches) = self.summarize(info.roi, ncrange.clone(), refpred.predicted, cnt);
-        if self.retainer.as_ref().map_or(false, |x| x.filter(contig, &roi.range(), roi.name())) {
+        if self.retainer.as_ref().map_or(false, |x| x.filter(contig, &roi.range(), *roi.strand(), roi.name())) {
             // Must be retained
             retain.add(roi, info.coverage, cnts, mismatches);
         } else if self.prefilter.as_ref().map_or(true, |x| x.is_ok(&mismatches)) {
@@ -63,11 +62,12 @@ where
         prednuc: &'a [Nucleotide],
         seqnuc: &'a [NucCounts],
     ) -> (NucCounts, MismatchesSummary) {
+        debug_assert!(roi.range().start >= nucrange.start && roi.range().end <= nucrange.end);
         let mut mismatches = MismatchesSummary::zeros();
         let mut cnts = NucCounts::zeros();
 
         let start = nucrange.start;
-        for piece in roi.include() {
+        for piece in roi.subintervals() {
             let idx = (piece.start - start) as usize..(piece.end - start) as usize;
             cnts.increment(&prednuc[idx.clone()]);
             mismatches.increment(&prednuc[idx.clone()], &seqnuc[idx])
@@ -96,15 +96,14 @@ where
 {
     type Mismatches = REATBatchedROIMismatches;
 
-    fn build(&mut self, nc: ROINucCounts<'a>) -> MismatchesIntermediate<Self::Mismatches> {
+    fn build(&mut self, nc: ROINucCounts<'a>) -> FilteredBatchedMismatches<Self::Mismatches> {
         let (mut fwdretain, mut fwdother) = self.allocate(&nc, Strand::Forward);
         let (mut revretain, mut revother) = self.allocate(&nc, Strand::Reverse);
         let (mut unkretain, mut unkother) = self.allocate(&nc, Strand::Unknown);
 
-        let (contig, items) = nc.consume();
-
         // 1 Item = 1 ROI
-        for nc in items.iter() {
+        let (contig, items) = nc.consume();
+        for nc in items.into_iter() {
             debug_assert!(nc.forward.is_some() || nc.reverse.is_some() || nc.unstranded.is_some());
 
             // Predict the reference
@@ -119,7 +118,7 @@ where
                 .map(|x| self.process(contig, &nc.range, &nc.info, x, &refpred, &mut unkretain, &mut unkother));
         }
 
-        MismatchesIntermediate {
+        FilteredBatchedMismatches {
             retained: HelperBuilder::finalize(contig, fwdretain, revretain, unkretain),
             other: HelperBuilder::finalize(contig, fwdother, revother, unkother),
         }

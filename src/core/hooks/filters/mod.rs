@@ -1,7 +1,8 @@
 pub use mismatches::ByMismatches;
 
-use super::Hook;
 use crate::core::mismatches::BatchedMismatches;
+
+use super::Hook;
 
 mod mismatches;
 

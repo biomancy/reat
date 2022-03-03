@@ -1,21 +1,8 @@
 use std::cmp::Ordering;
-use std::cmp::Ordering::Greater;
-use std::cmp::{max, min};
-use std::collections::{BTreeMap, HashMap};
-use std::ffi::OsStr;
-use std::fs::File;
-use std::io;
-use std::io::BufRead;
-use std::ops::Range;
-use std::path::Path;
 
 use bio_types::genome::{AbstractInterval, Interval};
-use derive_getters::{Dissolve, Getters};
-use flate2::bufread::GzDecoder;
-use itertools::Itertools;
-use rust_htslib::bam::{IndexedReader, Read};
 
-#[derive(Eq, PartialEq, Debug)]
+#[derive(Eq, PartialEq, Clone, Debug)]
 pub struct Bin<T> {
     pub bin: Interval,
     pub items: Vec<T>,
@@ -36,7 +23,7 @@ fn cmp(this: &impl AbstractInterval, other: &impl AbstractInterval) -> Ordering 
     let otherlen = other.range().end - other.range().start;
 
     // Intervals with larget size must go first!
-    len.cmp(&otherlen)
+    len.cmp(&otherlen).reverse()
 }
 
 fn infer_bin<T: AbstractInterval>(seed: &T, binsize: u64) -> Interval {
@@ -66,7 +53,9 @@ pub fn bin<T: AbstractInterval>(mut workloads: Vec<T>, maxbinsize: u64) -> Vec<B
                 bin.range_mut().end = maxend
             }
 
+            // Save current
             result.push(Bin { bin, items: buffer });
+            // Start the new one
             bin = infer_bin(&work, maxbinsize);
             buffer = vec![work];
             maxend = buffer[0].range().end;
@@ -87,7 +76,7 @@ pub fn bin<T: AbstractInterval>(mut workloads: Vec<T>, maxbinsize: u64) -> Vec<B
 
 #[cfg(test)]
 mod tests {
-    use std::io::BufReader;
+    use std::ops::Range;
 
     use bio_types::genome::Position;
 
@@ -185,12 +174,20 @@ mod tests {
             interval("3", 10..20),
             interval("3", 20..30),
             interval("3", 30..40),
+            interval("4", 1..50),
+            interval("4", 1..25),
+            interval("4", 1..13),
+            interval("4", 1..500),
         ];
+
+        let chr4bin = [inter[13].clone(), inter[10].clone(), inter[11].clone(), inter[12].clone()].to_vec();
+        let chr4bin = Bin { bin: interval("4", 1..500), items: chr4bin };
 
         let expected = vec![
             Bin { bin: interval("1", 1..110), items: inter[..3].to_vec() },
             Bin { bin: interval("2", 0..200), items: inter[3..6].to_vec() },
-            Bin { bin: interval("3", 0..40), items: inter[6..].to_vec() },
+            Bin { bin: interval("3", 0..40), items: inter[6..10].to_vec() },
+            chr4bin.clone(),
         ];
         validate(inter.clone(), expected, &[200, 300]);
 
@@ -198,7 +195,8 @@ mod tests {
             Bin { bin: interval("1", 1..3), items: inter[..2].to_vec() },
             Bin { bin: interval("1", 100..110), items: inter[2..3].to_vec() },
             Bin { bin: interval("2", 0..200), items: inter[3..6].to_vec() },
-            Bin { bin: interval("3", 0..40), items: inter[6..].to_vec() },
+            Bin { bin: interval("3", 0..40), items: inter[6..10].to_vec() },
+            chr4bin.clone(),
         ];
         validate(inter, expected, &[50]);
     }

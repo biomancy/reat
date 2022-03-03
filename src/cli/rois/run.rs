@@ -1,112 +1,70 @@
-use std::cell::RefCell;
-use std::ops::DerefMut;
+use std::collections::HashMap;
 
 use clap::ArgMatches;
 use indicatif::ProgressBar;
-use itertools::{zip, Itertools};
-use rayon::prelude::*;
 
 use crate::cli::rois::args::ROIArgs;
+use crate::cli::shared;
 use crate::cli::shared::args::CoreArgs;
+use crate::cli::shared::stranding::Stranding;
 use crate::core::hooks::engine::REATHooksEngine;
+use crate::core::hooks::filters;
 use crate::core::hooks::stats::ROIEditingIndex;
-use crate::core::mismatches::prefilters;
-use crate::core::mismatches::roi::REATROIMismatchesBuilder;
+use crate::core::mismatches::roi::{REATBatchedROIMismatches, REATROIMismatchesBuilder};
 use crate::core::rpileup::hts::HTSPileupEngine;
-use crate::core::rpileup::ncounters::cnt::ROINucCounter;
+use crate::core::rpileup::ncounters::cnt::{BaseNucCounter, ROINucCounter, StrandedNucCounter};
 use crate::core::runner::REATRunner;
-use crate::core::stranding::predict::{REATStrandingEngine, StrandingEngine};
 
-pub fn run(args: &ArgMatches, mut core: CoreArgs, factory: impl Fn() -> ProgressBar) {
+pub fn run(args: &ArgMatches, core: CoreArgs, factory: impl Fn() -> ProgressBar) {
     let args = ROIArgs::new(&core, args, &factory);
 
-    // Create strander
-    let strander = {
-        let mut engine = REATStrandingEngine::new();
-        let (first, second) = core.strandpred;
-        if let Some(algo) = first {
-            engine.add_algo(Box::new(algo))
+    let mut hooks: REATHooksEngine<REATBatchedROIMismatches> = REATHooksEngine::new();
+    let builder = match args.ei {
+        None => {
+            // Always with prefilter since there are no site-level stats right now
+            REATROIMismatchesBuilder::new(args.maxwsize, core.refnucpred, args.retain, Some(args.prefilter))
         }
-        if let Some(algo) = second {
-            engine.add_algo(Box::new(algo))
+        Some(_) => {
+            // Disable prefilter and use a hook instead
+            hooks.add_stat(Box::new(ROIEditingIndex::default()));
+            let filter: filters::ByMismatches = args.prefilter.into();
+            hooks.add_filter(Box::new(filter));
+            // Builder without prefiltering
+            REATROIMismatchesBuilder::new(args.maxwsize, core.refnucpred, args.retain, None)
         }
-        engine
     };
-    // Create the pileup engine
-    let counter = ROINucCounter::new(args.maxwsize as usize, core.readfilter, core.trim5, core.trim3);
-    // Make it stranded if needed
-    todo!();
-    let pileuper = HTSPileupEngine::new(core.bamfiles, counter);
 
-    // Hooks
-    let mut hooks = REATHooksEngine::new();
-    // hooks.add_filter(Box::new(args.filter));
-    // if args.ei.is_some() {
-    //     hooks.add_stat(Box::new(ROIEditingIndex::default()));
-    // }
+    // Initialize basic counter
+    let counter = BaseNucCounter::new(args.maxwsize, core.readfilter, core.trim5, core.trim3);
+    let counter = ROINucCounter::new(counter);
 
-    todo!();
-    let retainer = prefilters::retain::RetainROIFromList::new(vec![]);
-    let prefilter = prefilters::ByMismatches::from(args.filter);
+    let mut saveto = csv::WriterBuilder::new().from_writer(core.saveto);
 
-    let builder = REATROIMismatchesBuilder::new(core.refnucpred, Some(retainer), Some(prefilter));
+    let mut strander = args.stranding;
+    match core.stranding {
+        Stranding::Unstranded => {
+            // Compose strander + pileuper
+            let pileuper = HTSPileupEngine::new(core.bamfiles, counter);
+            // Launch the processing
+            let runner = REATRunner::new(builder, strander, pileuper, hooks);
+            shared::run(args.workload, runner, factory(), &mut saveto, HashMap::new()).unwrap()
+        }
+        Stranding::Stranded(x) => {
+            // Remove all stranding algorithm -> they are not required
+            strander.clear();
+            // Compose strander + pileuper
+            let deductor = crate::core::stranding::deduct::DeductStrandByDesign::new(x);
+            let pileuper = HTSPileupEngine::new(core.bamfiles, StrandedNucCounter::new(counter, deductor));
 
-    // Create the runner
-    let mut runner = REATRunner::new(builder, strander, pileuper, hooks);
+            // Launch the processing
+            let runner = REATRunner::new(builder, strander, pileuper, hooks);
+            shared::run(args.workload, runner, factory(), &mut saveto, HashMap::new()).unwrap()
+        }
+    };
 
-    let mut results = Vec::new();
-    for w in args.workload {
-        results.push(runner.run(w));
-    }
+    // debug_assert!(stats.is_empty());
 
-    // Workload?
-    // Stats collapsing?
-    // etc...
-
-    // let statbuilder = args.ei.as_ref().map(|_| EditingIndex::default());
-    //
-    // // Callbacks to track progress
-    // let pbar = factory();
-    // pbar.set_style(shared::style::run::running());
-    // pbar.set_draw_delta((core.threads * 10) as u64);
-    // pbar.set_length(args.workload.len() as u64);
-    //
-    // let oniter = |_: &[ROISummary]| pbar.inc(1);
-    // let onfinish = |intervals: &[ROISummary], filters: u32| {
-    //     pbar.set_style(shared::style::run::finished());
-    //     pbar.finish_with_message(format!("Finished with {} regions, total processed filters: {}", intervals.len(), filters))
-    // };
-    //
-    // let (filters, ei) = match core.stranding {
-    //     Stranding::Unstranded => {
-    //         let counter =
-    //             BaseNucCounter::new(core.readfilter, ROIBuffer::new(args.maxwsize as usize), core.trim5, core.trim3);
-    //         let runner = BaseRunner::new(core.bamfiles, core.reference, counter, core.refnucpred);
-    //         process(args.workload, runner, args.stranding, args.outfilter, statbuilder, oniter, onfinish)
-    //     }
-    //     Stranding::Stranded(design) => {
-    //         let deductor = DeductStrandByDesign::new(design);
-    //         let forward = BaseNucCounter::new(
-    //             core.readfilter.clone(),
-    //             ROIBuffer::new(args.maxwsize as usize),
-    //             core.trim5,
-    //             core.trim3,
-    //         );
-    //         let reverse =
-    //             BaseNucCounter::new(core.readfilter, ROIBuffer::new(args.maxwsize as usize), core.trim5, core.trim3);
-    //         let counter = StrandedNucCounter::new(forward, reverse, deductor);
-    //         let runner = BaseRunner::new(core.bamfiles, core.reference, counter, core.refnucpred);
-    //         process(args.workload, runner, args.stranding, args.outfilter, statbuilder, oniter, onfinish)
-    //     }
-    // };
-    //
-    // resformat::regions(&mut core.saveto, filters);
-    // match (ei, args.ei) {
-    //     (Some(ei), Some(mut writer)) => {
-    //         resformat::statistic(&core.name, &mut writer, &ei);
-    //     }
-    //     (_, _) => {}
-    // }
+    // resformat::rois(&mut core.saveto, rois);
 }
 
 // fn process<

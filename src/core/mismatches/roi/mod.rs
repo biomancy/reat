@@ -1,8 +1,6 @@
-use std::borrow::Borrow;
 use std::ops::Range;
-use std::path::Path;
 
-use bio_types::genome::{Interval, Position};
+use bio_types::genome::Position;
 use bio_types::strand::Strand;
 
 pub use batched::REATBatchedROIMismatches;
@@ -11,7 +9,6 @@ pub use flat::REATROIMismatches;
 pub use msummary::MismatchesSummary;
 
 use crate::core::dna::NucCounts;
-use crate::core::dna::Nucleotide;
 use crate::core::mismatches::BatchedMismatches;
 use crate::core::workload::ROI;
 
@@ -23,24 +20,28 @@ mod msummary;
 pub type ROIMismatchesPreview = MismatchesSummary;
 
 pub trait ROIMismatches {
+    // Original ROI record
     fn roi(&self) -> &ROI;
-    fn strand(&self) -> Strand;
+    // Transcription strand
+    fn trstrand(&self) -> Strand;
+    // Number of unique fragments covering the ROI
     fn coverage(&self) -> u32;
+    // Total nucleotides in the given ROI (after masking)
     fn prednuc(&self) -> NucCounts;
+    // Observed mismatches relative to the predicted reference
     fn mismatches(&self) -> &MismatchesSummary;
-    fn masked(&self) -> u32;
 }
 
 pub trait BatchedROIMismatches: BatchedMismatches
 where
     Self::Flattened: ROIMismatches,
 {
-    // Minimal enclosing interval for each roi
-    fn rois(&self) -> &[Range<Position>];
-    // Rois' pieces after filtering excluded regions
-    // fn pieces(&self) -> &[Vec<Range<Position>>];
     // Original bed intervals
-    // fn premasked(&self) -> &[Range<Position>];
+    fn premasked(&self) -> &[Range<Position>];
+    // Minimal enclosing interval for each ROI after all masking applied
+    fn postmasked(&self) -> &[Range<Position>];
+    // Sub-intervals for each ROI after all masking applied
+    fn subintervals(&self) -> &[Vec<Range<Position>>];
     // Number of unique reads covering the given region
     fn coverage(&self) -> &[u32];
     // Number of predicted nucleotides in each ROI;

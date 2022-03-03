@@ -1,6 +1,6 @@
 use std::ops::Range;
 
-use bio_types::genome::{AbstractLocus, Locus, Position};
+use bio_types::genome::{AbstractLocus, Position};
 use bio_types::strand::Strand;
 
 pub use batched::REATBatchedSiteMismatches;
@@ -19,15 +19,15 @@ mod flat;
 pub type SiteMismatchesPreview = (Nucleotide, NucCounts);
 
 pub trait SiteMismatches: AbstractLocus {
-    fn strand(&self) -> Strand;
+    fn trstrand(&self) -> Strand;
     fn refnuc(&self) -> Nucleotide;
     fn prednuc(&self) -> Nucleotide;
     fn sequenced(&self) -> NucCounts;
 }
 
-pub trait BinnedSiteMismatches: BatchedMismatches
-where
-    Self::Flattened: SiteMismatches,
+pub trait BatchedSiteMismatches: BatchedMismatches
+    where
+        Self::Flattened: SiteMismatches,
 {
     fn pos(&self) -> &[Position];
     fn refnuc(&self) -> &[Nucleotide];

@@ -62,39 +62,46 @@ impl Serialize for REATSiteMismatches {
     }
 }
 
-// #[cfg(test)]
-// mod test {
-//     use bio_types::genome::Locus;
-//     use bio_types::strand::Strand;
-//
-//     use crate::core::dna::NucCounts;
-//     use crate::core::dna::Nucleotide;
-//
-//     use super::*;
-//     use crate::core::mismatches::site::MockSiteMismatches;
-//
-//     #[test]
-//     fn loci() {
-//         let factory = |locus, strand, nuc, counts| {
-//             let mut dummy = MockSiteMismatches::new();
-//             dummy.expect_locus().return_const(locus);
-//             dummy.expect_strand().return_const(strand);
-//             dummy.expect_refnuc().return_const(nuc);
-//             dummy.expect_ncounts().return_const(counts);
-//             dummy
-//         };
-//
-//         let workload = vec![
-//             factory(Locus::new("1".into(), 10), Strand::Unknown, Nucleotide::Unknown, NucCounts::zeros()),
-//             factory(Locus::new("2".into(), 20), Strand::Forward, Nucleotide::G, NucCounts::new(1, 2, 3, 4)),
-//         ];
-//         let mut saveto = Vec::new();
-//         super::sites(&mut saveto, workload);
-//
-//         let result = String::from_utf8(saveto).unwrap();
-//         let expected = "chr\tposition\tstrand\treference\tA\tC\tG\tT\n\
-//                               1\t10\t.\tN\t0\t0\t0\t0\n\
-//                               2\t20\t+\tG\t1\t2\t3\t4\n";
-//         assert_eq!(&result, expected)
-//     }
-// }
+#[cfg(test)]
+mod test {
+    use serde_test::{assert_ser_tokens, Token};
+
+    use super::*;
+
+    #[test]
+    fn loci() {
+        let site = REATSiteMismatches {
+            contig: "MySuperContig".to_string(),
+            pos: 13,
+            strand: Strand::Unknown,
+            refnuc: Nucleotide::A,
+            prednuc: Nucleotide::G,
+            sequenced: NucCounts::new(1, 2, 3, 4),
+        };
+        assert_ser_tokens(
+            &site,
+            &[
+                Token::Struct { name: "REATSiteMismatches", len: 9 },
+                Token::Str("contig"),
+                Token::Str("MySuperContig"),
+                Token::Str("pos"),
+                Token::U64(13),
+                Token::Str("trstrand"),
+                Token::Str("."),
+                Token::Str("refnuc"),
+                Token::Str("A"),
+                Token::Str("prednuc"),
+                Token::Str("G"),
+                Token::Str("A"),
+                Token::U32(1),
+                Token::Str("C"),
+                Token::U32(2),
+                Token::Str("G"),
+                Token::U32(3),
+                Token::Str("T"),
+                Token::U32(4),
+                Token::StructEnd,
+            ],
+        );
+    }
+}

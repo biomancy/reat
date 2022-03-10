@@ -11,6 +11,7 @@ use crate::core::rpileup::ReadsCollider;
 use crate::core::workload::{ROIWorkload, ROI};
 
 use super::base::BaseNucCounter;
+use crate::core::strandutil::StrandedData;
 
 #[derive(PartialEq)]
 pub struct ROINucCountsInfo<'a> {
@@ -102,17 +103,16 @@ impl<'a, R: AlignedRead, Filter: ReadsFilter<R>> ReadsCollider<'a, R> for ROINuc
 
         let mut items = Vec::with_capacity(self.rois.len());
         for (coverage, roi) in zip(&self.coverage, &self.rois) {
-            debug_assert_eq!(roi.interval().contig(), contig);
+            debug_assert_eq!(roi.contig(), contig);
+            let info = ROINucCountsInfo { coverage: *coverage, roi };
             let (start, end) = (roi.range().start as usize, roi.range().end as usize);
             let roicnts = &self.base.counted()[start - instart..end - instart];
-            let info = ROINucCountsInfo { coverage: *coverage, roi };
 
             items.push(AggregatedNucCountsItem {
                 info,
                 range: roi.range(),
-                forward: None,
-                reverse: None,
-                unstranded: Some(roicnts),
+                mapped: StrandedData { forward: 0, reverse: 0, unknown: self.base.mapped() },
+                counts: StrandedData { forward: None, reverse: None, unknown: Some(roicnts) },
             })
         }
         ROINucCounts { contig, range, items }

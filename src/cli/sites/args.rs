@@ -7,7 +7,7 @@ use crate::cli::shared::args::defaults;
 use crate::cli::shared::validate;
 use crate::core::mismatches::prefilters;
 use crate::core::mismatches::prefilters::retain::RetainSitesFromIntervals;
-use crate::core::mismatches::site::REATBatchedSiteMismatches;
+use crate::core::mismatches::site::REATSiteMismatchesVec;
 use crate::core::stranding::predict::REATStrandingEngine;
 use crate::core::workload::SiteWorkload;
 
@@ -66,7 +66,7 @@ pub struct SiteArgs {
     pub workload: Vec<SiteWorkload>,
     pub maxwsize: usize,
     pub prefilter: prefilters::ByMismatches,
-    pub stranding: REATStrandingEngine<REATBatchedSiteMismatches>,
+    pub stranding: REATStrandingEngine<REATSiteMismatchesVec>,
     pub retain: Option<RetainSitesFromIntervals>,
 }
 

@@ -4,7 +4,8 @@ use itertools::zip;
 use crate::core::read::AlignedRead;
 use crate::core::rpileup::ncounters::{AggregatedNucCounts, NucCounter};
 use crate::core::rpileup::ReadsCollider;
-use crate::core::stranding::deduct::StrandDeductor;
+use crate::core::stranding::deduce::StrandDeducer;
+use crate::core::strandutil::StrandedData;
 
 #[derive(Clone)]
 pub struct StrandedNucCounter<Deductor, InnerNucCounter> {
@@ -14,8 +15,8 @@ pub struct StrandedNucCounter<Deductor, InnerNucCounter> {
 }
 
 impl<Deductor, InnerNucCounter> StrandedNucCounter<Deductor, InnerNucCounter>
-    where
-        InnerNucCounter: Clone,
+where
+    InnerNucCounter: Clone,
 {
     pub fn new(base: InnerNucCounter, deductor: Deductor) -> Self {
         Self { forward: base.clone(), reverse: base, deductor }
@@ -23,13 +24,13 @@ impl<Deductor, InnerNucCounter> StrandedNucCounter<Deductor, InnerNucCounter>
 }
 
 impl<'a, R, Deductor, InnerNucCounter> ReadsCollider<'a, R> for StrandedNucCounter<Deductor, InnerNucCounter>
-    where
-        R: AlignedRead,
-        Deductor: StrandDeductor<R>,
-        InnerNucCounter: NucCounter<'a, R>,
-        InnerNucCounter::Workload: Clone,
-        InnerNucCounter::ColliderResult: AggregatedNucCounts<'a>,
-        <<InnerNucCounter as ReadsCollider<'a, R>>::ColliderResult as AggregatedNucCounts<'a>>::ItemInfo: PartialEq,
+where
+    R: AlignedRead,
+    Deductor: StrandDeducer<R>,
+    InnerNucCounter: NucCounter<'a, R>,
+    InnerNucCounter::Workload: Clone,
+    InnerNucCounter::ColliderResult: AggregatedNucCounts<'a>,
+    <<InnerNucCounter as ReadsCollider<'a, R>>::ColliderResult as AggregatedNucCounts<'a>>::ItemInfo: PartialEq,
 {
     type ColliderResult = InnerNucCounter::ColliderResult;
     type Workload = InnerNucCounter::Workload;
@@ -57,27 +58,29 @@ impl<'a, R, Deductor, InnerNucCounter> ReadsCollider<'a, R> for StrandedNucCount
         debug_assert_eq!(fwd.items().len(), rev.items().len());
 
         for (f, r) in zip(fwd.items_mut(), rev.items_mut()) {
-            debug_assert!(f.unstranded.is_some() && r.unstranded.is_some());
-            debug_assert!(f.forward.is_none() && f.reverse.is_none() && r.forward.is_none() && r.reverse.is_none());
+            debug_assert!([&f.counts, &r.counts]
+                .iter()
+                .all(|x| x.forward.is_none() && x.reverse.is_none() && x.unknown.is_some()));
+            debug_assert!([&f.mapped, &r.mapped].iter().all(|x| x.forward == 0 && x.reverse == 0));
             debug_assert!(f.info == r.info);
 
-            f.forward = f.unstranded;
-            f.reverse = r.unstranded;
-            f.unstranded = None;
+            f.mapped = StrandedData { forward: f.mapped.unknown, reverse: r.mapped.unknown, unknown: 0 };
+            f.counts = StrandedData { forward: f.counts.unknown, reverse: r.counts.unknown, unknown: None };
         }
         fwd
     }
 }
 
 impl<'a, R, Deductor, InnerNucCounter> NucCounter<'a, R> for StrandedNucCounter<Deductor, InnerNucCounter>
-    where
-        R: AlignedRead,
-        Deductor: StrandDeductor<R>,
-        InnerNucCounter: NucCounter<'a, R>,
-        InnerNucCounter::Workload: Clone,
-        InnerNucCounter::ColliderResult: AggregatedNucCounts<'a>,
-        <<InnerNucCounter as ReadsCollider<'a, R>>::ColliderResult as AggregatedNucCounts<'a>>::ItemInfo: PartialEq,
-{}
+where
+    R: AlignedRead,
+    Deductor: StrandDeducer<R>,
+    InnerNucCounter: NucCounter<'a, R>,
+    InnerNucCounter::Workload: Clone,
+    InnerNucCounter::ColliderResult: AggregatedNucCounts<'a>,
+    <<InnerNucCounter as ReadsCollider<'a, R>>::ColliderResult as AggregatedNucCounts<'a>>::ItemInfo: PartialEq,
+{
+}
 
 // #[cfg(test)]
 // mod tests {

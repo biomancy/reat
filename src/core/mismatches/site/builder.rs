@@ -2,22 +2,23 @@ use std::ops::Range;
 
 use bio_types::genome::Position;
 use bio_types::strand::Strand;
-use itertools::izip;
+use itertools::{chain, izip};
 
 use crate::core::dna::{NucCounts, Nucleotide};
 use crate::core::mismatches::prefilters::retain::SitesRetainer;
 use crate::core::mismatches::prefilters::MismatchesPreFilter;
-use crate::core::mismatches::site::REATBatchedSiteMismatches;
-use crate::core::mismatches::FilteredBatchedMismatches;
-use crate::core::refpred::RefEngine;
+use crate::core::mismatches::site::REATSiteMismatchesVec;
+use crate::core::mismatches::Context;
+use crate::core::refpred::{RefEngine, RefEngineResult};
 use crate::core::rpileup::ncounters::cnt::IntervalNucCounts;
 use crate::core::rpileup::ncounters::AggregatedNucCounts;
+use crate::core::strandutil::StrandedData;
 
-use super::super::BatchedMismatchesBuilder;
+use super::super::MismatchesBuilder;
 use super::SiteMismatchesPreview;
 
 #[derive(Clone)]
-pub struct REATSiteMismatchesBuilder<RE: RefEngine, SR: SitesRetainer, MP: MismatchesPreFilter<SiteMismatchesPreview>> {
+pub struct REATSiteMismatchesBuilder<RE, SR, MP> {
     buffer: Vec<NucCounts>,
     refpred: RE,
     retainer: Option<SR>,
@@ -36,28 +37,26 @@ where
 
     fn process(
         &self,
-        contig: &str,
-        strand: Strand,
         retained: &[Range<Position>],
         cntrange: Range<Position>,
         counts: &[NucCounts],
-        reference: &[Nucleotide],
-        predref: &[Nucleotide],
-    ) -> (Option<REATBatchedSiteMismatches>, Option<REATBatchedSiteMismatches>) {
+        refngn: &RefEngineResult,
+        retbuilder: &mut Helper,
+        othbuilder: &mut Helper,
+    ) {
         debug_assert_eq!(cntrange.end - cntrange.start, counts.len() as Position);
-        debug_assert_eq!(counts.len(), reference.len());
-        debug_assert_eq!(counts.len(), predref.len());
+        debug_assert_eq!(counts.len(), refngn.reference.len());
+        debug_assert_eq!(counts.len(), refngn.predicted.len());
         debug_assert!(retained.iter().all(|x| cntrange.contains(&x.start) && cntrange.contains(&x.end)));
 
         let retsize = retained.iter().map(|x| x.end - x.start).sum::<Position>() as usize;
         debug_assert!(retsize <= counts.len());
-        let (mut retbuilder, mut othbuilder) = (Helper::new(retsize), Helper::new(counts.len() - retsize));
 
         // Retain iterator
         let mut reiter = retained.iter();
         let mut retrange = reiter.next();
 
-        for (loc, (&cnt, &refn, &predn)) in izip!(counts, reference, predref).enumerate() {
+        for (loc, (&cnt, &refn, &predn)) in izip!(counts, refngn.reference, refngn.predicted).enumerate() {
             let loc = loc as Position + cntrange.start;
             // Do we need to move the iterator?
             if !retrange.map_or(true, |x| x.end <= loc) {
@@ -74,56 +73,50 @@ where
                 }
             }
         }
-
-        (retbuilder.finalize(contig.into(), strand), othbuilder.finalize(contig.into(), strand))
     }
 }
 
-impl<'a, RE, SR, MP> BatchedMismatchesBuilder<'a, IntervalNucCounts<'a>> for REATSiteMismatchesBuilder<RE, SR, MP>
+impl<'a, RE, SR, MP> MismatchesBuilder<'a, IntervalNucCounts<'a>> for REATSiteMismatchesBuilder<RE, SR, MP>
 where
     RE: RefEngine,
     SR: SitesRetainer,
     MP: MismatchesPreFilter<SiteMismatchesPreview>,
 {
-    type Mismatches = REATBatchedSiteMismatches;
+    type Mismatches = REATSiteMismatchesVec;
 
-    fn build(&mut self, nc: IntervalNucCounts<'a>) -> FilteredBatchedMismatches<Self::Mismatches> {
-        let (mut retained, mut other) = (Vec::new(), Vec::new());
+    fn build(&mut self, nc: IntervalNucCounts<'a>) -> Context<Self::Mismatches> {
+        // let capacity = nc.items().iter().map(|x| x.range.end - x.range.start).sum();
+        let (mut retained, mut other) = (StrandedData::default(), StrandedData::default());
 
         let (contig, items) = nc.consume();
         for nc in items {
-            debug_assert!(nc.forward.is_some() || nc.reverse.is_some() || nc.unstranded.is_some());
-
             // Predict the reference
             let counts = nc.seqnuc(&mut self.buffer).unwrap_or(&self.buffer);
             self.refpred.run(contig, nc.range.clone(), counts);
             let reference = self.refpred.results();
 
             // Find loci that must be retained
-            let mustloci = self.retainer.as_ref().map_or(vec![], |r| r.filter(contig, nc.range.clone()));
-            for (strand, counts) in
-                [(Strand::Forward, nc.forward), (Strand::Reverse, nc.reverse), (Strand::Unknown, nc.unstranded)]
-            {
-                if let Some(cnt) = counts {
-                    let (stretain, stother) = self.process(
-                        contig,
-                        strand,
+            let mustloci = self.retainer.as_ref().map_or(vec![], |r| r.retained(contig, nc.range.clone()));
+            for strand in [Strand::Forward, Strand::Reverse, Strand::Unknown] {
+                nc.counts[strand].map(|cnt| {
+                    debug_assert!(nc.mapped[strand] > 0);
+                    self.process(
                         &mustloci,
                         nc.range.clone(),
                         cnt,
-                        reference.reference,
-                        reference.predicted,
+                        &reference,
+                        &mut retained[strand],
+                        &mut other[strand],
                     );
-                    stretain.map(|x| retained.push(x));
-                    stother.map(|x| other.push(x));
-                }
+                });
             }
         }
-
-        FilteredBatchedMismatches { retained, other }
+        todo!()
+        // Context { retained: Helper::finalize(), items: Default::default() }
     }
 }
 
+#[derive(Default)]
 struct Helper {
     pub position: Vec<Position>,
     pub refnuc: Vec<Nucleotide>,
@@ -149,11 +142,11 @@ impl Helper {
         self.seqnuc.push(seqnuc);
     }
 
-    fn finalize(self, contig: String, strand: Strand) -> Option<REATBatchedSiteMismatches> {
-        if self.position.is_empty() {
-            return None;
-        }
-
-        Some(REATBatchedSiteMismatches::new(contig, strand, self.position, self.refnuc, self.prednuc, self.seqnuc))
-    }
+    // fn finalize(self, contig: String, strand: Strand) -> Vec<REATSiteMismatchesVec> {
+    //     if self.position.is_empty() {
+    //         return vec![];
+    //     }
+    //
+    //     Some(REATSiteMismatchesVec::new(contig, strand, self.position, self.refnuc, self.prednuc, self.seqnuc))
+    // }
 }

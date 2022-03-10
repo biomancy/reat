@@ -9,6 +9,8 @@ use bio_types::strand::{Same, Strand};
 use derive_getters::Dissolve;
 use flate2::bufread::GzDecoder;
 
+use super::utils;
+
 #[derive(Debug, Clone, Dissolve)]
 pub struct BedRecord {
     pub name: String,
@@ -62,24 +64,7 @@ fn _parse<T: BufRead>(mut reader: T) -> Vec<BedRecord> {
 
 pub fn parse(bed: impl AsRef<Path>) -> Vec<BedRecord> {
     let bed = bed.as_ref();
-    let extensions = bed.file_name().and_then(OsStr::to_str).expect(
-        "Failed to infer extension for BED file with target regions. \
-                          Only \".bed\" and \".bed.gz\" files are supported",
-    );
-    let extensions: Vec<&str> = extensions.split('.').collect();
-    assert!(!extensions.is_empty());
-
-    let file = File::open(bed).expect("Failed to open bed file");
-    let file = BufReader::new(file);
-    let last = *extensions.last().unwrap();
-
-    if last == "gz" {
-        assert_eq!(extensions[extensions.len() - 2], "bed");
-        _parse(BufReader::new(GzDecoder::new(file)))
-    } else {
-        assert_eq!(last, "bed");
-        _parse(file)
-    }
+    utils::read_compressed!(bed, _parse)
 }
 
 #[cfg(test)]

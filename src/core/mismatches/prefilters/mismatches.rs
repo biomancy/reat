@@ -15,13 +15,13 @@ pub struct ByMismatches {
 
 impl ByMismatches {
     #[inline]
-    pub fn ok_roi(&self, x: &ROIMismatchesPreview) -> bool {
+    pub fn enough_mismatches_per_roi(&self, x: &ROIMismatchesPreview) -> bool {
         let (cov, mismatch) = (x.coverage(), x.mismatches());
         x.coverage() >= self.mincov && mismatch >= self.minmismatches && mismatch as f32 / cov as f32 >= self.minfreq
     }
 
     #[inline]
-    pub fn ok_site(&self, x: &SiteMismatchesPreview) -> bool {
+    pub fn enough_mismatches_per_site(&self, x: &SiteMismatchesPreview) -> bool {
         let cov = x.1.coverage();
         let mismatch = x.1.mismatches(x.0);
         cov >= self.mincov && mismatch >= self.minmismatches && mismatch as f32 / cov as f32 >= self.minfreq
@@ -31,27 +31,27 @@ impl ByMismatches {
 impl MismatchesPreFilter<ROIMismatchesPreview> for ByMismatches {
     #[inline]
     fn is_ok(&self, preview: &ROIMismatchesPreview) -> bool {
-        self.ok_roi(&preview)
+        self.enough_mismatches_per_roi(&preview)
     }
 }
 
 impl MismatchesPreFilter<SiteMismatchesPreview> for ByMismatches {
     #[inline]
     fn is_ok(&self, preview: &SiteMismatchesPreview) -> bool {
-        self.ok_site(preview)
+        self.enough_mismatches_per_site(preview)
     }
 }
 
 #[cfg(test)]
 mod tests {
     use crate::core::dna::{NucCounts, Nucleotide};
-    use crate::core::mismatches::roi::MismatchesSummary;
+    use crate::core::mismatches::roi::NucMismatches;
 
     use super::*;
 
     #[test]
     fn ok_roi() {
-        let mut dummy: MismatchesSummary = Default::default();
+        let mut dummy: NucMismatches = Default::default();
 
         dummy.A.C = 1;
         dummy.A.A = 4;
@@ -78,7 +78,7 @@ mod tests {
             (false, 1, 0.48f32, 42),
         ] {
             let filter = ByMismatches::new(minmismatches, minfreq, mincov);
-            assert_eq!(filter.ok_roi(&dummy), expected, "{} {} {}", minmismatches, minfreq, mincov);
+            assert_eq!(filter.is_ok(&dummy), expected, "{} {} {}", minmismatches, minfreq, mincov);
         }
     }
 

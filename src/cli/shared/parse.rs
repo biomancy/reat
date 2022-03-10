@@ -12,12 +12,12 @@ use rust_htslib::bam::Record;
 use crate::cli::shared::stranding::Stranding;
 use crate::core::io::bed;
 use crate::core::io::fasta::FastaReader;
-use crate::core::mismatches::{BatchedMismatches, prefilters};
+use crate::core::mismatches::{prefilters, MismatchesVec};
 use crate::core::refpred::AutoRef;
 use crate::core::rpileup::ncounters::filters;
-use crate::core::stranding::deduct::StrandSpecificExperimentDesign;
-use crate::core::stranding::predict::{REATStrandingEngine, StrandingAlgo};
+use crate::core::stranding::deduce::StrandSpecificExperimentDesign;
 use crate::core::stranding::predict::algo::{StrandByAtoIEditing, StrandByGenomicAnnotation};
+use crate::core::stranding::predict::{REATStrandingEngine, StrandingAlgo};
 
 use super::args;
 
@@ -47,9 +47,9 @@ pub fn readfilter(
         byquality.phread()
     );
     if nomapq255 {
-        pbar.finish_with_message(msg + "Mapq = 255 is allowed.");
-    } else {
         pbar.finish_with_message(msg + "Mapq = 255 is NOT allowed.");
+    } else {
+        pbar.finish_with_message(msg + "Mapq = 255 is allowed.");
     }
 
     filters::Sequential::new(byquality, byflags)
@@ -99,10 +99,10 @@ pub fn stranding(pbar: ProgressBar, matches: &ArgMatches) -> Stranding {
 }
 
 pub fn strandpred<T>(pbar: ProgressBar, matches: &ArgMatches) -> REATStrandingEngine<T>
-    where
-        T: BatchedMismatches,
-        StrandByGenomicAnnotation: StrandingAlgo<T>,
-        StrandByAtoIEditing: StrandingAlgo<T>,
+where
+    T: MismatchesVec,
+    StrandByGenomicAnnotation: StrandingAlgo<T>,
+    StrandByAtoIEditing: StrandingAlgo<T>,
 {
     pbar.set_draw_delta(10_000);
     pbar.set_message("Parsing strand prediction parameters...");
@@ -122,7 +122,7 @@ pub fn strandpred<T>(pbar: ProgressBar, matches: &ArgMatches) -> REATStrandingEn
     let mut msg = vec![];
     matches.value_of(args::stranding::ANNOTATION).map(|x| {
         msg.push("by genomic features [exons, genes]".to_owned());
-        engine.add_algo(Box::new(StrandByGenomicAnnotation::from_gff3(x.as_ref(), |_| pbar.inc(1))));
+        engine.add(Box::new(StrandByGenomicAnnotation::from_gff(x.as_ref(), |_| pbar.inc(1))));
     });
 
     let (minmismatches, minfreq) = (
@@ -130,7 +130,7 @@ pub fn strandpred<T>(pbar: ProgressBar, matches: &ArgMatches) -> REATStrandingEn
         matches.value_of(args::stranding::MIN_FREQ).unwrap().parse().unwrap(),
     );
     msg.push(format!("by A->I editing[min mismatches={}, min freq={}]", minmismatches, minfreq));
-    engine.add_algo(Box::new(StrandByAtoIEditing::new(minmismatches, minfreq)));
+    engine.add(Box::new(StrandByAtoIEditing::new(minmismatches, minfreq)));
 
     let msg = format!("Strand prediction (by priority): {}", msg.join(", "));
     pbar.finish_with_message(msg);

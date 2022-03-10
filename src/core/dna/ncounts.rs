@@ -1,101 +1,103 @@
-use std::cmp::max;
-
 pub use inner::NucCounts;
-
-use crate::core::dna::{Nucleotide, ReqNucleotide};
 
 // Workaround to disable snake_case warning for the struct.
 // Annotating struct/fields didn't work for some reasons
 mod inner {
     #![allow(non_snake_case)]
 
-    use derive_more::{Add, AddAssign, Constructor, Mul};
+    use crate::core::dna::{Nucleotide, ReqNucleotide};
+    use derive_more::{Add, AddAssign, Mul};
+    use std::cmp::max;
 
-    #[derive(Clone, Copy, Eq, PartialEq, Debug, Add, AddAssign, Mul, Constructor, Default)]
+    #[derive(Clone, Copy, Eq, PartialEq, Debug, Add, AddAssign, Mul, Default)]
     pub struct NucCounts {
         pub A: u32,
         pub C: u32,
         pub G: u32,
         pub T: u32,
     }
-}
 
-impl NucCounts {
-    pub fn increment(&mut self, sequence: &[Nucleotide]) {
-        for nuc in sequence {
-            match nuc {
-                Nucleotide::A => self.A += 1,
-                Nucleotide::C => self.C += 1,
-                Nucleotide::G => self.G += 1,
-                Nucleotide::T => self.T += 1,
-                Nucleotide::Unknown => {}
+    impl NucCounts {
+        pub fn new(A: u32, C: u32, G: u32, T: u32) -> Self {
+            Self { A, C, G, T }
+        }
+
+        pub fn increment(&mut self, sequence: &[Nucleotide]) {
+            for nuc in sequence {
+                match nuc {
+                    Nucleotide::A => self.A += 1,
+                    Nucleotide::C => self.C += 1,
+                    Nucleotide::G => self.G += 1,
+                    Nucleotide::T => self.T += 1,
+                    Nucleotide::Unknown => {}
+                }
             }
         }
-    }
 
-    #[inline]
-    pub const fn zeros() -> NucCounts {
-        NucCounts { A: 0, T: 0, G: 0, C: 0 }
-    }
-
-    #[inline]
-    #[allow(non_snake_case)]
-    pub const fn A(A: u32) -> NucCounts {
-        NucCounts { A, T: 0, G: 0, C: 0 }
-    }
-
-    #[inline]
-    #[allow(non_snake_case)]
-    pub const fn T(T: u32) -> NucCounts {
-        NucCounts { A: 0, T, G: 0, C: 0 }
-    }
-
-    #[inline]
-    #[allow(non_snake_case)]
-    pub const fn G(G: u32) -> NucCounts {
-        NucCounts { A: 0, T: 0, G, C: 0 }
-    }
-
-    #[inline]
-    #[allow(non_snake_case)]
-    pub const fn C(C: u32) -> NucCounts {
-        NucCounts { A: 0, T: 0, G: 0, C }
-    }
-
-    #[inline]
-    pub const fn coverage(&self) -> u32 {
-        self.A + self.T + self.G + self.C
-    }
-
-    #[inline]
-    pub fn mismatches(&self, reference: Nucleotide) -> u32 {
-        match reference {
-            Nucleotide::A => self.C + self.G + self.T,
-            Nucleotide::C => self.A + self.G + self.T,
-            Nucleotide::G => self.A + self.C + self.T,
-            Nucleotide::T => self.A + self.C + self.G,
-            Nucleotide::Unknown => self.A + self.C + self.G + self.T,
+        #[inline]
+        pub const fn zeros() -> NucCounts {
+            NucCounts { A: 0, T: 0, G: 0, C: 0 }
         }
-    }
 
-    #[inline]
-    pub fn mostfreq(&self) -> (ReqNucleotide, &u32) {
-        let maximum = max(max(self.A, self.T), max(self.G, self.C));
-
-        if self.A == maximum {
-            (ReqNucleotide::A, &self.A)
-        } else if self.C == maximum {
-            (ReqNucleotide::C, &self.C)
-        } else if self.G == maximum {
-            (ReqNucleotide::G, &self.G)
-        } else {
-            (ReqNucleotide::T, &self.T)
+        #[inline]
+        #[allow(non_snake_case)]
+        pub const fn A(A: u32) -> NucCounts {
+            NucCounts { A, T: 0, G: 0, C: 0 }
         }
-    }
 
-    #[inline]
-    pub fn complementary(&self) -> Self {
-        Self { A: self.T, C: self.G, G: self.C, T: self.A }
+        #[inline]
+        #[allow(non_snake_case)]
+        pub const fn T(T: u32) -> NucCounts {
+            NucCounts { A: 0, T, G: 0, C: 0 }
+        }
+
+        #[inline]
+        #[allow(non_snake_case)]
+        pub const fn G(G: u32) -> NucCounts {
+            NucCounts { A: 0, T: 0, G, C: 0 }
+        }
+
+        #[inline]
+        #[allow(non_snake_case)]
+        pub const fn C(C: u32) -> NucCounts {
+            NucCounts { A: 0, T: 0, G: 0, C }
+        }
+
+        #[inline]
+        pub const fn coverage(&self) -> u32 {
+            self.A + self.T + self.G + self.C
+        }
+
+        #[inline]
+        pub fn mismatches(&self, reference: Nucleotide) -> u32 {
+            match reference {
+                Nucleotide::A => self.C + self.G + self.T,
+                Nucleotide::C => self.A + self.G + self.T,
+                Nucleotide::G => self.A + self.C + self.T,
+                Nucleotide::T => self.A + self.C + self.G,
+                Nucleotide::Unknown => self.A + self.C + self.G + self.T,
+            }
+        }
+
+        #[inline]
+        pub fn mostfreq(&self) -> (ReqNucleotide, &u32) {
+            let maximum = max(max(self.A, self.T), max(self.G, self.C));
+
+            if self.A == maximum {
+                (ReqNucleotide::A, &self.A)
+            } else if self.C == maximum {
+                (ReqNucleotide::C, &self.C)
+            } else if self.G == maximum {
+                (ReqNucleotide::G, &self.G)
+            } else {
+                (ReqNucleotide::T, &self.T)
+            }
+        }
+
+        #[inline]
+        pub fn complementary(&self) -> Self {
+            Self { A: self.T, C: self.G, G: self.C, T: self.A }
+        }
     }
 }
 
@@ -104,6 +106,7 @@ mod tests {
     use itertools::Itertools;
 
     use super::*;
+    use crate::core::dna::{Nucleotide, ReqNucleotide};
 
     #[test]
     fn from_sequence() {

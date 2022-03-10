@@ -1,43 +1,44 @@
+use std::collections::HashMap;
 use std::path::Path;
 
 use bio_types::genome::Interval;
-use itertools::Itertools;
+use itertools::{zip, Itertools};
 pub use rust_htslib::bam::IndexedReader;
 use rust_htslib::bam::Read;
 
-pub fn chromosomes(hts: &[impl AsRef<Path>]) -> Vec<Interval> {
-    let hts = hts
+pub fn contigs(hts: &[impl AsRef<Path>]) -> Vec<Interval> {
+    let mut contigs = HashMap::with_capacity(100);
+
+    let readers = hts
         .iter()
-        .map(|x| {
-            IndexedReader::from_path(x).unwrap_or_else(|_| {
+        .map(|file| {
+            let file = file.as_ref();
+            IndexedReader::from_path(file).unwrap_or_else(|_| {
                 panic!(
                     "Failed to open file {}\n\
                         Possible reasons: BAM file was not indexed (samtools index); you don't have read permissions",
-                    x.as_ref().display()
+                    file.display()
                 )
             })
         })
         .collect_vec();
+    let headers = readers.iter().map(|x| x.header()).collect_vec();
 
-    // Check that headers are identical
-    let all_equal = hts
-        .iter()
-        .map(|x| x.header())
-        .map(|h| {
-            (0..h.target_count())
-                .map(|tid| (String::from_utf8_lossy(h.tid2name(tid)), h.target_len(tid)))
-                .sorted()
-                .collect_vec()
-        })
-        .all_equal();
-    assert!(all_equal, "BAM files must be mapped against identical reference assemblies");
+    for (file, header) in zip(hts, headers) {
+        for tid in 0..header.target_count() {
+            let name = String::from_utf8_lossy(header.tid2name(tid));
+            let length = header
+                .target_len(tid)
+                .unwrap_or_else(|| panic!("Failed to parse header for {}", file.as_ref().display()));
 
-    let header = hts[0].header();
-    let mut chrs = Vec::new();
-    for tid in 0..header.target_count() {
-        let tname = String::from_utf8_lossy(header.tid2name(tid)).to_string();
-        let tlen = header.target_len(tid).unwrap();
-        chrs.push(Interval::new(tname, 0..tlen));
+            let stored = contigs.entry(name.clone()).or_insert(length);
+            assert_eq!(
+                *stored, length,
+                "BAM headers must contain equivalent contigs, {} two lengths {} != {}",
+                name, length, stored
+            );
+        }
     }
-    chrs
+
+    contigs.into_iter().map(|(name, length)| Interval::new(name.into(), 0..length)).collect()
 }

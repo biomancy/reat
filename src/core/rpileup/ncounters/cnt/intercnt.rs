@@ -9,6 +9,7 @@ use crate::core::rpileup::ReadsCollider;
 use crate::core::workload::SiteWorkload;
 
 use super::base::BaseNucCounter;
+use crate::core::strandutil::StrandedData;
 
 pub struct IntervalNucCounts<'a> {
     contig: &'a str,
@@ -82,9 +83,8 @@ impl<'a, R: AlignedRead, Filter: ReadsFilter<R>> ReadsCollider<'a, R> for Interv
                 AggregatedNucCountsItem {
                     info: (),
                     range: x.clone(),
-                    forward: None,
-                    reverse: None,
-                    unstranded: Some(&self.base.counted()[indx]),
+                    mapped: StrandedData { forward: 0, reverse: 0, unknown: self.base.mapped() },
+                    counts: StrandedData { forward: None, reverse: None, unknown: Some(&self.base.counted()[indx]) },
                 }
             })
             .collect();

@@ -5,13 +5,16 @@ use crate::core::read::AlignedRead;
 pub mod hts;
 pub mod ncounters;
 
-// #[cfg_attr(test, automock)]
 // Pileup engine
-pub trait ReadsCollidingEngine<R: AlignedRead, Collider: for<'a> ReadsCollider<'a, R>> {
+pub trait ReadsCollidingEngine<R: AlignedRead, Collider>
+where
+    R: AlignedRead,
+    Collider: for<'a> ReadsCollider<'a, R>,
+{
     // Reset and run the engine and collider for the given interval and get results
     fn run(&mut self, cwork: <Collider as ReadsCollider<'_, R>>::Workload);
-    // TODO: Proper error handling
-    fn result(&self) -> Result<<Collider as ReadsCollider<'_, R>>::ColliderResult, ()>;
+    // Get calculated result if any is available
+    fn result(&self) -> Option<<Collider as ReadsCollider<'_, R>>::ColliderResult>;
 }
 
 // A function computed on top of sequenced filters in a given interval

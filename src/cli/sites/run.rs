@@ -8,7 +8,7 @@ use crate::cli::shared::args::CoreArgs;
 use crate::cli::shared::stranding::Stranding;
 use crate::cli::sites::args::SiteArgs;
 use crate::core::hooks::engine::REATHooksEngine;
-use crate::core::mismatches::site::{REATBatchedSiteMismatches, REATSiteMismatchesBuilder};
+use crate::core::mismatches::site::{REATSiteMismatchesBuilder, REATSiteMismatchesVec};
 use crate::core::rpileup::hts::HTSPileupEngine;
 use crate::core::rpileup::ncounters::cnt::{BaseNucCounter, IntervalNucCounter, StrandedNucCounter};
 use crate::core::runner::REATRunner;
@@ -18,7 +18,7 @@ pub fn run(args: &ArgMatches, mut core: CoreArgs, factory: impl Fn() -> Progress
 
     // Strander & Hooks don't require any further processing
     let mut strander = args.stranding;
-    let hooks: REATHooksEngine<REATBatchedSiteMismatches> = REATHooksEngine::new();
+    let hooks: REATHooksEngine<REATSiteMismatchesVec> = REATHooksEngine::new();
 
     // Mismatchs builder. Always with prefilter since there are no site-level stats right now
     let builder = REATSiteMismatchesBuilder::new(args.maxwsize, core.refnucpred, args.retain, Some(args.prefilter));
@@ -40,7 +40,7 @@ pub fn run(args: &ArgMatches, mut core: CoreArgs, factory: impl Fn() -> Progress
             // Remove all stranding algorithm -> they are not required
             strander.clear();
             // Compose strander + pileuper
-            let deductor = crate::core::stranding::deduct::DeductStrandByDesign::new(x);
+            let deductor = crate::core::stranding::deduce::DeduceStrandByDesign::new(x);
             let pileuper = HTSPileupEngine::new(core.bamfiles, StrandedNucCounter::new(counter, deductor));
 
             // Launch the processing

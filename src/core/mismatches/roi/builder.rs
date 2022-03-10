@@ -6,11 +6,12 @@ use bio_types::strand::Strand;
 use crate::core::dna::{NucCounts, Nucleotide};
 use crate::core::mismatches::prefilters::retain::ROIRetainer;
 use crate::core::mismatches::prefilters::MismatchesPreFilter;
-use crate::core::mismatches::roi::{MismatchesSummary, REATBatchedROIMismatches, ROIMismatchesPreview};
-use crate::core::mismatches::{BatchedMismatchesBuilder, FilteredBatchedMismatches};
+use crate::core::mismatches::roi::{NucMismatches, REATROIMismatchesVec, ROIMismatchesPreview};
+use crate::core::mismatches::{Context, MismatchesBuilder};
 use crate::core::refpred::{RefEngine, RefEngineResult};
 use crate::core::rpileup::ncounters::cnt::ROINucCounts;
 use crate::core::rpileup::ncounters::AggregatedNucCounts;
+use crate::core::strandutil::StrandedData;
 use crate::core::workload::ROI;
 
 #[derive(Clone)]
@@ -34,77 +35,77 @@ where
     fn process(
         &self,
         contig: &'a str,
-        ncrange: &Range<Position>,
-        info: &<ROINucCounts<'a> as AggregatedNucCounts<'a>>::ItemInfo,
-        cnt: &'a [NucCounts],
+        cntstart: Position,
+        cnts: &'a [NucCounts],
         refpred: &RefEngineResult<'_>,
+        roi: &'a ROI,
+        coverage: u32,
         retain: &mut HelperBuilder<'a>,
         other: &mut HelperBuilder<'a>,
     ) {
-        let roi = info.roi;
         debug_assert!(contig == roi.contig());
 
         // Get mismatches
-        let (cnts, mismatches) = self.summarize(info.roi, ncrange.clone(), refpred.predicted, cnt);
-        if self.retainer.as_ref().map_or(false, |x| x.filter(contig, &roi.range(), *roi.strand(), roi.name())) {
+        let (cnts, mismatches) = self.summarize(roi, cntstart, refpred.predicted, cnts);
+        if self.retainer.as_ref().map_or(false, |x| x.retained(contig, &roi.range(), roi.strand(), roi.name())) {
             // Must be retained
-            retain.add(roi, info.coverage, cnts, mismatches);
+            retain.add(roi, coverage, cnts, mismatches);
         } else if self.prefilter.as_ref().map_or(true, |x| x.is_ok(&mismatches)) {
             // Must be other
-            other.add(roi, info.coverage, cnts, mismatches);
+            other.add(roi, coverage, cnts, mismatches);
         }
     }
 
     fn summarize(
         &self,
         roi: &'a ROI,
-        nucrange: Range<Position>,
+        cntstart: Position,
         prednuc: &'a [Nucleotide],
-        seqnuc: &'a [NucCounts],
-    ) -> (NucCounts, MismatchesSummary) {
-        debug_assert!(roi.range().start >= nucrange.start && roi.range().end <= nucrange.end);
-        let mut mismatches = MismatchesSummary::zeros();
-        let mut cnts = NucCounts::zeros();
+        cnts: &'a [NucCounts],
+    ) -> (NucCounts, NucMismatches) {
+        debug_assert!(roi.range().start >= cntstart && roi.range().end <= (cntstart + cnts.len() as u64));
+        let mut mismatches = NucMismatches::zeros();
+        let mut nuccnts = NucCounts::zeros();
 
-        let start = nucrange.start;
-        for piece in roi.subintervals() {
-            let idx = (piece.start - start) as usize..(piece.end - start) as usize;
-            cnts.increment(&prednuc[idx.clone()]);
-            mismatches.increment(&prednuc[idx.clone()], &seqnuc[idx])
+        for sub in roi.subintervals() {
+            let idx = (sub.start - cntstart) as usize..(sub.end - cntstart) as usize;
+            nuccnts.increment(&prednuc[idx.clone()]);
+            mismatches.increment(&prednuc[idx.clone()], &cnts[idx])
         }
 
-        (cnts, mismatches)
+        (nuccnts, mismatches)
     }
 
     #[inline]
-    fn allocate(&self, nc: &ROINucCounts<'a>, strand: Strand) -> (HelperBuilder<'a>, HelperBuilder<'a>) {
-        let iter = nc.items().iter();
-        let maxitems = match strand {
-            Strand::Forward => iter.map(|x| x.forward.map_or(0, |x| x.len())).sum::<usize>(),
-            Strand::Reverse => iter.map(|x| x.reverse.map_or(0, |x| x.len())).sum::<usize>(),
-            Strand::Unknown => iter.map(|x| x.unstranded.map_or(0, |x| x.len())).sum::<usize>(),
+    fn allocate(&self, nc: &ROINucCounts<'a>) -> (StrandedData<HelperBuilder<'a>>, StrandedData<HelperBuilder<'a>>) {
+        let mut allocate: StrandedData<usize> = StrandedData::default();
+        for strand in [Strand::Forward, Strand::Reverse, Strand::Unknown] {
+            allocate[strand] = nc.items().iter().map(|item| item.counts[strand].map_or(0, |cnts| cnts.len())).sum()
+        }
+
+        let helper = StrandedData {
+            forward: HelperBuilder::with_capacity(allocate.forward),
+            reverse: HelperBuilder::with_capacity(allocate.reverse),
+            unknown: HelperBuilder::with_capacity(allocate.unknown),
         };
-        (HelperBuilder::new(maxitems), HelperBuilder::new(maxitems))
+        (helper.clone(), helper)
     }
 }
 
-impl<'a, RE, RR, MP> BatchedMismatchesBuilder<'a, ROINucCounts<'a>> for REATROIMismatchesBuilder<RE, RR, MP>
+impl<'a, RE, RR, MP> MismatchesBuilder<'a, ROINucCounts<'a>> for REATROIMismatchesBuilder<RE, RR, MP>
 where
     RE: RefEngine,
     RR: ROIRetainer,
     MP: MismatchesPreFilter<ROIMismatchesPreview>,
 {
-    type Mismatches = REATBatchedROIMismatches;
+    type Mismatches = REATROIMismatchesVec;
 
-    fn build(&mut self, nc: ROINucCounts<'a>) -> FilteredBatchedMismatches<Self::Mismatches> {
-        let (mut fwdretain, mut fwdother) = self.allocate(&nc, Strand::Forward);
-        let (mut revretain, mut revother) = self.allocate(&nc, Strand::Reverse);
-        let (mut unkretain, mut unkother) = self.allocate(&nc, Strand::Unknown);
+    fn build(&mut self, nc: ROINucCounts<'a>) -> Context<Self::Mismatches> {
+        let (mut retained, mut other) = self.allocate(&nc);
 
-        // 1 Item = 1 ROI
         let (contig, items) = nc.consume();
         for nc in items.into_iter() {
-            debug_assert!(nc.forward.is_some() || nc.reverse.is_some() || nc.unstranded.is_some());
+            debug_assert!(nc.mapped.forward + nc.mapped.reverse + nc.mapped.unknown > 0);
 
             // Predict the reference
             let counts = nc.seqnuc(&mut self.buffer).unwrap_or(&self.buffer);
@@ -112,28 +113,35 @@ where
             let refpred = self.refpred.results();
 
             // Process the counts
-            nc.forward.map(|x| self.process(contig, &nc.range, &nc.info, x, &refpred, &mut fwdretain, &mut fwdother));
-            nc.reverse.map(|x| self.process(contig, &nc.range, &nc.info, x, &refpred, &mut revretain, &mut revother));
-            nc.unstranded
-                .map(|x| self.process(contig, &nc.range, &nc.info, x, &refpred, &mut unkretain, &mut unkother));
+            for strand in [Strand::Forward, Strand::Reverse, Strand::Unknown] {
+                nc.counts[strand].map(|cnts| {
+                    self.process(
+                        contig,
+                        nc.range.start,
+                        cnts,
+                        &refpred,
+                        nc.info.roi,
+                        nc.info.coverage,
+                        &mut retained[strand],
+                        &mut other[strand],
+                    );
+                });
+            }
         }
-
-        FilteredBatchedMismatches {
-            retained: HelperBuilder::finalize(contig, fwdretain, revretain, unkretain),
-            other: HelperBuilder::finalize(contig, fwdother, revother, unkother),
-        }
+        todo!()
     }
 }
 
+#[derive(Clone)]
 struct HelperBuilder<'a> {
     pub rois: Vec<&'a ROI>,
     pub coverage: Vec<u32>,
     pub prednuc: Vec<NucCounts>,
-    pub mismatches: Vec<MismatchesSummary>,
+    pub mismatches: Vec<NucMismatches>,
 }
 
 impl<'a> HelperBuilder<'a> {
-    fn new(capacity: usize) -> Self {
+    fn with_capacity(capacity: usize) -> Self {
         Self {
             rois: Vec::with_capacity(capacity),
             coverage: Vec::with_capacity(capacity),
@@ -143,24 +151,19 @@ impl<'a> HelperBuilder<'a> {
     }
 
     #[inline]
-    fn add(&mut self, roi: &'a ROI, coverage: u32, prednuc: NucCounts, mm: MismatchesSummary) {
+    fn add(&mut self, roi: &'a ROI, coverage: u32, prednuc: NucCounts, mm: NucMismatches) {
         self.rois.push(roi);
         self.coverage.push(coverage);
         self.prednuc.push(prednuc);
         self.mismatches.push(mm);
     }
 
-    fn finalize(
-        contig: &str,
-        fwd: HelperBuilder,
-        rev: HelperBuilder,
-        unk: HelperBuilder,
-    ) -> Vec<REATBatchedROIMismatches> {
+    fn finalize(contig: &str, fwd: HelperBuilder, rev: HelperBuilder, unk: HelperBuilder) -> Vec<REATROIMismatchesVec> {
         let mut result = Vec::with_capacity(3);
 
         for (strand, item) in [(Strand::Forward, fwd), (Strand::Reverse, rev), (Strand::Unknown, unk)] {
             if !item.rois.is_empty() {
-                result.push(REATBatchedROIMismatches::new(
+                result.push(REATROIMismatchesVec::new(
                     contig.into(),
                     strand,
                     item.rois,

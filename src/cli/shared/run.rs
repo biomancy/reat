@@ -12,23 +12,23 @@ use crate::cli::shared;
 use crate::cli::shared::thread_cache::ThreadCache;
 use crate::core::hooks::stats::EditingStatType;
 use crate::core::hooks::stats::ROIEditingIndex;
-use crate::core::mismatches::BatchedMismatches;
+use crate::core::mismatches::MismatchesVec;
 use crate::core::runner::Runner;
 
 const OUTPUT_IO_ERROR: &str = "Failed to write results to the output TSV file.";
 const STATS_IO_ERROR: &str = "Failed to write statistics to the output TSV file.";
 
-pub fn run<R, Edits, BM: BatchedMismatches, Workload, W: io::Write>(
+pub fn run<R, Edits, BM: MismatchesVec, Workload, W: io::Write>(
     workload: Vec<Workload>,
     runner: R,
     pbar: ProgressBar,
     saveto: &mut csv::Writer<W>,
     mut statsto: HashMap<EditingStatType, csv::Writer<W>>,
 ) -> csv::Result<()>
-    where
-        Edits: Send + Serialize,
-        Workload: Sized + Send,
-        R: for<'runner> Runner<'runner, BM, Result=Vec<Edits>, Workload=Workload> + Clone + Send,
+where
+    Edits: Send + Serialize,
+    Workload: Sized + Send,
+    R: for<'runner> Runner<'runner, BM, Result = Vec<Edits>, Workload = Workload> + Clone + Send,
 {
     // Callbacks to track progress
     pbar.set_style(shared::style::run::running());

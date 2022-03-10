@@ -8,48 +8,76 @@ use crate::core::io::bed::BedRecord;
 
 use super::utils;
 
-#[derive(Clone, Debug, Getters, Dissolve)]
+#[derive(Clone, Debug, Dissolve)]
 pub struct ROI {
-    interval: Interval,
+    contig: String,
+    premasked: Range<Position>,
+    subintervals: Vec<Range<Position>>,
     name: String,
     strand: Strand,
-    subintervals: Vec<Range<u64>>,
 }
 
 impl PartialEq for ROI {
     fn eq(&self, other: &Self) -> bool {
-        self.interval == other.interval
-            && self.name == other.name
+        self.contig == other.contig
+            && self.premasked == other.premasked
             && self.strand.same(&other.strand)
+            && self.name == other.name
             && self.subintervals == other.subintervals
     }
 }
 
 impl AbstractInterval for ROI {
     fn contig(&self) -> &str {
-        self.interval.contig()
+        &self.contig
     }
 
     fn range(&self) -> Range<Position> {
-        self.subintervals.first().unwrap().start..self.subintervals.last().unwrap().end
+        self.postmasked()
     }
 }
 
 impl ROI {
-    pub fn new(roi: Interval, name: String, strand: Strand, subintervals: Vec<Range<u64>>) -> Self {
+    pub fn new(
+        contig: String,
+        premasked: Range<Position>,
+        subintervals: Vec<Range<Position>>,
+        name: String,
+        strand: Strand,
+    ) -> Self {
         debug_assert!(!subintervals.is_empty());
-        debug_assert!(subintervals.iter().all(|x| x.start >= roi.range().start && x.end <= roi.range().end));
-        ROI { interval: roi, name, strand, subintervals }
+        debug_assert!(subintervals.iter().all(|x| x.start >= premasked.start && x.end <= premasked.end));
+        ROI { contig, premasked, subintervals, name, strand }
     }
 
-    pub fn nucmasked(&self) -> u32 {
+    pub fn nucmasked(&self) -> u64 {
         let mut nucin = 0;
         for piece in &self.subintervals {
             nucin += piece.end - piece.start;
         }
-        let total = self.interval.range().end - self.interval.range().start;
+        let total = self.premasked.end - self.premasked.start;
 
-        (total - nucin) as u32
+        total - nucin
+    }
+
+    pub fn premasked(&self) -> Range<Position> {
+        self.premasked.clone()
+    }
+
+    pub fn postmasked(&self) -> Range<Position> {
+        self.subintervals.first().unwrap().start..self.subintervals.last().unwrap().end
+    }
+
+    pub fn subintervals(&self) -> &[Range<Position>] {
+        &self.subintervals
+    }
+
+    pub fn name(&self) -> &str {
+        &self.name
+    }
+
+    pub fn strand(&self) -> Strand {
+        self.strand
     }
 }
 
@@ -71,9 +99,9 @@ impl AbstractInterval for ROIWorkload {
 
 impl ROIWorkload {
     pub fn new(bin: Interval, rois: Vec<ROI>) -> Self {
-        debug_assert!(rois.iter().all(|x| bin.contig() == x.interval.contig()
-            && bin.range().contains(&x.range().start)
-            && bin.range().contains(&x.range().end)));
+        debug_assert!(rois.iter().all(|x| bin.contig() == x.contig()
+            && bin.range().contains(&x.postmasked().start)
+            && bin.range().contains(&x.postmasked().end)));
         ROIWorkload { bin, rois }
     }
 }
@@ -87,13 +115,13 @@ impl ROIWorkload {
         let rois = if let Some(exclude) = exclude {
             utils::subtract(rois, exclude)
                 .into_iter()
-                .map(|x| ROI::new(x.inner.interval, x.inner.name, x.inner.strand, x.retained))
+                .map(|x| ROI::new(x.inner.contig().into(), x.inner.range(), x.retained, x.inner.name, x.inner.strand))
                 .collect()
         } else {
             rois.into_iter()
                 .map(|x| {
-                    let range = x.interval.range();
-                    ROI::new(x.interval, x.name, x.strand, vec![range])
+                    let subintervals = vec![x.interval.range()];
+                    ROI::new(x.contig().into(), x.range(), subintervals, x.name, x.strand)
                 })
                 .collect()
         };

@@ -52,7 +52,7 @@ fn main() {
         .setting(AppSettings::DeriveDisplayOrder)
         .setting(AppSettings::SubcommandRequiredElseHelp)
         .subcommand(
-            App::new("rois")
+            App::new("roi")
                 .long_about("Quantify editing for the specified Regions Of Interest (ROIs)")
                 .args(cli::rois::args()),
         )
@@ -77,9 +77,9 @@ fn main() {
     #[allow(clippy::type_complexity)]
     let (args, func): (&ArgMatches, Box<dyn FnOnce(&ArgMatches, CoreArgs) + Send>) = match app.subcommand() {
         // cli::rois::run(matches, core, factory)
-        Some(("rois", matches)) => (matches, Box::new(|_matches, _core| {})),
+        Some(("roi", matches)) => (matches, Box::new(|matches, core| cli::rois::run(matches, core, factory))),
         // cli::sites::run(matches, core, factory)
-        Some(("site", matches)) => (matches, Box::new(|_matches, _core| {})),
+        Some(("site", matches)) => (matches, Box::new(|matches, core| cli::sites::run(matches, core, factory))),
         _ => panic!("Subcommand is not specified."),
     };
     let core = cli::shared::args::CoreArgs::new(args, factory);

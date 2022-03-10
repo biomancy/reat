@@ -6,15 +6,14 @@ use super::{AlignedRead, ReadsFilter};
 #[derive(Constructor, Getters, Copy, Clone)]
 pub struct ByQuality {
     mapq: u8,
-    nomapq255: bool,
+    no_mapq_255: bool, // 255 = mapping quality is not available
     phread: u8,
 }
 
 impl<R: AlignedRead> ReadsFilter<R> for ByQuality {
-    // 255 means that mapping quality is not available
     #[inline]
     fn is_read_ok(&self, record: &R) -> bool {
-        record.mapq() >= self.mapq && !(self.nomapq255 && record.mapq() == 255)
+        record.mapq() >= self.mapq && !(self.no_mapq_255 && record.mapq() == 255)
     }
 
     #[inline]

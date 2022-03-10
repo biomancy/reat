@@ -11,29 +11,26 @@ pub mod utils;
 
 pub type StrandingCounts = StrandedData<usize>;
 
-pub trait BatchedMismatches: AbstractInterval + Sized {
-    type Flattened;
+pub trait MismatchesVec: AbstractInterval + Sized {
+    type Flat;
 
+    // Predicted transcription strand
     fn trstrand(&self) -> Strand;
 
-    // Mutability
-    fn filter(self, mask: Vec<bool>) -> Self;
-    fn restrand(self, strands: Vec<Strand>, cnts: StrandingCounts) -> StrandedData<Option<Self>>;
-    fn restrand_all(&mut self, strand: Strand);
-
-    // Once batched representation is not needed, results might be flattened
+    // Once grouped representation is not needed, results might be flattened
     // (object of arrays -> array of objects)
-    fn flatten(self) -> Vec<Self::Flattened>;
+    fn flatten(self) -> Vec<Self::Flat>;
 }
 
-#[derive(Clone)]
-pub struct FilteredBatchedMismatches<T: BatchedMismatches> {
-    pub retained: Vec<T>,
-    pub other: Vec<T>,
+pub struct Context<T: MismatchesVec> {
+    // Must be retained & printed no matter what
+    pub retained: StrandedData<Option<T>>,
+    // Other mismatches
+    pub items: StrandedData<Option<T>>,
 }
 
-pub trait BatchedMismatchesBuilder<'a, NucCounts: AggregatedNucCounts<'a>> {
-    type Mismatches: BatchedMismatches;
+pub trait MismatchesBuilder<'a, NucCounts: AggregatedNucCounts<'a>> {
+    type Mismatches: MismatchesVec;
 
-    fn build(&mut self, nc: NucCounts) -> FilteredBatchedMismatches<Self::Mismatches>;
+    fn build(&'a mut self, nc: NucCounts) -> Context<Self::Mismatches>;
 }

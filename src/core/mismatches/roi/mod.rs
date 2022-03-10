@@ -3,21 +3,21 @@ use std::ops::Range;
 use bio_types::genome::Position;
 use bio_types::strand::Strand;
 
-pub use batched::REATBatchedROIMismatches;
 pub use builder::REATROIMismatchesBuilder;
 pub use flat::REATROIMismatches;
-pub use msummary::MismatchesSummary;
+pub use msummary::NucMismatches;
+pub use vec::REATROIMismatchesVec;
 
 use crate::core::dna::NucCounts;
-use crate::core::mismatches::BatchedMismatches;
+use crate::core::mismatches::MismatchesVec;
 use crate::core::workload::ROI;
 
-mod batched;
 mod builder;
 mod flat;
 mod msummary;
+mod vec;
 
-pub type ROIMismatchesPreview = MismatchesSummary;
+pub type ROIMismatchesPreview = NucMismatches;
 
 pub trait ROIMismatches {
     // Original ROI record
@@ -29,12 +29,12 @@ pub trait ROIMismatches {
     // Total nucleotides in the given ROI (after masking)
     fn prednuc(&self) -> NucCounts;
     // Observed mismatches relative to the predicted reference
-    fn mismatches(&self) -> &MismatchesSummary;
+    fn mismatches(&self) -> &NucMismatches;
 }
 
-pub trait BatchedROIMismatches: BatchedMismatches
+pub trait ROIMismatchesVec: MismatchesVec
 where
-    Self::Flattened: ROIMismatches,
+    Self::Flat: ROIMismatches,
 {
     // Original bed intervals
     fn premasked(&self) -> &[Range<Position>];
@@ -47,5 +47,31 @@ where
     // Number of predicted nucleotides in each ROI;
     fn prednuc(&self) -> &[NucCounts];
     // Number of mismatches between predicted and sequenced nucleotides
-    fn mismatches(&self) -> &[MismatchesSummary];
+    fn mismatches(&self) -> &[NucMismatches];
 }
+
+// use super::{AbstractInterval, StrandedData, StrandingCounts};
+// #[cfg(test)]
+// mock! {
+//     pub BatchedROIMismatches {}
+//     impl AbstractInterval for BatchedROIMismatches {
+//         fn contig(&self) -> &str;
+//         fn range(&self) -> Range<Position>;
+//     }
+//     impl BatchedMismatches for BatchedROIMismatches {
+//         type Flattened = ();
+//         fn trstrand(&self) -> Strand;
+//         fn filter(self, mask: Vec<bool>) -> Self;
+//         fn restrand(self, strands: Vec<Strand>, cnts: StrandingCounts) -> StrandedData<Option<Self>>;
+//         fn restrand_all(&mut self, strand: Strand);
+//         fn flatten(self) -> Vec<<Self as BatchedMismatches>::Flattened>;
+//     }
+//     impl BatchedROIMismatches for BatchedROIMismatches {
+//         fn premasked(&self) -> &[Range<Position>];
+//         fn postmasked(&self) -> &[Range<Position>];
+//         fn subintervals(&self) -> &[Vec<Range<Position>>];
+//         fn coverage(&self) -> &[u32];
+//         fn prednuc(&self) -> &[NucCounts];
+//         fn mismatches(&self) -> &[MismatchesSummary];
+//     }
+// }

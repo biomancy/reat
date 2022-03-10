@@ -10,9 +10,9 @@ mod rois;
 mod sites;
 
 pub trait SitesRetainer {
-    fn filter(&self, contig: &str, range: Range<Position>) -> Vec<Range<Position>>;
+    fn retained(&self, contig: &str, range: Range<Position>) -> Vec<Range<Position>>;
 }
 
 pub trait ROIRetainer {
-    fn filter(&self, contig: &str, range: &Range<Position>, strand: Strand, name: &str) -> bool;
+    fn retained(&self, contig: &str, range: &Range<Position>, strand: Strand, name: &str) -> bool;
 }

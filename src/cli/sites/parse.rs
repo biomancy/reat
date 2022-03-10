@@ -22,7 +22,7 @@ pub fn work(
     let binsize = matches.value_of(shared::args::core::BINSIZE).unwrap().parse().unwrap();
     pbar.set_message(format!("Splitting the genome into {}bp bins...", binsize));
 
-    let contigs = io::hts::chromosomes(bamfiles);
+    let contigs = io::hts::contigs(bamfiles);
     let workload = SiteWorkload::from_intervals(contigs, binsize, exclude);
     debug_assert!(!workload.is_empty());
 

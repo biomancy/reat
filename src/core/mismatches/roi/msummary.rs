@@ -14,7 +14,7 @@ mod inner {
 
     // These are counts with respect to the FORWARD strand
     #[derive(Constructor, Copy, Clone, Eq, PartialEq, Debug, Add, AddAssign)]
-    pub struct MismatchesSummary {
+    pub struct NucMismatches {
         pub A: NucCounts,
         pub C: NucCounts,
         pub G: NucCounts,
@@ -22,10 +22,10 @@ mod inner {
     }
 }
 
-impl MismatchesSummary {
+impl NucMismatches {
     #[inline]
     pub fn zeros() -> Self {
-        MismatchesSummary { A: NucCounts::zeros(), C: NucCounts::zeros(), G: NucCounts::zeros(), T: NucCounts::zeros() }
+        NucMismatches { A: NucCounts::zeros(), C: NucCounts::zeros(), G: NucCounts::zeros(), T: NucCounts::zeros() }
     }
 
     pub fn increment(&mut self, sequence: &[Nucleotide], ncounts: &[NucCounts]) {
@@ -63,7 +63,7 @@ impl MismatchesSummary {
 
     #[inline]
     pub fn complementary(&self) -> Self {
-        MismatchesSummary {
+        NucMismatches {
             A: self.T.complementary(),
             C: self.G.complementary(),
             G: self.C.complementary(),
@@ -72,9 +72,9 @@ impl MismatchesSummary {
     }
 }
 
-impl Default for MismatchesSummary {
+impl Default for NucMismatches {
     fn default() -> Self {
-        MismatchesSummary::zeros()
+        NucMismatches::zeros()
     }
 }
 
@@ -91,7 +91,7 @@ mod tests {
 
     #[test]
     fn coverage() {
-        let mut dummy: MismatchesSummary = Default::default();
+        let mut dummy: NucMismatches = Default::default();
         for num in [0, 25] {
             fillall(num, &mut dummy.A);
             fillall(num, &mut dummy.C);
@@ -103,7 +103,7 @@ mod tests {
 
     #[test]
     fn match_mismatch() {
-        let mut dummy: MismatchesSummary = Default::default();
+        let mut dummy: NucMismatches = Default::default();
         for (mismatched, matched) in [(0, 25), (12, 0), (1, 2)] {
             fillall(mismatched, &mut dummy.A);
             dummy.A.A = matched;
@@ -120,7 +120,7 @@ mod tests {
 
     #[test]
     fn from_counts() {
-        let mut mismatches = MismatchesSummary::zeros();
+        let mut mismatches = NucMismatches::zeros();
         mismatches.increment(
             &vec![Nucleotide::A, Nucleotide::Unknown, Nucleotide::C],
             &vec![
@@ -129,7 +129,7 @@ mod tests {
                 NucCounts { A: 9, C: 0, G: 8, T: 0 },
             ],
         );
-        let mut expected = MismatchesSummary::zeros();
+        let mut expected = NucMismatches::zeros();
         expected.A.A = 10;
         expected.A.G = 15;
         expected.C.A = 9;

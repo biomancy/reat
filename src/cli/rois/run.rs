@@ -10,7 +10,7 @@ use crate::cli::shared::stranding::Stranding;
 use crate::core::hooks::engine::REATHooksEngine;
 use crate::core::hooks::filters;
 use crate::core::hooks::stats::ROIEditingIndex;
-use crate::core::mismatches::roi::{REATBatchedROIMismatches, REATROIMismatchesBuilder};
+use crate::core::mismatches::roi::{REATROIMismatchesBuilder, REATROIMismatchesVec};
 use crate::core::rpileup::hts::HTSPileupEngine;
 use crate::core::rpileup::ncounters::cnt::{BaseNucCounter, ROINucCounter, StrandedNucCounter};
 use crate::core::runner::REATRunner;
@@ -18,7 +18,7 @@ use crate::core::runner::REATRunner;
 pub fn run(args: &ArgMatches, core: CoreArgs, factory: impl Fn() -> ProgressBar) {
     let args = ROIArgs::new(&core, args, &factory);
 
-    let mut hooks: REATHooksEngine<REATBatchedROIMismatches> = REATHooksEngine::new();
+    let mut hooks: REATHooksEngine<REATROIMismatchesVec> = REATHooksEngine::new();
     let builder = match args.ei {
         None => {
             // Always with prefilter since there are no site-level stats right now
@@ -53,7 +53,7 @@ pub fn run(args: &ArgMatches, core: CoreArgs, factory: impl Fn() -> ProgressBar)
             // Remove all stranding algorithm -> they are not required
             strander.clear();
             // Compose strander + pileuper
-            let deductor = crate::core::stranding::deduct::DeductStrandByDesign::new(x);
+            let deductor = crate::core::stranding::deduce::DeduceStrandByDesign::new(x);
             let pileuper = HTSPileupEngine::new(core.bamfiles, StrandedNucCounter::new(counter, deductor));
 
             // Launch the processing

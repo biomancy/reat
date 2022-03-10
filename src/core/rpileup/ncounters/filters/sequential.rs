@@ -1,8 +1,7 @@
 use std::marker::PhantomData;
 
 // TODO: it should have a static variant based on a macro of some kind
-// You create it for 1-12 arguments in a compile time
-// AND a from declaration for them using tuples
+// You create it for 1-12 arguments in a compile time AND a from declaration for them using tuples
 use super::{AlignedRead, ReadsFilter};
 
 // macro_rules! sequential {

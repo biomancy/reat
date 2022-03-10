@@ -1,10 +1,10 @@
 use itertools::zip;
 
-use crate::core::hooks::filters::Filter;
+use crate::core::hooks::filters::{utils, Filter};
 use crate::core::hooks::Hook;
-use crate::core::mismatches::roi::{BatchedROIMismatches, REATBatchedROIMismatches};
-use crate::core::mismatches::site::{BatchedSiteMismatches, REATBatchedSiteMismatches};
-use crate::core::mismatches::{prefilters, BatchedMismatches, FilteredBatchedMismatches};
+use crate::core::mismatches::roi::{REATROIMismatchesVec, ROIMismatches, ROIMismatchesVec};
+use crate::core::mismatches::site::{REATSiteMismatchesVec, SiteMismatches, SiteMismatchesVec};
+use crate::core::mismatches::{prefilters, Context, MismatchesVec};
 
 #[derive(Clone)]
 pub struct ByMismatches {
@@ -18,53 +18,40 @@ impl Into<ByMismatches> for prefilters::ByMismatches {
 }
 
 impl ByMismatches {
-    fn filter_rois(&self, mm: REATBatchedROIMismatches) -> Option<REATBatchedROIMismatches> {
-        let mut oneok = false;
-        let mask = mm
-            .mismatches()
-            .iter()
-            .map(|x| {
-                let pass = self.inner.ok_roi(x);
-                oneok = oneok || pass;
-                pass
-            })
-            .collect();
-
-        match oneok {
-            true => Some(mm.filter(mask)),
-            false => None,
-        }
+    fn filter_rois<T>(&self, mm: T) -> Option<T>
+    where
+        T: ROIMismatchesVec,
+        T::Flat: ROIMismatches,
+    {
+        // let iter = mm.mismatches().iter().map(|x| self.inner.enough_mismatches_per_roi(x));
+        // utils::maskiter(iter).map(|x| mm.filter(x))
+        todo!()
     }
 
-    fn filter_intervals(&self, mm: REATBatchedSiteMismatches) -> Option<REATBatchedSiteMismatches> {
-        let mut oneok = false;
-        let mask = zip(mm.prednuc(), mm.seqnuc())
-            .map(|(&nuc, &seqnuc)| {
-                let pass = self.inner.ok_site(&(nuc, seqnuc));
-                oneok = oneok || pass;
-                pass
-            })
-            .collect();
-
-        match oneok {
-            true => Some(mm.filter(mask)),
-            false => None,
-        }
+    fn filter_intervals<T>(&self, mm: T) -> Option<T>
+    where
+        T: SiteMismatchesVec,
+        T::Flat: SiteMismatches,
+    {
+        // let iter =
+        //     zip(mm.prednuc(), mm.seqnuc()).map(|(&nuc, &seqnuc)| self.inner.enough_mismatches_per_site(&(nuc, seqnuc)));
+        // utils::maskiter(iter).map(|x| mm.filter(x))
+        todo!()
     }
 }
 
-impl Hook<REATBatchedROIMismatches> for ByMismatches {
-    fn on_finish(&mut self, mm: &mut FilteredBatchedMismatches<REATBatchedROIMismatches>) {
-        mm.other = std::mem::take(&mut mm.other).into_iter().filter_map(|x| self.filter_rois(x)).collect();
+impl Hook<REATROIMismatchesVec> for ByMismatches {
+    fn on_finish(&mut self, mm: &mut Context<REATROIMismatchesVec>) {
+        mm.items.apply_mut(|opt, _| opt.and_then(|x| self.filter_rois(x)));
     }
 }
 
-impl Filter<REATBatchedROIMismatches> for ByMismatches {}
+impl Filter<REATROIMismatchesVec> for ByMismatches {}
 
-impl Hook<REATBatchedSiteMismatches> for ByMismatches {
-    fn on_finish(&mut self, mm: &mut FilteredBatchedMismatches<REATBatchedSiteMismatches>) {
-        mm.other = std::mem::take(&mut mm.other).into_iter().filter_map(|x| self.filter_intervals(x)).collect();
+impl Hook<REATSiteMismatchesVec> for ByMismatches {
+    fn on_finish(&mut self, mm: &mut Context<REATSiteMismatchesVec>) {
+        mm.items.apply_mut(|opt, _| opt.and_then(|x| self.filter_intervals(x)));
     }
 }
 
-impl Filter<REATBatchedSiteMismatches> for ByMismatches {}
+impl Filter<REATSiteMismatchesVec> for ByMismatches {}

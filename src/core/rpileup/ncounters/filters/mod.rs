@@ -13,6 +13,10 @@ mod sequential;
 
 #[cfg_attr(test, automock)]
 pub trait ReadsFilter<R: AlignedRead> {
-    fn is_read_ok(&self, record: &R) -> bool;
-    fn is_base_ok(&self, record: &R, base: usize) -> bool;
+    fn is_read_ok(&self, record: &R) -> bool {
+        true
+    }
+    fn is_base_ok(&self, record: &R, base: usize) -> bool {
+        true
+    }
 }

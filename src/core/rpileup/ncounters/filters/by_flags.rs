@@ -14,11 +14,6 @@ impl<R: AlignedRead> ReadsFilter<R> for ByFlags {
     fn is_read_ok(&self, record: &R) -> bool {
         ((record.flags() & self.include) == self.include) && ((record.flags() & self.exclude) == 0)
     }
-
-    #[inline]
-    fn is_base_ok(&self, _: &R, _: usize) -> bool {
-        true
-    }
 }
 
 #[cfg(test)]

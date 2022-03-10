@@ -3,6 +3,7 @@ use std::path::PathBuf;
 use bio_types::genome::AbstractInterval;
 use itertools::Itertools;
 use rust_htslib::bam::{IndexedReader, Read, Record};
+use rust_htslib::errors::Error;
 
 use crate::core::rpileup::{ReadsCollider, ReadsCollidingEngine};
 
@@ -37,9 +38,13 @@ impl<Collider: for<'a> ReadsCollider<'a, Record>> ReadsCollidingEngine<Record, C
         let toread = self
             .htsreaders
             .iter_mut()
-            .filter(|x| x.header().target_names().contains(&cwork.contig().as_bytes()))
-            .map(|x| {
-                x.fetch((cwork.contig(), cwork.range().start, cwork.range().end)).unwrap_or_else(|_| {
+            .filter_map(|reader| {
+                // No such contig in the BAM file
+                if !reader.header().target_names().contains(&cwork.contig().as_bytes()) {
+                    return None;
+                };
+
+                reader.fetch((cwork.contig(), cwork.range().start, cwork.range().end)).unwrap_or_else(|_| {
                     panic!(
                         "Failed to fetch reads for {}:{}-{} (HTS file corrupted?)",
                         cwork.contig(),
@@ -49,13 +54,11 @@ impl<Collider: for<'a> ReadsCollider<'a, Record>> ReadsCollidingEngine<Record, C
                 });
 
                 let mut record = Record::new();
-                let r = x.read(&mut record);
-                (x, record, r)
-            })
-            .filter(|(_, _, r)| r.as_ref().map(|x| x.is_ok()).unwrap_or(false))
-            .map(|(x, record, r)| {
-                debug_assert!(r.is_some() && r.unwrap().is_ok());
-                (x, record)
+                let isavailable = reader.read(&mut record);
+                match isavailable {
+                    Some(Ok(())) => Some((reader, record)),
+                    _ => None,
+                }
             })
             .collect_vec();
 
@@ -65,7 +68,7 @@ impl<Collider: for<'a> ReadsCollider<'a, Record>> ReadsCollidingEngine<Record, C
             return;
         }
 
-        // Something to do, trigger the reset
+        // Something to do, trigger the reset -> collide -> finalize
         self.collider.reset(cwork);
 
         for (reader, mut record) in toread.into_iter() {
@@ -78,11 +81,10 @@ impl<Collider: for<'a> ReadsCollider<'a, Record>> ReadsCollidingEngine<Record, C
         self.success = true;
     }
 
-    fn result(&self) -> Result<<Collider as ReadsCollider<'_, Record>>::ColliderResult, ()> {
-        if self.success {
-            Ok(self.collider.result())
-        } else {
-            Err(())
+    fn result(&self) -> Option<<Collider as ReadsCollider<'_, Record>>::ColliderResult> {
+        match self.success {
+            true => Some(self.collider.result()),
+            false => None,
         }
     }
 }

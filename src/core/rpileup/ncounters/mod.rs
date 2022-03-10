@@ -3,17 +3,20 @@ use std::ops::Range;
 use bio_types::genome::{AbstractInterval, Position};
 
 pub use crate::core::dna::NucCounts;
+use crate::core::mismatches::StrandingCounts;
 use crate::core::read::AlignedRead;
 use crate::core::rpileup::ReadsCollider;
+use crate::core::strandutil::StrandedData;
 
 pub mod cnt;
 pub mod cntitem;
 pub mod filters;
 
 pub trait NucCounter<'a, R: AlignedRead>: ReadsCollider<'a, R>
-    where
-        Self::ColliderResult: AggregatedNucCounts<'a>,
-{}
+where
+    Self::ColliderResult: AggregatedNucCounts<'a>,
+{
+}
 
 pub trait AggregatedNucCounts<'a>: AbstractInterval {
     type ItemInfo;
@@ -26,7 +29,6 @@ pub trait AggregatedNucCounts<'a>: AbstractInterval {
 pub struct AggregatedNucCountsItem<'a, ItemInfo> {
     pub info: ItemInfo,
     pub range: Range<Position>,
-    pub forward: Option<&'a [NucCounts]>,
-    pub reverse: Option<&'a [NucCounts]>,
-    pub unstranded: Option<&'a [NucCounts]>,
+    pub mapped: StrandedData<u32>,
+    pub counts: StrandedData<Option<&'a [NucCounts]>>,
 }

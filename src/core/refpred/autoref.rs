@@ -3,8 +3,8 @@ use std::ops::Range;
 use bio_types::genome::Position;
 use itertools::zip;
 
-use crate::core::dna::{Nucleotide, ReqNucleotide};
 use crate::core::dna::NucCounts;
+use crate::core::dna::{Nucleotide, ReqNucleotide};
 use crate::core::io::fasta::FastaReader;
 use crate::core::refpred::RefEngineResult;
 
@@ -36,7 +36,7 @@ impl<T: FastaReader> AutoRef<T> {
                 // check for a potential hyper-editing site
                 let skip_hyperediting = self.skip_hyperediting
                     && ((assembly == Nucleotide::A && nuc == ReqNucleotide::G)
-                    || (assembly == Nucleotide::T && nuc == ReqNucleotide::C));
+                        || (assembly == Nucleotide::T && nuc == ReqNucleotide::C));
 
                 return if skip_hyperediting { assembly } else { nuc.into() };
             }

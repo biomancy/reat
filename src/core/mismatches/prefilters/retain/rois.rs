@@ -98,7 +98,7 @@ impl RetainROIFromList {
 
 impl ROIRetainer for RetainROIFromList {
     #[inline]
-    fn filter(&self, contig: &str, range: &Range<Position>, strand: Strand, name: &str) -> bool {
+    fn retained(&self, contig: &str, range: &Range<Position>, strand: Strand, name: &str) -> bool {
         self.hash.contains::<dyn ROIHash>(&(contig, range, strand.strand_symbol(), name))
     }
 }

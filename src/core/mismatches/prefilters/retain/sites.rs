@@ -32,7 +32,7 @@ impl RetainSitesFromIntervals {
 
 impl SitesRetainer for RetainSitesFromIntervals {
     #[inline]
-    fn filter(&self, contig: &str, range: Range<Position>) -> Vec<Range<Position>> {
+    fn retained(&self, contig: &str, range: Range<Position>) -> Vec<Range<Position>> {
         match self.index.get(contig) {
             None => vec![],
             Some(map) => {

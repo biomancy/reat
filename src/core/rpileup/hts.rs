@@ -3,7 +3,7 @@ use std::path::PathBuf;
 use bio_types::genome::AbstractInterval;
 use itertools::Itertools;
 use rust_htslib::bam::{IndexedReader, Read, Record};
-use rust_htslib::errors::Error;
+
 
 use crate::core::rpileup::{ReadsCollider, ReadsCollidingEngine};
 

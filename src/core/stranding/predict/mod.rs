@@ -1,9 +1,9 @@
-use bio_types::strand::Strand;
+
 use dyn_clone::DynClone;
 
 pub use engine::REATStrandingEngine;
 
-use crate::core::mismatches::{MismatchesVec, StrandingCounts};
+use crate::core::mismatches::{MismatchesVec};
 
 use crate::core::strandutil::Stranded;
 

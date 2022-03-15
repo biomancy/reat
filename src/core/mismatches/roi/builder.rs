@@ -1,4 +1,4 @@
-use std::ops::Range;
+
 
 use bio_types::genome::{AbstractInterval, Position};
 use bio_types::strand::Strand;
@@ -100,7 +100,7 @@ where
         let contig = nc.contig.to_owned();
 
         // Pre-allocate results
-        let hint = self.size_hint(&nc);
+        let _hint = self.size_hint(&nc);
         let mut items = Stranded::with_fn(|strnd| {
             ROIMismatchesVec::new(contig.clone(), strnd, ROIDataVec::new())
             // ROIMismatchesVec::new(contig.clone(), strnd, ROIDataVec::with_capacity(hint[strnd]))

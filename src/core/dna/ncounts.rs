@@ -8,7 +8,7 @@
 use std::cmp::max;
 
 use derive_more::{Add, AddAssign, Mul};
-use soa_derive::StructOfArray;
+
 
 use crate::core::dna::{Nucleotide, ReqNucleotide};
 

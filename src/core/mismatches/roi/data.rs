@@ -1,12 +1,12 @@
 use std::ops::Range;
 
-use bio_types::genome::{AbstractInterval, Position};
+use bio_types::genome::{Position};
 use bio_types::strand::Strand;
 use serde::ser::SerializeStruct;
-use serde::{Serialize, Serializer};
+
 use soa_derive::StructOfArray;
 
-use crate::core::dna::ncounts::*;
+
 use crate::core::dna::NucCounts;
 use crate::core::mismatches::roi::NucMismatches;
 use crate::core::mismatches::MismatchesVec;

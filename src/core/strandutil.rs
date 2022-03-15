@@ -1,5 +1,5 @@
 use std::fmt::{Display, Formatter};
-use std::iter::Sum;
+
 use std::ops::{Index, IndexMut};
 
 use bio_types::strand::Strand;

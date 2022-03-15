@@ -2,7 +2,7 @@ use std::any::Any;
 
 use bio_types::strand::Strand;
 use derive_more::{Add, AddAssign};
-use itertools::chain;
+
 use serde::ser::SerializeStruct;
 use serde::{Serialize, Serializer};
 
@@ -10,7 +10,7 @@ use crate::core::hooks::stats::EditingStat;
 use crate::core::hooks::stats::EditingStatType;
 use crate::core::hooks::Hook;
 use crate::core::mismatches::roi::{NucMismatches, ROIMismatchesVec};
-use crate::core::mismatches::{Batch, MismatchesVec};
+use crate::core::mismatches::{Batch};
 
 #[derive(Copy, Clone, Default, Add, AddAssign)]
 pub struct ROIEditingIndex {

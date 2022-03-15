@@ -1,8 +1,8 @@
 use std::fs;
-use std::fs::{File, OpenOptions};
-use std::io::BufWriter;
+use std::fs::{File};
+
 use std::path::{Path, PathBuf};
-use std::ptr::write;
+
 use std::str::FromStr;
 
 use clap::ArgMatches;

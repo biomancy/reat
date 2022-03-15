@@ -3,7 +3,7 @@ use std::ops::Range;
 use bio_types::genome::{AbstractInterval, Interval, Position};
 use bio_types::strand::{Same, Strand};
 use derive_getters::{Dissolve, Getters};
-use soa_derive::StructOfArray;
+
 
 use crate::core::io::bed::BedRecord;
 

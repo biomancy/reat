@@ -2,9 +2,9 @@ use std::ops::Range;
 
 use bio_types::genome::Position;
 use bio_types::strand::Strand;
-use itertools::{chain, izip};
+use itertools::{izip};
 
-use crate::core::dna::{NucCounts, Nucleotide};
+use crate::core::dna::{NucCounts};
 use crate::core::mismatches::prefilters::retain::SitesRetainer;
 use crate::core::mismatches::prefilters::MismatchesPreFilter;
 use crate::core::mismatches::site::{SiteData, SiteDataVec, SiteMismatchesVec};
@@ -96,7 +96,7 @@ where
         let contig = nc.contig;
 
         // Pre-allocate results
-        let hint = self.size_hint(&nc);
+        let _hint = self.size_hint(&nc);
         let mut items = Stranded::with_fn(|strnd| {
             // SiteMismatchesVec::new(contig.to_owned(), strnd, SiteDataVec::with_capacity(hint[strnd]))
             SiteMismatchesVec::new(contig.to_owned(), strnd, SiteDataVec::new())

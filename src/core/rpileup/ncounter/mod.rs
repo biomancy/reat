@@ -1,11 +1,11 @@
 use std::ops::Range;
 
-use bio_types::genome::{AbstractInterval, Position};
+use bio_types::genome::{Position};
 
 pub use crate::core::dna::NucCounts;
-use crate::core::mismatches::StrandingCounts;
-use crate::core::read::AlignedRead;
-use crate::core::rpileup::ReadsCollider;
+
+
+
 use crate::core::strandutil::Stranded;
 
 pub mod cnt;

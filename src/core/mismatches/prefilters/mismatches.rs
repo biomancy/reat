@@ -86,7 +86,7 @@ mod tests {
     #[test]
     fn ok_site() {
         let mut reference = Nucleotide::A;
-        let mut sequenced = NucCounts { A: 1, C: 2, G: 3, T: 4 };
+        let sequenced = NucCounts { A: 1, C: 2, G: 3, T: 4 };
 
         for (expected, minmismatches, minfreq, mincov) in [
             (false, 10, 0f32, 0),

@@ -1,18 +1,14 @@
 use std::io::Write;
-use std::ops::Range;
 
-use bio_types::genome::{AbstractInterval, Interval, Position};
+use bio_types::genome::AbstractInterval;
 use bio_types::strand::Strand;
 use csv::Writer;
-use itertools::{izip, Itertools};
+
 use serde::ser::{SerializeSeq, SerializeStruct};
 use serde::{Serialize, Serializer};
 
-use crate::core::dna::NucCounts;
-use crate::core::mismatches::roi::{NucMismatches, ROIData, ROIDataRef, ROIDataVec};
-use crate::core::mismatches::{MismatchesVec, StrandingCounts};
-use crate::core::strandutil::Stranded;
-use crate::core::workload::ROI;
+use crate::core::mismatches::roi::{ROIDataRef, ROIDataVec};
+use crate::core::mismatches::MismatchesVec;
 
 pub struct ROIMismatchesVec {
     contig: String,
@@ -86,9 +82,10 @@ impl Serialize for SerializeROIRef<'_> {
 
 #[cfg(test)]
 mod test {
+    use crate::core::dna::NucCounts;
     use serde_test::{assert_ser_tokens, Token};
 
-    use crate::core::mismatches::roi::{ROIDataRecord, ROIDataRecordRef};
+    use crate::core::mismatches::roi::{NucMismatches, ROIDataRecordRef};
 
     use super::*;
 
@@ -101,7 +98,7 @@ mod test {
             name: &"MyRep".to_owned(),
             strand: &Strand::Forward,
         };
-        let mut mm = NucMismatches {
+        let mm = NucMismatches {
             A: NucCounts::new(1, 2, 3, 4),
             C: NucCounts::new(5, 6, 7, 8),
             G: NucCounts::new(9, 10, 11, 12),

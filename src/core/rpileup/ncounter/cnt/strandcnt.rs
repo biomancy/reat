@@ -2,7 +2,7 @@ use bio_types::strand::ReqStrand;
 use itertools::zip;
 
 use crate::core::read::AlignedRead;
-use crate::core::rpileup::ncounter::{InnerNucCounts, NucCounterResult};
+use crate::core::rpileup::ncounter::{NucCounterResult};
 use crate::core::rpileup::ReadsCollider;
 use crate::core::stranding::deduce::StrandDeducer;
 use crate::core::strandutil::Stranded;

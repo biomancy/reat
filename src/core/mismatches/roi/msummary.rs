@@ -1,6 +1,6 @@
 use derive_more::{Add, AddAssign, Constructor};
 use itertools::zip;
-use soa_derive::StructOfArray;
+
 
 pub use crate::core::dna::ncounts::*;
 use crate::core::dna::Nucleotide;

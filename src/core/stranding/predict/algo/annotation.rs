@@ -1,4 +1,4 @@
-use std::convert::TryInto;
+
 use std::ffi::OsStr;
 use std::fs::File;
 use std::io::{BufRead, BufReader};
@@ -7,7 +7,7 @@ use std::path::Path;
 
 use bio::data_structures::annot_map::AnnotMap;
 use bio_types::annot::contig::Contig;
-use bio_types::annot::pos::Pos;
+
 use bio_types::genome::{AbstractInterval, Position};
 use bio_types::strand::{ReqStrand, Strand};
 use flate2::read::GzDecoder;
@@ -16,7 +16,7 @@ use itertools::Itertools;
 use crate::core::io;
 use crate::core::mismatches::roi::{ROIDataRef, ROIMismatchesVec};
 use crate::core::mismatches::site::{SiteDataVec, SiteMismatchesVec};
-use crate::core::mismatches::{MismatchesVec, StrandingCounts};
+use crate::core::mismatches::{MismatchesVec};
 use crate::core::stranding::predict::StrandingAlgo;
 use crate::core::strandutil::Stranded;
 
@@ -199,7 +199,7 @@ impl StrandingAlgo<SiteMismatchesVec> for StrandByGenomicAnnotation {
 
 #[cfg(test)]
 mod tests {
-    use bio_types::genome::Interval;
+    
     use bio_types::strand::Same;
 
     use super::*;

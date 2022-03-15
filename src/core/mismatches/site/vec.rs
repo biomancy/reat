@@ -1,14 +1,12 @@
 use std::io::Write;
-use std::ops::Range;
 
-use bio_types::genome::{AbstractInterval, Position};
+use bio_types::genome::AbstractInterval;
 use bio_types::strand::Strand;
 use csv::Writer;
-use itertools::{izip, Itertools};
+
 use serde::ser::{SerializeSeq, SerializeStruct};
 use serde::{Serialize, Serializer};
 
-use crate::core::dna::{NucCounts, Nucleotide};
 use crate::core::mismatches::site::SiteDataRef;
 use crate::core::mismatches::MismatchesVec;
 
@@ -68,9 +66,10 @@ impl Serialize for SerializeSiteRef<'_> {
 
 #[cfg(test)]
 mod test {
+    use crate::core::dna::{NucCounts, Nucleotide};
     use serde_test::{assert_ser_tokens, Token};
 
-    use crate::core::mismatches::site::SiteData;
+    
 
     use super::*;
 

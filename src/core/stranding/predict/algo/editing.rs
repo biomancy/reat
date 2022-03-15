@@ -1,17 +1,17 @@
 use bio_types::strand::Strand;
 use derive_getters::Getters;
 use derive_more::Constructor;
-use itertools::zip;
+
 
 use crate::core::dna::{NucCounts, Nucleotide};
 use crate::core::mismatches::roi::ROIDataRef;
-use crate::core::mismatches::roi::{NucMismatches, ROIData, ROIMismatchesVec};
+use crate::core::mismatches::roi::{NucMismatches, ROIMismatchesVec};
 use crate::core::mismatches::site::{SiteDataRef, SiteMismatchesVec};
-use crate::core::mismatches::StrandingCounts;
+
 use crate::core::stranding::predict::algo::utils;
 use crate::core::stranding::predict::StrandingAlgo;
 use crate::core::strandutil::Stranded;
-use crate::core::workload::ROI;
+
 
 #[derive(Constructor, Getters, Copy, Clone)]
 pub struct StrandByAtoIEditing {

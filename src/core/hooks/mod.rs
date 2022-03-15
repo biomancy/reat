@@ -8,7 +8,7 @@ pub mod filters;
 pub mod stats;
 
 pub trait Hook<T: MismatchesVec>: DynClone + Send {
-    fn on_finish(&mut self, mismatches: &mut Batch<T>) {}
+    fn on_finish(&mut self, _mismatches: &mut Batch<T>) {}
 }
 dyn_clone::clone_trait_object!(<T> Hook<T> where T: MismatchesVec);
 

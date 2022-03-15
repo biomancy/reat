@@ -1,11 +1,11 @@
-use itertools::zip;
-use soa_derive::soa_zip;
+
+
 
 use crate::core::hooks::filters::Filter;
 use crate::core::hooks::Hook;
 use crate::core::mismatches::roi::ROIMismatchesVec;
 use crate::core::mismatches::site::SiteMismatchesVec;
-use crate::core::mismatches::{prefilters, Batch, MismatchesVec};
+use crate::core::mismatches::{prefilters, Batch};
 
 #[derive(Clone)]
 pub struct ByMismatches {

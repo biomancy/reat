@@ -1,10 +1,10 @@
-use std::ops::Range;
+
 
 use bio::data_structures::interval_tree::IntervalTree;
-use bio_types::genome::{AbstractInterval, Position};
-use bio_types::strand::Strand;
+use bio_types::genome::{AbstractInterval};
+
 use itertools::{zip, Itertools};
-use serde::de::Unexpected::Str;
+
 
 use crate::core::read::AlignedRead;
 use crate::core::rpileup::ncounter::filters::ReadsFilter;

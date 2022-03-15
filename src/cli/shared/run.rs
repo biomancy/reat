@@ -3,10 +3,10 @@ use std::cell::RefCell;
 use std::collections::HashMap;
 use std::io;
 
-use bio_types::strand::Strand;
+
 use indicatif::ProgressBar;
-use itertools::min;
-use rayon::iter::IntoParallelIterator;
+
+
 use rayon::prelude::*;
 use serde::ser::Serialize;
 
@@ -46,7 +46,7 @@ where
         // .into_par_iter()
         .into_iter()
         .filter_map(|w| {
-            let mut result = ctxstore.get().borrow_mut().run(w);
+            let result = ctxstore.get().borrow_mut().run(w);
             pbar.inc(1);
             result
         })

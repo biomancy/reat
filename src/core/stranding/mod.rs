@@ -1,2 +1,2 @@
-pub mod deduct;
+pub mod deduce;
 pub mod predict;

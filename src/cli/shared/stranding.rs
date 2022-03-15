@@ -1,8 +1,8 @@
 use std::fmt::{Display, Formatter};
 use std::str::FromStr;
 
-use crate::core::stranding::deduct::StrandSpecificExperimentDesign;
-use crate::core::stranding::deduct::StrandSpecificExperimentDesign::*;
+use crate::core::stranding::deduce::StrandSpecificExperimentDesign;
+use crate::core::stranding::deduce::StrandSpecificExperimentDesign::*;
 
 #[derive(Eq, PartialEq)]
 pub enum Stranding {

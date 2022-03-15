@@ -40,7 +40,7 @@ pub mod expected {
     pub static FOLDER: PathBuf = RESOURCES.join("expected");
 
     #[dynamic]
-    pub static LOCI: PathBuf = FOLDER.join("loci");
+    pub static LOCI: PathBuf = FOLDER.join("site");
 
     #[dynamic]
     pub static ROIS: PathBuf = FOLDER.join("rois");

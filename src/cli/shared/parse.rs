@@ -1,39 +1,43 @@
 use std::fs::File;
-use std::io::BufWriter;
-use std::path::PathBuf;
+
+use std::path::{Path, PathBuf};
 use std::str::FromStr;
 
+use bio_types::genome::AbstractInterval;
 use clap::ArgMatches;
 use indicatif::ProgressBar;
 use itertools::Itertools;
 use rust_htslib::bam::Record;
 
 use crate::cli::shared::stranding::Stranding;
-use crate::core::filtering::reads::{ReadsFilterByFlags, ReadsFilterByQuality, SequentialReadsFilter};
-use crate::core::filtering::summary::SummaryFilterByMismatches;
-use crate::core::refnuc::RefNucPredByHeurisitc;
-use crate::core::stranding::deduct::StrandSpecificExperimentDesign;
-use crate::core::stranding::predict::{SequentialStrandPredictor, StrandByAtoIEditing, StrandByGenomicFeatures};
+use crate::core::io::bed;
+use crate::core::io::fasta::FastaReader;
+use crate::core::mismatches::{prefilters, MismatchesVec};
+use crate::core::refpred::AutoRef;
+use crate::core::rpileup::ncounter::filters;
+use crate::core::stranding::deduce::StrandSpecificExperimentDesign;
+use crate::core::stranding::predict::algo::{StrandByAtoIEditing, StrandByGenomicAnnotation};
+use crate::core::stranding::predict::{REATStrandingEngine, StrandingAlgo};
 
 use super::args;
 
 pub fn readfilter(
     pbar: ProgressBar,
     matches: &ArgMatches,
-) -> SequentialReadsFilter<Record, ReadsFilterByQuality, ReadsFilterByFlags> {
-    pbar.set_message("Parsing reads filter options...");
-    let (mapq, allow_mapq_255, phread) = (
+) -> filters::Sequential<Record, filters::ByQuality, filters::ByFlags> {
+    pbar.set_message("Parsing filters filter options...");
+    let (mapq, nomapq255, phread) = (
         matches.value_of(args::reads_filtering::MAPQ).unwrap().parse().unwrap(),
-        matches.is_present(args::reads_filtering::ALLOW_MAPQ_255),
+        matches.is_present(args::reads_filtering::NO_MAPQ_255),
         matches.value_of(args::reads_filtering::PHREAD).unwrap().parse().unwrap(),
     );
-    let byquality = ReadsFilterByQuality::new(mapq, allow_mapq_255, phread);
+    let byquality = filters::ByQuality::new(mapq, nomapq255, phread);
 
     let (include, exclude) = (
         matches.value_of(args::reads_filtering::INCLUDE_FLAGS).unwrap().parse().unwrap(),
         matches.value_of(args::reads_filtering::EXCLUDE_FLAGS).unwrap().parse().unwrap(),
     );
-    let byflags = ReadsFilterByFlags::new(include, exclude);
+    let byflags = filters::ByFlags::new(include, exclude);
 
     let msg = format!(
         "Reads filter options: require flags {}, disallow flags {}, mapq >= {}, phread >= {}. ",
@@ -42,13 +46,13 @@ pub fn readfilter(
         byquality.mapq(),
         byquality.phread()
     );
-    if allow_mapq_255 {
-        pbar.finish_with_message(msg + "Mapq = 255 is allowed.");
-    } else {
+    if nomapq255 {
         pbar.finish_with_message(msg + "Mapq = 255 is NOT allowed.");
+    } else {
+        pbar.finish_with_message(msg + "Mapq = 255 is allowed.");
     }
 
-    SequentialReadsFilter::new(byquality, byflags)
+    filters::Sequential::new(byquality, byflags)
 }
 
 pub fn trimming(pbar: ProgressBar, matches: &ArgMatches) -> (u16, u16) {
@@ -66,10 +70,11 @@ pub fn trimming(pbar: ProgressBar, matches: &ArgMatches) -> (u16, u16) {
     (trim5, trim3)
 }
 
-pub fn saveto(pbar: ProgressBar, matches: &ArgMatches) -> BufWriter<File> {
+pub fn saveto(pbar: ProgressBar, matches: &ArgMatches) -> csv::Writer<File> {
     pbar.set_message("Parsing output path...");
     let result = matches.value_of(args::core::SAVETO).unwrap();
-    let file = BufWriter::new(File::create(result).unwrap());
+    let file = File::create(result).unwrap();
+    let file = csv::WriterBuilder::new().from_writer(file);
     pbar.finish_with_message(format!("Result will be saved to {}", result));
     file
 }
@@ -79,14 +84,14 @@ pub fn stranding(pbar: ProgressBar, matches: &ArgMatches) -> Stranding {
     let stranding = Stranding::from_str(matches.value_of(args::core::STRANDING).unwrap()).unwrap();
     let msg = match stranding {
         Stranding::Unstranded => {
-            "Unstranded library, regions/loci strand will be predicted by heuristic"
+            "Unstranded library, transcription strand will be predicted by heuristics"
         }
         Stranding::Stranded(x) => {
             match x {
-                StrandSpecificExperimentDesign::Same => {"Single-end stranded library: read strand matches transcription strand"}
-                StrandSpecificExperimentDesign::Flip => {"Single-end stranded library: read strand is reverse to the transcription strand"}
-                StrandSpecificExperimentDesign::Same1Flip2 => {"Paired-end stranded library: read1 matches transcription strand, read2 is reverse to the transcription strand"}
-                StrandSpecificExperimentDesign::Flip1Same2 => {"Paired-end stranded library: read1 is reverse to the transcription strand, read2 matches transcription strand"}
+                StrandSpecificExperimentDesign::Same => { "Single-end stranded library: read strand matches transcription strand" }
+                StrandSpecificExperimentDesign::Flip => { "Single-end stranded library: read strand is reverse to the transcription strand" }
+                StrandSpecificExperimentDesign::Same1Flip2 => { "Paired-end stranded library: read1 matches transcription strand, read2 is reverse to the transcription strand" }
+                StrandSpecificExperimentDesign::Flip1Same2 => { "Paired-end stranded library: read1 is reverse to the transcription strand, read2 matches transcription strand" }
             }
         }
     };
@@ -94,9 +99,16 @@ pub fn stranding(pbar: ProgressBar, matches: &ArgMatches) -> Stranding {
     stranding
 }
 
-pub fn strandpred(pbar: ProgressBar, matches: &ArgMatches) -> SequentialStrandPredictor {
+pub fn strandpred<T>(pbar: ProgressBar, matches: &ArgMatches) -> REATStrandingEngine<T>
+where
+    T: MismatchesVec,
+    StrandByGenomicAnnotation: StrandingAlgo<T>,
+    StrandByAtoIEditing: StrandingAlgo<T>,
+{
     pbar.set_draw_delta(10_000);
     pbar.set_message("Parsing strand prediction parameters...");
+
+    let mut engine = REATStrandingEngine::new();
 
     let stranding = Stranding::from_str(matches.value_of(args::core::STRANDING).unwrap()).unwrap();
     if stranding != Stranding::Unstranded {
@@ -104,44 +116,29 @@ pub fn strandpred(pbar: ProgressBar, matches: &ArgMatches) -> SequentialStrandPr
             "Strand prediction is disabled -> working with \"{}\" stranded library",
             stranding
         ));
-        return SequentialStrandPredictor::new(None, None);
+        return engine;
     }
+
+    // User message
+    let mut msg = vec![];
+    matches.value_of(args::stranding::ANNOTATION).map(|x| {
+        msg.push("by genomic features [exons, genes]".to_owned());
+        engine.add(Box::new(StrandByGenomicAnnotation::from_gff(x.as_ref(), |_| pbar.inc(1))));
+    });
 
     let (minmismatches, minfreq) = (
         matches.value_of(args::stranding::MIN_MISMATCHES).unwrap().parse().unwrap(),
         matches.value_of(args::stranding::MIN_FREQ).unwrap().parse().unwrap(),
     );
-    let strand_by_editing = Some(StrandByAtoIEditing::new(minmismatches, minfreq));
+    msg.push(format!("by A->I editing[min mismatches={}, min freq={}]", minmismatches, minfreq));
+    engine.add(Box::new(StrandByAtoIEditing::new(minmismatches, minfreq)));
 
-    let strand_by_features = matches
-        .value_of(args::stranding::ANNOTATION)
-        .map(|x| Some(StrandByGenomicFeatures::from_gff3(x.as_ref(), |_| pbar.inc(1))))
-        .unwrap_or(None);
-    let result = SequentialStrandPredictor::new(strand_by_editing, strand_by_features);
-
-    let msg = "Strand prediction";
-    match (result.by_features(), result.by_editing()) {
-        (None, None) => {
-            unreachable!()
-        }
-        (Some(_), None) => pbar.finish_with_message(format!("{}: by genomic features", msg)),
-        (None, Some(x)) => pbar.finish_with_message(format!(
-            "{}: by A->I editing[min mismatches={}, min freq={}]",
-            msg,
-            x.min_mismatches(),
-            x.min_freq()
-        )),
-        (Some(_), Some(x)) => pbar.finish_with_message(format!(
-            "{}: by genomic features IF FAIL by A->I editing[min mismatches={}, min freq={}]",
-            msg,
-            x.min_mismatches(),
-            x.min_freq()
-        )),
-    };
-    result
+    let msg = format!("Strand prediction (by priority): {}", msg.join(", "));
+    pbar.finish_with_message(msg);
+    engine
 }
 
-pub fn refnucpred(pbar: ProgressBar, matches: &ArgMatches) -> RefNucPredByHeurisitc {
+pub fn refnucpred<T: FastaReader>(pbar: ProgressBar, matches: &ArgMatches, reader: T) -> AutoRef<T> {
     pbar.set_message("Parsing reference prediction parameters...");
 
     let (mincoverage, minfreq, hyperedit) = (
@@ -149,15 +146,14 @@ pub fn refnucpred(pbar: ProgressBar, matches: &ArgMatches) -> RefNucPredByHeuris
         matches.value_of(args::autoref::MIN_FREQ).unwrap().parse().unwrap(),
         matches.is_present(args::autoref::HYPEREDITING),
     );
-    let result = RefNucPredByHeurisitc::new(mincoverage, minfreq, hyperedit);
     let mut msg = format!(
-        "Reference prediction for loci with coverage >= {} and most common nucleotide frequency >= {}.",
-        result.mincoverage(),
-        result.freqthr()
+        "Reference prediction for site with coverage >= {} and most common nucleotide frequency >= {}.",
+        mincoverage, minfreq
     );
     if hyperedit {
-        msg += " A->G or T->C corrections disabled (hyper editing mode)."
+        msg += " A->G or T->C corrections was disabled (hyper editing mode)."
     }
+    let result = AutoRef::new(mincoverage, minfreq, hyperedit, reader);
     pbar.finish_with_message(msg);
     result
 }
@@ -204,14 +200,14 @@ pub fn outfilter(
     freq_key: &str,
     cov_key: &str,
     matches: &ArgMatches,
-) -> SummaryFilterByMismatches {
+) -> prefilters::ByMismatches {
     pbar.set_message("Parsing filtering options...");
     let (minmismatches, minfreq, mincov) = (
         matches.value_of(mismatch_key).unwrap().parse().unwrap(),
         matches.value_of(freq_key).unwrap().parse().unwrap(),
         matches.value_of(cov_key).unwrap().parse().unwrap(),
     );
-    let result = SummaryFilterByMismatches::new(minmismatches, minfreq, mincov);
+    let result = prefilters::ByMismatches::new(minmismatches, minfreq, mincov);
     pbar.finish_with_message(format!(
         "Filtering options: min coverage >= {}; mismatches min number >= {}, min frequency >= {}",
         result.mincov(),
@@ -219,4 +215,18 @@ pub fn outfilter(
         result.minfreq()
     ));
     result
+}
+
+pub fn excluded(pbar: ProgressBar, matches: &ArgMatches) -> Option<Vec<bed::BedRecord>> {
+    pbar.set_message("Parsing excluded regions...");
+
+    if let Some(path) = matches.value_of(args::core::EXCLUDE_LIST) {
+        let bed = bed::parse(Path::new(path));
+        let bases = bed.iter().map(|x| x.interval.range().end - x.interval.range().start).sum::<u64>();
+        pbar.finish_with_message(format!("Excluded from the processing: {} regions({} bases)", bed.len(), bases));
+        Some(bed)
+    } else {
+        pbar.finish_with_message("No regions will be excluded from the processing");
+        None
+    }
 }

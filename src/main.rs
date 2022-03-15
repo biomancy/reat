@@ -1,14 +1,14 @@
+use std::io::Write;
 use std::sync::{Arc, Mutex};
+use std::{env, io};
 
 use clap::{crate_authors, crate_name, crate_version, App, AppSettings, ArgMatches};
 use indicatif::{MultiProgress, ProgressBar, ProgressFinish, ProgressStyle};
+use itertools::Itertools;
 use rayon::ThreadPoolBuilder;
 
-use itertools::Itertools;
-use rada::cli;
-use rada::cli::shared::args::CoreArgs;
-use std::io::Write;
-use std::{env, io};
+use reat::cli;
+use reat::cli::shared::args::CoreArgs;
 
 const CREATE_THREAD_POOL_ERROR: &str = "Failed to initialize thread pool";
 const RENDER_PROGRESS_ERROR: &str = "Failed to render progress bar";
@@ -52,15 +52,15 @@ fn main() {
         .setting(AppSettings::DeriveDisplayOrder)
         .setting(AppSettings::SubcommandRequiredElseHelp)
         .subcommand(
-            App::new("rois")
+            App::new("roi")
                 .long_about("Quantify editing for the specified Regions Of Interest (ROIs)")
                 .args(cli::rois::args()),
         )
         .subcommand(
-            App::new("loci").long_about("Estimate editing per-loci for the whole genome.").args(cli::loci::args()),
+            App::new("site").long_about("Estimate editing per-site for the whole genome.").args(cli::sites::args()),
         )
         .get_matches();
-    // Log the exact command used to call rada
+    // Log the exact command used to call reat
     println!("CLI: {}", env::args().join(" "));
 
     // Setup progress tracking
@@ -76,8 +76,10 @@ fn main() {
     // Parse core arguments and determine subcommand
     #[allow(clippy::type_complexity)]
     let (args, func): (&ArgMatches, Box<dyn FnOnce(&ArgMatches, CoreArgs) + Send>) = match app.subcommand() {
-        Some(("rois", matches)) => (matches, Box::new(|matches, core| cli::rois::run(matches, core, factory))),
-        Some(("loci", matches)) => (matches, Box::new(|matches, core| cli::loci::run(matches, core, factory))),
+        // cli::rois::run(matches, core, factory)
+        Some(("roi", matches)) => (matches, Box::new(|matches, core| cli::rois::run(matches, core, factory))),
+        // cli::sites::run(matches, core, factory)
+        Some(("site", matches)) => (matches, Box::new(|matches, core| cli::sites::run(matches, core, factory))),
         _ => panic!("Subcommand is not specified."),
     };
     let core = cli::shared::args::CoreArgs::new(args, factory);

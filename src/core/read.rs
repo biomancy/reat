@@ -2,8 +2,8 @@ use bio_types::genome;
 use bio_types::strand::ReqStrand;
 #[cfg(test)]
 use mockall::{mock, predicate::*};
-use rust_htslib::bam::record::CigarStringView;
 use rust_htslib::bam::Record;
+use rust_htslib::bam::record::CigarStringView;
 
 #[allow(clippy::len_without_is_empty)]
 pub trait SequencedRead {

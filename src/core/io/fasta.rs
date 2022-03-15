@@ -42,7 +42,7 @@ impl FastaReader for BasicFastaReader {
             .faidx
             .fetch_seq(contig, range.start as usize, range.end as usize)
             .unwrap_or_else(|_| panic!("Failed to fetch sequence for region {}:{}-{}", contig, range.start, range.end))
-            .into_iter()
+            .iter()
             .map(|x| Nucleotide::from(*x));
         self.cache.extend(iter);
 

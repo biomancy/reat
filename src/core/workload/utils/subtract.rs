@@ -13,7 +13,7 @@ pub struct MaskedInterval<T: AbstractInterval> {
 fn cmp(this: &impl AbstractInterval, other: &impl AbstractInterval) -> Ordering {
     let from_contig = this.contig().cmp(other.contig());
     if !from_contig.is_eq() {
-        return from_contig;
+        from_contig
     } else {
         this.range().start.cmp(&other.range().start)
     }
@@ -54,7 +54,7 @@ fn process_window<T: AbstractInterval>(
 ) -> Vec<MaskedInterval<T>> {
     windowbuf.clear();
 
-    for mut w in window.drain(..).into_iter() {
+    for mut w in window.drain(..) {
         // Behind the subtract => save to the result
         if w.inner.contig() < subtract.contig() || w.inner.range().end <= subtract.range().start {
             if !w.retained.is_empty() {
@@ -234,6 +234,6 @@ mod tests {
         let sub = [sub_1, sub_2, sub_3].into_iter().flatten().collect_vec();
         let expect = [expect_1, expect_2, expect_3].into_iter().flatten().collect_vec();
 
-        assert_eq!(subtract(inter.clone(), sub.clone()), expect);
+        assert_eq!(subtract(inter, sub), expect);
     }
 }

@@ -15,9 +15,9 @@ use reat::cli;
 
 mod paths;
 
-const TMP_CREATE_ERROR: &'static str = "Failed to create temporary file";
-const TMP_DELETE_ERROR: &'static str = "Failed to delete temporary file";
-const THREAD_POOL_ERROR: &'static str = "Failed to initialize thread pool";
+const TMP_CREATE_ERROR: &str = "Failed to create temporary file";
+const TMP_DELETE_ERROR: &str = "Failed to delete temporary file";
+const THREAD_POOL_ERROR: &str = "Failed to initialize thread pool";
 
 #[allow(non_camel_case_types)]
 enum SubCommand {
@@ -97,7 +97,7 @@ mod site {
         ];
         run(&args, SubCommand::sites);
 
-        assert!(same(tmp.path(), &expected.as_path()));
+        assert!(same(tmp.path(), expected.as_path()));
         tmp.close().expect(TMP_DELETE_ERROR);
     }
 
@@ -119,7 +119,7 @@ mod site {
         ];
         run(&args, SubCommand::sites);
 
-        assert!(same(tmp.path(), &expected.as_path()));
+        assert!(same(tmp.path(), expected.as_path()));
         tmp.close().expect(TMP_DELETE_ERROR);
     }
 
@@ -140,7 +140,7 @@ mod site {
         ];
         run(&args, SubCommand::sites);
 
-        assert!(same(tmp.path(), &expected.as_path()));
+        assert!(same(tmp.path(), expected.as_path()));
         tmp.close().expect(TMP_DELETE_ERROR);
     }
 }
@@ -168,7 +168,7 @@ mod rois {
         ];
         run(&args, SubCommand::rois);
 
-        assert!(same(tmp.path(), &expected.as_path()));
+        assert!(same(tmp.path(), expected.as_path()));
         tmp.close().expect(TMP_DELETE_ERROR);
     }
 
@@ -189,7 +189,7 @@ mod rois {
         ];
         run(&args, SubCommand::rois);
 
-        assert!(same(tmp.path(), &expected.as_path()));
+        assert!(same(tmp.path(), expected.as_path()));
         tmp.close().expect(TMP_DELETE_ERROR);
     }
 
@@ -213,7 +213,7 @@ mod rois {
         ];
         run(&args, SubCommand::rois);
 
-        assert!(same(tmp.path(), &expected.as_path()));
+        assert!(same(tmp.path(), expected.as_path()));
         tmp.close().expect(TMP_DELETE_ERROR);
     }
 
@@ -234,7 +234,7 @@ mod rois {
         ];
         run(&args, SubCommand::rois);
 
-        assert!(same(tmp.path(), &expected.as_path()));
+        assert!(same(tmp.path(), expected.as_path()));
         tmp.close().expect(TMP_DELETE_ERROR);
     }
 
@@ -266,7 +266,7 @@ mod rois {
             run(&args, SubCommand::rois);
         }
 
-        assert!(same(ei.as_path(), &expected.as_path()), "{} vs {}", ei.display(), expected.display());
+        assert!(same(ei.as_path(), expected.as_path()), "{} vs {}", ei.display(), expected.display());
         fs::remove_file(ei).expect(TMP_DELETE_ERROR);
     }
 }

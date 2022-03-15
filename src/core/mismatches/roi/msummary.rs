@@ -114,12 +114,10 @@ mod tests {
     fn from_counts() {
         let mut mismatches = NucMismatches::zeros();
         mismatches.increment(
-            &vec![Nucleotide::A, Nucleotide::Unknown, Nucleotide::C],
-            &vec![
-                NucCounts { A: 10, C: 0, G: 15, T: 0 },
+            &[Nucleotide::A, Nucleotide::Unknown, Nucleotide::C],
+            &[NucCounts { A: 10, C: 0, G: 15, T: 0 },
                 NucCounts { A: 10, C: 125, G: 15, T: 10 },
-                NucCounts { A: 9, C: 0, G: 8, T: 0 },
-            ],
+                NucCounts { A: 9, C: 0, G: 8, T: 0 }],
         );
         let mut expected = NucMismatches::zeros();
         expected.A.A = 10;

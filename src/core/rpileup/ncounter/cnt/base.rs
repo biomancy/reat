@@ -75,7 +75,7 @@ impl<R: AlignedRead, Filter: ReadsFilter<R>> BaseNucCounter<R, Filter> {
                 self.mapped += 1;
             }
         }
-        return &self.matched;
+        &self.matched
     }
 
     #[inline]
@@ -283,8 +283,8 @@ mod tests {
                 ReqStrand::Forward,
                 vec![true, true, true, true],
                 vec![op(4)],
-                &vec![A(), C(), G(), T()],
-                &vec![0..4],
+                &[A(), C(), G(), T()],
+                &[0..4],
             );
             // inside region
             run(
@@ -295,11 +295,11 @@ mod tests {
                 ReqStrand::Forward,
                 vec![true, true],
                 vec![op(2)],
-                &vec![Z(), A(), C(), Z()],
-                &vec![1..3],
+                &[Z(), A(), C(), Z()],
+                &[1..3],
             );
             // completely out of the region
-            run((0, 0), 0..4, 4, "ACGT", ReqStrand::Reverse, vec![], vec![op(4)], &vec![Z(), Z(), Z(), Z()], &vec![]);
+            run((0, 0), 0..4, 4, "ACGT", ReqStrand::Reverse, vec![], vec![op(4)], &[Z(), Z(), Z(), Z()], &[]);
             // end out of the region
             run(
                 (0, 0),
@@ -309,8 +309,8 @@ mod tests {
                 ReqStrand::Forward,
                 vec![true, true],
                 vec![op(4)],
-                &vec![Z(), Z(), A(), C()],
-                &vec![2..4],
+                &[Z(), Z(), A(), C()],
+                &[2..4],
             );
             // start out of the region
             run(
@@ -321,8 +321,8 @@ mod tests {
                 ReqStrand::Reverse,
                 vec![true, true, true],
                 vec![op(4)],
-                &vec![C(), G(), T(), Z()],
-                &vec![0..3],
+                &[C(), G(), T(), Z()],
+                &[0..3],
             );
         }
 
@@ -330,15 +330,15 @@ mod tests {
         let empty = vec![Z()].repeat(4);
         for op in [D, N, H, P, S, I] {
             // complete overlap with the region
-            run((0, 0), 0..4, 0, "ACGT", ReqStrand::Forward, vec![], vec![op(4)], &empty, &vec![]);
+            run((0, 0), 0..4, 0, "ACGT", ReqStrand::Forward, vec![], vec![op(4)], &empty, &[]);
             // inside region
-            run((0, 0), 0..4, 1, "AC", ReqStrand::Reverse, vec![], vec![op(2)], &empty, &vec![]);
+            run((0, 0), 0..4, 1, "AC", ReqStrand::Reverse, vec![], vec![op(2)], &empty, &[]);
             // completely out of the region
-            run((0, 0), 0..4, 4, "ACGT", ReqStrand::Forward, vec![], vec![op(4)], &empty, &vec![]);
+            run((0, 0), 0..4, 4, "ACGT", ReqStrand::Forward, vec![], vec![op(4)], &empty, &[]);
             // end out of the region
-            run((0, 0), 0..4, 2, "ACGT", ReqStrand::Reverse, vec![], vec![op(4)], &empty, &vec![]);
+            run((0, 0), 0..4, 2, "ACGT", ReqStrand::Reverse, vec![], vec![op(4)], &empty, &[]);
             // start out of the region
-            run((0, 0), 0..4, -1, "ACGT", ReqStrand::Forward, vec![], vec![op(4)], &empty, &vec![]);
+            run((0, 0), 0..4, -1, "ACGT", ReqStrand::Forward, vec![], vec![op(4)], &empty, &[]);
         }
 
         // Complex queries
@@ -350,10 +350,10 @@ mod tests {
             ReqStrand::Forward,
             vec![true],
             vec![D(4), M(1), N(3), M(2)],
-            &vec![Z(), Z(), A()],
-            &vec![2..3],
+            &[Z(), Z(), A()],
+            &[2..3],
         );
-        run((0, 0), 2..5, 0, "AGC", ReqStrand::Reverse, vec![false], vec![M(3)], &vec![Z(), Z(), Z()], &vec![]);
+        run((0, 0), 2..5, 0, "AGC", ReqStrand::Reverse, vec![false], vec![M(3)], &[Z(), Z(), Z()], &[]);
         run(
             (0, 0),
             2..5,
@@ -362,8 +362,8 @@ mod tests {
             ReqStrand::Reverse,
             vec![true, true],
             vec![M(1), N(2), M(2)],
-            &vec![Z(), G(), C()],
-            &vec![1..3],
+            &[Z(), G(), C()],
+            &[1..3],
         );
         run(
             (0, 0),
@@ -373,8 +373,8 @@ mod tests {
             ReqStrand::Forward,
             vec![true, true],
             vec![M(1), N(2), M(2)],
-            &vec![Z(), Z(), Z(), Z()],
-            &vec![2..4],
+            &[Z(), Z(), Z(), Z()],
+            &[2..4],
         );
 
         run(
@@ -385,8 +385,8 @@ mod tests {
             ReqStrand::Forward,
             vec![true, true],
             vec![D(2), M(1), N(1), M(1), N(1), M(1)],
-            &vec![A(), Z(), G()],
-            &vec![0..1, 2..3],
+            &[A(), Z(), G()],
+            &[0..1, 2..3],
         );
         run(
             (0, 0),
@@ -396,8 +396,8 @@ mod tests {
             ReqStrand::Reverse,
             vec![true, true, false, true, true, true, true, false, true, true],
             vec![M(10)],
-            &vec![A(), C(), Z(), T(), Z(), Z(), G(), Z(), A(), G()],
-            &vec![0..2, 3..7, 8..10],
+            &[A(), C(), Z(), T(), Z(), Z(), G(), Z(), A(), G()],
+            &[0..2, 3..7, 8..10],
         );
     }
 
@@ -412,8 +412,8 @@ mod tests {
             ReqStrand::Forward,
             vec![true],
             vec![M(4)],
-            &vec![Z(), C(), Z(), Z(), Z()],
-            &vec![1..2],
+            &[Z(), C(), Z(), Z(), Z()],
+            &[1..2],
         );
         run(
             (1, 2),
@@ -423,8 +423,8 @@ mod tests {
             ReqStrand::Reverse,
             vec![true],
             vec![M(4)],
-            &vec![Z(), Z(), G(), Z(), Z()],
-            &vec![2..3],
+            &[Z(), Z(), G(), Z(), Z()],
+            &[2..3],
         );
 
         // trim all bases from 5` or 3`
@@ -436,14 +436,14 @@ mod tests {
         }
 
         // Read out of the roi + trim
-        run((2, 1), 3..4, 0, "ACGTA", ReqStrand::Forward, vec![true], vec![M(5)], &vec![T()], &vec![0..1]);
-        run((2, 1), 3..4, 1, "ACGTA", ReqStrand::Reverse, vec![true], vec![M(5)], &vec![G()], &vec![0..1]);
+        run((2, 1), 3..4, 0, "ACGTA", ReqStrand::Forward, vec![true], vec![M(5)], &[T()], &[0..1]);
+        run((2, 1), 3..4, 1, "ACGTA", ReqStrand::Reverse, vec![true], vec![M(5)], &[G()], &[0..1]);
 
-        run((0, 3), 0..2, 0, "AGTA", ReqStrand::Forward, vec![true], vec![M(4)], &vec![A(), Z()], &vec![0..1]);
-        run((0, 3), 0..2, 0, "AGTA", ReqStrand::Reverse, vec![], vec![M(4)], &vec![Z(), Z()], &vec![]);
+        run((0, 3), 0..2, 0, "AGTA", ReqStrand::Forward, vec![true], vec![M(4)], &[A(), Z()], &[0..1]);
+        run((0, 3), 0..2, 0, "AGTA", ReqStrand::Reverse, vec![], vec![M(4)], &[Z(), Z()], &[]);
 
-        run((2, 0), 2..4, 1, "CGTA", ReqStrand::Forward, vec![true], vec![M(4)], &vec![Z(), T()], &vec![1..2]);
-        run((2, 0), 2..4, 1, "CGTA", ReqStrand::Reverse, vec![true], vec![M(4)], &vec![G(), Z()], &vec![0..1]);
+        run((2, 0), 2..4, 1, "CGTA", ReqStrand::Forward, vec![true], vec![M(4)], &[Z(), T()], &[1..2]);
+        run((2, 0), 2..4, 1, "CGTA", ReqStrand::Reverse, vec![true], vec![M(4)], &[G(), Z()], &[0..1]);
     }
 
     #[test]

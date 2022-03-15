@@ -1,15 +1,12 @@
 use std::ops::Range;
 
-use bio_types::genome::{Position};
+use bio_types::genome::Position;
 use bio_types::strand::Strand;
-use serde::ser::SerializeStruct;
 
 use soa_derive::StructOfArray;
 
-
 use crate::core::dna::NucCounts;
 use crate::core::mismatches::roi::NucMismatches;
-use crate::core::mismatches::MismatchesVec;
 use crate::core::workload::roi::*;
 
 #[derive(Clone, Debug, StructOfArray)]

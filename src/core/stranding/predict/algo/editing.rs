@@ -107,7 +107,7 @@ mod tests {
             let mut mm = NucMismatches::zeros();
             mm.T.T = matches;
             mm.T.C = mismatches;
-            assert!(result.clone().neg().same(&dummy.roipred(&mm)));
+            assert!(result.neg().same(&dummy.roipred(&mm)));
 
             mm = NucMismatches::zeros();
             mm.A.A = matches;

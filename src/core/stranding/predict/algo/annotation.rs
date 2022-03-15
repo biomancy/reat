@@ -150,7 +150,7 @@ impl StrandingAlgo<SiteMismatchesVec> for StrandByGenomicAnnotation {
         let range: Range<Position> = data.pos[*argsort.first().unwrap()]..data.pos[*argsort.last().unwrap()] + 1;
         let features = self.features_in(contig, range.clone());
         debug_assert!(
-            features.len() >= 1
+            !features.is_empty()
                 && features.first().unwrap().start == range.start
                 && features.last().unwrap().end == range.end
         );

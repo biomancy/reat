@@ -1,10 +1,9 @@
 use std::io::Write;
 
-use bio_types::genome::AbstractInterval;
 use bio_types::strand::Strand;
 use csv::Writer;
 
-use serde::ser::{SerializeSeq, SerializeStruct};
+use serde::ser::SerializeStruct;
 use serde::{Serialize, Serializer};
 
 use crate::core::mismatches::roi::{ROIDataRef, ROIDataVec};

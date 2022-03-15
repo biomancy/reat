@@ -61,7 +61,7 @@ impl<T: FastaReader> RefEngine for AutoRef<T> {
     }
 
     fn results(&self) -> RefEngineResult<'_> {
-        RefEngineResult { predicted: &self.cache, reference: &self.reader.result() }
+        RefEngineResult { predicted: &self.cache, reference: self.reader.result() }
     }
 }
 

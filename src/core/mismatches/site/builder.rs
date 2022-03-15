@@ -109,13 +109,13 @@ where
         for item in nc.cnts.into_iter() {
             // Predict the reference
             let counts = item.seqnuc(&mut self.buffer).unwrap_or(&self.buffer);
-            self.refpred.run(&contig, item.range.clone(), counts);
+            self.refpred.run(contig, item.range.clone(), counts);
             let reference = self.refpred.results();
 
             // Find loci that must be retained
-            let mustloci = self.retainer.as_ref().map_or(vec![], |r| r.retained(&contig, item.range.clone()));
+            let mustloci = self.retainer.as_ref().map_or(vec![], |r| r.retained(contig, item.range.clone()));
             for strand in [Strand::Forward, Strand::Reverse, Strand::Unknown] {
-                if let Some(ref cnt) = item.cnts[strand] {
+                if let Some(cnt) = item.cnts[strand] {
                     // debug_assert!(item.coverage[strand] > 0);
                     self.process(
                         &mustloci,

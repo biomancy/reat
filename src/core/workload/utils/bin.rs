@@ -214,14 +214,14 @@ mod tests {
             Bin { bin: interval("1", 100..110), items: inter[2..3].to_vec() },
             Bin { bin: interval("2", 0..200), items: inter[3..6].to_vec() },
             Bin { bin: interval("3", 0..40), items: inter[6..10].to_vec() },
-            chr4bin.clone(),
+            chr4bin,
         ];
         validate(inter, expected, &[50]);
     }
 
     #[test]
     fn split_interval() {
-        let workload = interval("chr1".into(), 0..284);
+        let workload = interval("chr1", 0..284);
         let expected = vec![interval("chr1", 0..100), interval("chr1", 100..200), interval("chr1", 200..284)];
 
         assert_eq!(split(vec![workload], 100), expected);

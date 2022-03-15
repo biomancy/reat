@@ -14,7 +14,7 @@ pub fn path(rawpath: &str) -> Result<(), String> {
 
 pub fn writable(_rawpath: &str) -> Result<(), String> {
     // TODO: are there any good way to actually check that file is writeable?
-    return Ok(());
+    Ok(())
     // let path = Path::new(&rawpath);
     //
     // if let Some(parent) = path.parent() {

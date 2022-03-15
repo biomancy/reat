@@ -125,8 +125,7 @@ mod tests {
             [Nucleotide::Unknown].repeat(5),
         ]
         .iter()
-        .flatten()
-        .map(|x| *x)
+        .flatten().copied()
         .collect_vec();
         counts.increment(&sequence);
 

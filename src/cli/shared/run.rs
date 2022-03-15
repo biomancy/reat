@@ -3,12 +3,9 @@ use std::cell::RefCell;
 use std::collections::HashMap;
 use std::io;
 
-
 use indicatif::ProgressBar;
 
-
 use rayon::prelude::*;
-use serde::ser::Serialize;
 
 use crate::cli::shared;
 use crate::cli::shared::thread_cache::ThreadCache;
@@ -43,8 +40,8 @@ where
 
     let ctxstore = ThreadCache::new(move || RefCell::new(runner.clone()));
     let edits: Vec<Batch<Mismatches>> = workload
-        // .into_par_iter()
-        .into_iter()
+        .into_par_iter()
+        // .into_iter()
         .filter_map(|w| {
             let result = ctxstore.get().borrow_mut().run(w);
             pbar.inc(1);
@@ -58,7 +55,7 @@ where
     pbar.finish_with_message(format!("Finished with {} items, processed reads: {}", edits.len(), reads));
 
     // Group stats by type
-    let stats = ctxstore.dissolve().map(|x| x.into_inner().stats()).flatten();
+    let stats = ctxstore.dissolve().flat_map(|x| x.into_inner().stats());
     let mut grouped: HashMap<EditingStatType, Vec<Box<dyn Any>>> = HashMap::new();
     for stat in stats {
         let (typed, any) = stat.into_any();
@@ -70,7 +67,7 @@ where
         if let Some(serializer) = statsto.get_mut(&k) {
             match k {
                 EditingStatType::ROIEditingIndex => {
-                    serializer.serialize(ROIEditingIndex::collapse(v)).expect(OUTPUT_IO_ERROR)
+                    serializer.serialize(ROIEditingIndex::collapse(v)).expect(STATS_IO_ERROR)
                 }
             };
         };

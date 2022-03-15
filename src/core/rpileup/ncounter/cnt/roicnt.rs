@@ -53,7 +53,7 @@ impl<'a, R: AlignedRead, Filter: ReadsFilter<R>> ReadsCollider<'a, R> for ROINuc
 
     fn collide(&mut self, read: &R) {
         let covered_rois =
-            self.base.count(read).iter().map(|x| self.index.find(x)).flatten().map(|x| x.data()).unique();
+            self.base.count(read).iter().flat_map(|x| self.index.find(x)).map(|x| x.data()).unique();
         for ind in covered_rois {
             self.coverage[*ind] += 1;
         }

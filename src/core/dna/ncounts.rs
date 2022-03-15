@@ -9,10 +9,10 @@ use std::cmp::max;
 
 use derive_more::{Add, AddAssign, Mul};
 
-
 use crate::core::dna::{Nucleotide, ReqNucleotide};
 
 #[derive(Clone, Copy, Eq, PartialEq, Debug, Add, AddAssign, Mul, Default)]
+#[allow(non_snake_case)]
 pub struct NucCounts {
     pub A: u32,
     pub C: u32,
@@ -21,6 +21,7 @@ pub struct NucCounts {
 }
 
 impl NucCounts {
+    #[allow(non_snake_case)]
     pub fn new(A: u32, C: u32, G: u32, T: u32) -> Self {
         Self { A, C, G, T }
     }
@@ -125,7 +126,8 @@ mod tests {
             [Nucleotide::Unknown].repeat(5),
         ]
         .iter()
-        .flatten().copied()
+        .flatten()
+        .copied()
         .collect_vec();
         counts.increment(&sequence);
 

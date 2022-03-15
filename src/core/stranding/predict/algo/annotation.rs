@@ -8,7 +8,7 @@ use std::path::Path;
 use bio::data_structures::annot_map::AnnotMap;
 use bio_types::annot::contig::Contig;
 
-use bio_types::genome::{AbstractInterval, Position};
+use bio_types::genome::{Position};
 use bio_types::strand::{ReqStrand, Strand};
 use flate2::read::GzDecoder;
 use itertools::Itertools;

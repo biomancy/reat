@@ -72,11 +72,7 @@ where
 
         (nuccnts, mismatches)
     }
-
-    fn finalize(contig: &str, item: Stranded<ROIDataVec>) -> Stranded<ROIMismatchesVec> {
-        item.into(|x, strand| ROIMismatchesVec::new(contig.to_owned(), strand, x))
-    }
-
+    
     #[inline]
     fn size_hint(&self, nc: &NucCounterResult<'a, &'a ROI>) -> Stranded<usize> {
         let mut size: Stranded<usize> = Stranded::default();

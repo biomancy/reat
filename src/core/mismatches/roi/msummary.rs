@@ -1,18 +1,23 @@
 use derive_more::{Add, AddAssign, Constructor};
 use itertools::zip;
 
-
 pub use crate::core::dna::ncounts::*;
 use crate::core::dna::Nucleotide;
 
-// These are counts with respect to the FORWARD strand
-#[derive(Constructor, Copy, Clone, Eq, PartialEq, Debug, Add, AddAssign)]
-pub struct NucMismatches {
-    pub A: NucCounts,
-    pub C: NucCounts,
-    pub G: NucCounts,
-    pub T: NucCounts,
+// Simple struct-level attribute is not working for some reason
+mod inner {
+    #![allow(non_snake_case)]
+    use super::*;
+    // These are counts with respect to the FORWARD strand
+    #[derive(Constructor, Copy, Clone, Eq, PartialEq, Debug, Add, AddAssign)]
+    pub struct NucMismatches {
+        pub A: NucCounts,
+        pub C: NucCounts,
+        pub G: NucCounts,
+        pub T: NucCounts,
+    }
 }
+pub use inner::NucMismatches;
 
 impl NucMismatches {
     #[inline]
@@ -115,9 +120,11 @@ mod tests {
         let mut mismatches = NucMismatches::zeros();
         mismatches.increment(
             &[Nucleotide::A, Nucleotide::Unknown, Nucleotide::C],
-            &[NucCounts { A: 10, C: 0, G: 15, T: 0 },
+            &[
+                NucCounts { A: 10, C: 0, G: 15, T: 0 },
                 NucCounts { A: 10, C: 125, G: 15, T: 10 },
-                NucCounts { A: 9, C: 0, G: 8, T: 0 }],
+                NucCounts { A: 9, C: 0, G: 8, T: 0 },
+            ],
         );
         let mut expected = NucMismatches::zeros();
         expected.A.A = 10;

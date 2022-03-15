@@ -60,7 +60,7 @@ fn main() {
             App::new("site").long_about("Estimate editing per-site for the whole genome.").args(cli::sites::args()),
         )
         .get_matches();
-    // Log the exact command used to call rada
+    // Log the exact command used to call reat
     println!("CLI: {}", env::args().join(" "));
 
     // Setup progress tracking

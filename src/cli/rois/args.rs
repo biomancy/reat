@@ -1,6 +1,5 @@
 use std::fs::File;
 
-
 use clap::Arg;
 use clap::ArgMatches;
 use indicatif::ProgressBar;
@@ -110,7 +109,7 @@ pub struct ROIArgs {
     pub workload: Vec<ROIWorkload>,
     pub maxwsize: usize,
     pub prefilter: prefilters::ByMismatches,
-    pub ei: Option<csv::Writer<File>>,
+    pub ei: Option<(String, csv::Writer<File>)>,
     pub stranding: REATStrandingEngine<ROIMismatchesVec>,
     pub retain: Option<RetainROIFromList>,
 }

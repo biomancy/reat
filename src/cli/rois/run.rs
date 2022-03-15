@@ -25,10 +25,10 @@ pub fn run(args: &ArgMatches, mut core: CoreArgs, factory: impl Fn() -> Progress
             // Always with prefilter since there are no site-level stats right now
             ROIMismatchesBuilder::new(args.maxwsize, core.refnucpred, args.retain, Some(args.prefilter))
         }
-        Some(ei) => {
-            statsto.insert(EditingStatType::ROIEditingIndex, ei);
+        Some((ei, writer)) => {
+            statsto.insert(EditingStatType::ROIEditingIndex, writer);
             // Disable prefilter and use a hook instead
-            hooks.add_stat(Box::new(ROIEditingIndex::default()));
+            hooks.add_stat(Box::new(ROIEditingIndex::new(core.name, ei)));
             let filter: filters::ByMismatches = args.prefilter.into();
             hooks.add_filter(Box::new(filter));
             // Builder without prefiltering

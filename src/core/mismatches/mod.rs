@@ -1,10 +1,5 @@
-
-
-
-
+use bio_types::strand::Strand;
 use std::io::Write;
-
-
 
 use crate::core::strandutil::Stranded;
 
@@ -15,10 +10,13 @@ pub mod site;
 pub type StrandingCounts = Stranded<usize>;
 
 pub trait MismatchesVec: Sized {
+    fn contig(&self) -> &str;
+    fn trstrand(&self) -> Strand;
+
     fn len(&self) -> usize;
     fn is_empty(&self) -> bool;
 
-    fn to_csv<F: Write>(&self, writer: &mut csv::Writer<F>) -> csv::Result<()>;
+    fn ugly_sort_and_to_csv<F: Write>(items: Vec<Self>, writer: &mut csv::Writer<F>) -> csv::Result<()>;
 }
 
 pub trait Builder<'a> {

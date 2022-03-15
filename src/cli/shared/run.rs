@@ -4,7 +4,7 @@ use std::collections::HashMap;
 use std::io;
 
 use indicatif::ProgressBar;
-
+use itertools::Itertools;
 use rayon::prelude::*;
 
 use crate::cli::shared;
@@ -73,13 +73,21 @@ where
         };
     }
 
-    // Serialize edits
-    for edit in edits {
-        for x in [edit.items, edit.retained] {
-            x.forward.to_csv(saveto).expect(OUTPUT_IO_ERROR);
-            x.reverse.to_csv(saveto).expect(OUTPUT_IO_ERROR);
-            x.unknown.to_csv(saveto).expect(OUTPUT_IO_ERROR);
-        }
-    }
+    // TODO: refactoring!!!
+    let items = edits
+        .into_iter()
+        .flat_map(|x| {
+            [
+                x.items.forward,
+                x.items.reverse,
+                x.items.unknown,
+                x.retained.forward,
+                x.retained.reverse,
+                x.retained.unknown,
+            ]
+        })
+        .filter(|x| !x.is_empty())
+        .collect_vec();
+    Mismatches::ugly_sort_and_to_csv(items, saveto).expect(OUTPUT_IO_ERROR);
     Ok(())
 }

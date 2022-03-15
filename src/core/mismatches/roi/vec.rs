@@ -2,7 +2,7 @@ use std::io::Write;
 
 use bio_types::strand::Strand;
 use csv::Writer;
-
+use itertools::Itertools;
 use serde::ser::SerializeStruct;
 use serde::{Serialize, Serializer};
 
@@ -22,6 +22,14 @@ impl ROIMismatchesVec {
 }
 
 impl MismatchesVec for ROIMismatchesVec {
+    fn contig(&self) -> &str {
+        &self.contig
+    }
+
+    fn trstrand(&self) -> Strand {
+        self.trstrand
+    }
+
     fn len(&self) -> usize {
         self.data.len()
     }
@@ -30,9 +38,37 @@ impl MismatchesVec for ROIMismatchesVec {
         self.data.is_empty()
     }
 
-    fn to_csv<F: Write>(&self, writer: &mut Writer<F>) -> csv::Result<()> {
-        for data in &self.data {
-            writer.serialize(&SerializeROIRef { contig: &self.contig, strand: self.trstrand, data })?;
+    fn ugly_sort_and_to_csv<F: Write>(items: Vec<Self>, writer: &mut Writer<F>) -> csv::Result<()> {
+        // TODO: REFACTORING!!!
+
+        // Group by chromosomes
+        let items = items
+            .into_iter()
+            .filter(|x| !x.is_empty())
+            .into_group_map_by(|x| x.contig.clone())
+            .into_iter()
+            .sorted_by_key(|x| x.0.clone());
+
+        for (_, batches) in items {
+            let iter = batches
+                .iter()
+                .flat_map(|x| x.data.iter().map(|data| SerializeROIRef { contig: &x.contig, strand: x.trstrand, data }))
+                .sorted_by(|first, second| {
+                    let mut ord = first.data.roi.premasked.start.cmp(&second.data.roi.premasked.start);
+                    if ord.is_eq() {
+                        ord = first.data.roi.premasked.end.cmp(&second.data.roi.premasked.end);
+                    }
+                    if ord.is_eq() {
+                        ord = first.strand.strand_symbol().cmp(second.strand.strand_symbol());
+                    }
+                    if ord.is_eq() {
+                        ord = first.data.roi.name.cmp(second.data.roi.name);
+                    }
+                    ord
+                });
+            for item in iter {
+                writer.serialize(item)?;
+            }
         }
         Ok(())
     }
@@ -81,9 +117,9 @@ impl Serialize for SerializeROIRef<'_> {
 
 #[cfg(test)]
 mod test {
-    use crate::core::dna::NucCounts;
     use serde_test::{assert_ser_tokens, Token};
 
+    use crate::core::dna::NucCounts;
     use crate::core::mismatches::roi::{NucMismatches, ROIDataRecordRef};
 
     use super::*;

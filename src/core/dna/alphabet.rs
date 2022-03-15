@@ -1,6 +1,6 @@
 use std::fmt::{Display, Formatter};
 
-#[derive(Clone, Copy, Eq, PartialEq, Debug)]
+#[derive(Clone, Copy, Eq, PartialEq, PartialOrd, Ord, Debug)]
 #[allow(non_snake_case)]
 pub enum Nucleotide {
     A,

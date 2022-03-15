@@ -1,5 +1,5 @@
 use std::fs;
-use std::fs::{File};
+use std::fs::File;
 
 use std::path::{Path, PathBuf};
 
@@ -34,15 +34,15 @@ pub fn work(pbar: ProgressBar, matches: &ArgMatches, exclude: Option<Vec<BedReco
     (workload, maxlen)
 }
 
-pub fn editing_index(pbar: ProgressBar, matches: &ArgMatches) -> Option<csv::Writer<File>> {
+pub fn editing_index(pbar: ProgressBar, matches: &ArgMatches) -> Option<(String, csv::Writer<File>)> {
     pbar.set_message("Parsing EI output path...");
     match matches.value_of(args::stats::EDITING_INDEX) {
         None => {
             pbar.finish_with_message("Editing index won't be calculated");
             None
         }
-        Some(x) => {
-            let ei = PathBuf::from_str(x).unwrap();
+        Some(ei) => {
+            let ei = PathBuf::from_str(ei).unwrap();
 
             let mut builder = csv::WriterBuilder::new();
             let mut options = fs::OpenOptions::new();
@@ -59,7 +59,10 @@ pub fn editing_index(pbar: ProgressBar, matches: &ArgMatches) -> Option<csv::Wri
             let writer = builder.from_writer(stream);
 
             pbar.finish_with_message(format!("Editing index will be saved to {}", ei.display()));
-            Some(writer)
+
+            let roi = matches.value_of(args::special::ROI).unwrap();
+
+            Some((roi.into(), writer))
         }
     }
 }

@@ -5,7 +5,7 @@ edition = "2021"
 authors = ["Aleksandr Fedorov <anfedorov@hse.ru>"]
 readme = "README.md"
 license = "MIT"
-repository = "https://github.com/alnfedorov/rada"
+repository = "https://github.com/alnfedorov/reat"
 
 [dependencies]
 rust-htslib = "0.38.2"
@@ -22,12 +22,14 @@ indicatif = "0.16.2"
 derive-getters = "0.2.0"
 derive_more = "0.99.16"
 dyn-clone = "1.0.4"
+soa_derive = {git = "https://github.com/lumol-org/soa-derive", rev="408affda60bc4b4cf65d461e164a88f16cdfdf06"}
 
 [dev-dependencies]
 mockall = "0.11"
 tempfile = "3.2"
-static_init = { git = "https://gitlab.com/vkahl/static_init/", rev = "bffc02b27bcaa052994f14d7d2013a957cb74187" }
+static_init = "1.0.2"
 file_diff = "1.0"
+serde_test = "1.0.136"
 
 [profile.release]
 lto = true

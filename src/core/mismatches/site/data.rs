@@ -1,8 +1,5 @@
-
-
 use bio_types::genome::Position;
 use soa_derive::StructOfArray;
-
 
 use crate::core::dna::NucCounts;
 use crate::core::dna::Nucleotide;

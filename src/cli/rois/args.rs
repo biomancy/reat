@@ -10,7 +10,7 @@ use crate::cli::shared::args::{defaults, reqdefaults};
 use crate::cli::shared::validate;
 use crate::core::mismatches::prefilters;
 use crate::core::mismatches::prefilters::retain::RetainROIFromList;
-use crate::core::mismatches::roi::REATROIMismatchesVec;
+use crate::core::mismatches::roi::ROIMismatchesVec;
 use crate::core::stranding::predict::REATStrandingEngine;
 use crate::core::workload::ROIWorkload;
 
@@ -110,8 +110,8 @@ pub struct ROIArgs {
     pub workload: Vec<ROIWorkload>,
     pub maxwsize: usize,
     pub prefilter: prefilters::ByMismatches,
-    pub ei: Option<BufWriter<File>>,
-    pub stranding: REATStrandingEngine<REATROIMismatchesVec>,
+    pub ei: Option<csv::Writer<File>>,
+    pub stranding: REATStrandingEngine<ROIMismatchesVec>,
     pub retain: Option<RetainROIFromList>,
 }
 

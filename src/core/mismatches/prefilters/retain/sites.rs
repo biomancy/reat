@@ -36,7 +36,7 @@ impl SitesRetainer for RetainSitesFromIntervals {
         match self.index.get(contig) {
             None => vec![],
             Some(map) => {
-                let mut results = Vec::with_capacity(10);
+                let mut results = Vec::new();
                 for hit in map.find(range) {
                     results.push(hit.interval().start..hit.interval().end)
                 }

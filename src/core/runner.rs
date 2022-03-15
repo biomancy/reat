@@ -4,17 +4,16 @@ use rust_htslib::bam::Record;
 
 use crate::core::hooks::stats::EditingStat;
 use crate::core::hooks::HooksEngine;
-use crate::core::mismatches::{MismatchesBuilder, MismatchesVec};
+use crate::core::mismatches::{Batch, Builder, MismatchesVec};
 use crate::core::rpileup::hts::HTSPileupEngine;
-use crate::core::rpileup::ncounters::AggregatedNucCounts;
+use crate::core::rpileup::ncounter::NucCounterResult;
 use crate::core::rpileup::{ReadsCollider, ReadsCollidingEngine};
 use crate::core::stranding::predict::StrandingEngine;
 
 pub trait Runner<'runner, T: MismatchesVec> {
     type Workload;
-    type Result;
 
-    fn run(&'runner mut self, workload: Self::Workload) -> Self::Result;
+    fn run(&'runner mut self, workload: Self::Workload) -> Option<Batch<T>>;
     fn stats(self) -> Vec<Box<dyn EditingStat<T>>>;
 }
 
@@ -43,51 +42,36 @@ where
     }
 }
 
-impl<'runner, NCounter, MBuilder, Strander, Hook> Runner<'runner, MBuilder::Mismatches>
+impl<'runner, NCounter, MBuilder, Strander, Hook> Runner<'runner, MBuilder::Out>
     for REATRunner<NCounter, MBuilder, Strander, Hook>
 where
     for<'a> NCounter: ReadsCollider<'a, Record>,
-    <NCounter as ReadsCollider<'runner, Record>>::ColliderResult: AggregatedNucCounts<'runner>,
-    MBuilder: MismatchesBuilder<'runner, <NCounter as ReadsCollider<'runner, Record>>::ColliderResult>,
-    Strander: StrandingEngine<MBuilder::Mismatches>,
-    Hook: HooksEngine<MBuilder::Mismatches> + Clone,
+    MBuilder: Builder<'runner, SourceCounts = <NCounter as ReadsCollider<'runner, Record>>::ColliderResult>,
+    Strander: StrandingEngine<MBuilder::Out>,
+    Hook: HooksEngine<MBuilder::Out> + Clone,
 {
     type Workload = <NCounter as ReadsCollider<'runner, Record>>::Workload;
-    type Result = Vec<<MBuilder::Mismatches as MismatchesVec>::Flat>;
 
-    fn run(&'runner mut self, workload: Self::Workload) -> Self::Result {
+    fn run(&'runner mut self, workload: Self::Workload) -> Option<Batch<MBuilder::Out>> {
         self.pileuper.run(workload);
 
         let ncounts = match self.pileuper.result() {
             Some(x) => x,
-            None => return vec![],
+            None => return None,
         };
 
-        let mut mismatches = self.mmbuilder.build(ncounts);
+        let mut batch = self.mmbuilder.build(ncounts);
 
         // Run stranding
-        // mismatches.retained = self.strander.strand(mismatches.retained);
-        // mismatches.items = self.strander.strand(mismatches.items);
-        //
-        // // Final hooks
-        // self.hook.on_finish(&mut mismatches);
-        //
-        // // Finalize and return
-        // chain!(
-        //     mismatches.retained.forward.into_iter(),
-        //     mismatches.retained.reverse.into_iter(),
-        //     mismatches.retained.unknown.into_iter(),
-        //     mismatches.items.forward.into_iter(),
-        //     mismatches.items.reverse.into_iter(),
-        //     mismatches.items.unknown.into_iter(),
-        // )
-        // .map(|x| x.flatten())
-        // .flatten()
-        // .collect()
-        todo!()
+        batch.retained = self.strander.strand(&batch.contig, batch.retained);
+        batch.items = self.strander.strand(&batch.contig, batch.items);
+
+        // Final hooks
+        self.hook.on_finish(&mut batch);
+        Some(batch)
     }
 
-    fn stats(self) -> Vec<Box<dyn EditingStat<MBuilder::Mismatches>>> {
+    fn stats(self) -> Vec<Box<dyn EditingStat<MBuilder::Out>>> {
         self.hook.stats()
     }
 }

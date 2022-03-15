@@ -1,25 +1,17 @@
+use derive_more::{Add, AddAssign, Constructor};
 use itertools::zip;
+use soa_derive::StructOfArray;
 
-pub use inner::*;
-
+pub use crate::core::dna::ncounts::*;
 use crate::core::dna::Nucleotide;
 
-// See NucCounts note
-mod inner {
-    #![allow(non_snake_case)]
-
-    use derive_more::{Add, AddAssign, Constructor};
-
-    pub use crate::core::dna::NucCounts;
-
-    // These are counts with respect to the FORWARD strand
-    #[derive(Constructor, Copy, Clone, Eq, PartialEq, Debug, Add, AddAssign)]
-    pub struct NucMismatches {
-        pub A: NucCounts,
-        pub C: NucCounts,
-        pub G: NucCounts,
-        pub T: NucCounts,
-    }
+// These are counts with respect to the FORWARD strand
+#[derive(Constructor, Copy, Clone, Eq, PartialEq, Debug, Add, AddAssign)]
+pub struct NucMismatches {
+    pub A: NucCounts,
+    pub C: NucCounts,
+    pub G: NucCounts,
+    pub T: NucCounts,
 }
 
 impl NucMismatches {

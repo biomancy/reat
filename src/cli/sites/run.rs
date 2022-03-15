@@ -8,9 +8,9 @@ use crate::cli::shared::args::CoreArgs;
 use crate::cli::shared::stranding::Stranding;
 use crate::cli::sites::args::SiteArgs;
 use crate::core::hooks::engine::REATHooksEngine;
-use crate::core::mismatches::site::{REATSiteMismatchesBuilder, REATSiteMismatchesVec};
+use crate::core::mismatches::site::{SiteMismatchesBuilder, SiteMismatchesVec};
 use crate::core::rpileup::hts::HTSPileupEngine;
-use crate::core::rpileup::ncounters::cnt::{BaseNucCounter, IntervalNucCounter, StrandedNucCounter};
+use crate::core::rpileup::ncounter::cnt::{BaseNucCounter, IntervalNucCounter, StrandedNucCounter};
 use crate::core::runner::REATRunner;
 
 pub fn run(args: &ArgMatches, mut core: CoreArgs, factory: impl Fn() -> ProgressBar) {
@@ -18,23 +18,22 @@ pub fn run(args: &ArgMatches, mut core: CoreArgs, factory: impl Fn() -> Progress
 
     // Strander & Hooks don't require any further processing
     let mut strander = args.stranding;
-    let hooks: REATHooksEngine<REATSiteMismatchesVec> = REATHooksEngine::new();
+    let hooks: REATHooksEngine<SiteMismatchesVec> = REATHooksEngine::new();
 
     // Mismatchs builder. Always with prefilter since there are no site-level stats right now
-    let builder = REATSiteMismatchesBuilder::new(args.maxwsize, core.refnucpred, args.retain, Some(args.prefilter));
+    let builder = SiteMismatchesBuilder::new(args.maxwsize, core.refnucpred, args.retain, Some(args.prefilter));
 
     // Initialize basic counter
     let counter = BaseNucCounter::new(args.maxwsize, core.readfilter, core.trim5, core.trim3);
     let counter = IntervalNucCounter::new(counter);
 
-    let mut saveto = csv::WriterBuilder::new().from_writer(core.saveto);
     match core.stranding {
         Stranding::Unstranded => {
             // Compose strander + pileuper
             let pileuper = HTSPileupEngine::new(core.bamfiles, counter);
             // Launch the processing
             let runner = REATRunner::new(builder, strander, pileuper, hooks);
-            shared::run(args.workload, runner, factory(), &mut saveto, HashMap::new()).unwrap();
+            shared::run(args.workload, runner, factory(), &mut core.saveto, HashMap::new()).unwrap();
         }
         Stranding::Stranded(x) => {
             // Remove all stranding algorithm -> they are not required
@@ -45,7 +44,7 @@ pub fn run(args: &ArgMatches, mut core: CoreArgs, factory: impl Fn() -> Progress
 
             // Launch the processing
             let runner = REATRunner::new(builder, strander, pileuper, hooks);
-            shared::run(args.workload, runner, factory(), &mut saveto, HashMap::new()).unwrap();
+            shared::run(args.workload, runner, factory(), &mut core.saveto, HashMap::new()).unwrap();
         }
     };
 }
@@ -56,7 +55,7 @@ pub fn run(args: &ArgMatches, mut core: CoreArgs, factory: impl Fn() -> Progress
 //     // use mockall::predicate::*;
 //     // use mockall::Sequence;
 //     //
-//     // use crate::core::ncounters::{CountsBufferContent, NucCounterContent, NucCounts};
+//     // use crate::core::ncounter::{CountsBufferContent, NucCounterContent, NucCounts};
 //     // use crate::core::dna::Nucleotide;
 //     // use crate::core::hooks::filters::MockLocusSummaryFilter;
 //     // use crate::core::run::runner::MockLociRunCtx;

@@ -11,7 +11,7 @@ use crate::cli::shared::stranding::Stranding;
 use crate::core::io::bed::BedRecord;
 use crate::core::io::fasta::BasicFastaReader;
 use crate::core::refpred::AutoRef;
-use crate::core::rpileup::ncounters::filters;
+use crate::core::rpileup::ncounter::filters;
 
 use super::parse;
 use super::validate;
@@ -294,7 +294,7 @@ pub struct CoreArgs {
     pub readfilter: ReadsFilter,
     pub stranding: Stranding,
     pub excluded: Option<Vec<BedRecord>>,
-    pub saveto: BufWriter<File>,
+    pub saveto: csv::Writer<File>,
 }
 
 impl CoreArgs {

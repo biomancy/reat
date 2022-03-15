@@ -3,7 +3,7 @@ use bio_types::genome::AbstractInterval;
 use crate::core::read::AlignedRead;
 
 pub mod hts;
-pub mod ncounters;
+pub mod ncounter;
 
 // Pileup engine
 pub trait ReadsCollidingEngine<R: AlignedRead, Collider>

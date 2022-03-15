@@ -1,6 +1,6 @@
 pub use base::BaseNucCounter;
-pub use intercnt::{IntervalNucCounter, IntervalNucCounts};
-pub use roicnt::{ROINucCounter, ROINucCounts};
+pub use intercnt::IntervalNucCounter;
+pub use roicnt::ROINucCounter;
 pub use strandcnt::StrandedNucCounter;
 
 mod base;

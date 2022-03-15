@@ -1,6 +1,9 @@
-use std::fs::File;
+use std::fs;
+use std::fs::{File, OpenOptions};
 use std::io::BufWriter;
-use std::path::Path;
+use std::path::{Path, PathBuf};
+use std::ptr::write;
+use std::str::FromStr;
 
 use clap::ArgMatches;
 use indicatif::ProgressBar;
@@ -31,32 +34,34 @@ pub fn work(pbar: ProgressBar, matches: &ArgMatches, exclude: Option<Vec<BedReco
     (workload, maxlen)
 }
 
-pub fn editing_index(_pbar: ProgressBar, _matches: &ArgMatches) -> Option<BufWriter<File>> {
-    // pbar.set_message("Parsing EI output path...");
-    // match matches.value_of(args::stats::EDITING_INDEX) {
-    //     None => {
-    //         pbar.finish_with_message("Editing index won't be calculated");
-    //         None
-    //     }
-    //     Some(x) => {
-    //         let ei = PathBuf::from_str(x).unwrap();
-    //
-    //         let mut options = OpenOptions::new();
-    //         options.write(true);
-    //         let file = match ei.exists() {
-    //             true => BufWriter::new(options.append(true).open(ei.as_path()).unwrap()),
-    //             false => {
-    //                 let mut file = BufWriter::new(options.create(true).open(ei.as_path()).unwrap());
-    //                 resformat::statheader::<ROIEditingIndex, BufWriter<File>>(&mut file);
-    //                 file
-    //             }
-    //         };
-    //
-    //         pbar.finish_with_message(format!("Editing index will be saved to {}", ei.display()));
-    //         Some(file)
-    //     }
-    // }
-    todo!()
+pub fn editing_index(pbar: ProgressBar, matches: &ArgMatches) -> Option<csv::Writer<File>> {
+    pbar.set_message("Parsing EI output path...");
+    match matches.value_of(args::stats::EDITING_INDEX) {
+        None => {
+            pbar.finish_with_message("Editing index won't be calculated");
+            None
+        }
+        Some(x) => {
+            let ei = PathBuf::from_str(x).unwrap();
+
+            let mut builder = csv::WriterBuilder::new();
+            let mut options = fs::OpenOptions::new();
+
+            if ei.exists() {
+                builder.has_headers(false);
+                options.append(true);
+            } else {
+                options.create(true);
+            };
+
+            let stream = options.write(true).open(&ei).expect("Failed to open EI index file for writing.");
+
+            let writer = builder.from_writer(stream);
+
+            pbar.finish_with_message(format!("Editing index will be saved to {}", ei.display()));
+            Some(writer)
+        }
+    }
 }
 
 pub fn retain(pbar: ProgressBar, matches: &ArgMatches) -> Option<RetainROIFromList> {

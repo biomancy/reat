@@ -1,36 +1,37 @@
-use bio_types::genome::AbstractInterval;
+use bio_types::genome::{AbstractInterval, Position};
 use bio_types::strand::Strand;
+use serde::Serialize;
+use std::fs::File;
+use std::io::Write;
+use std::ops::Range;
 
-use crate::core::rpileup::ncounters::AggregatedNucCounts;
-use crate::core::strandutil::StrandedData;
+use crate::core::rpileup::ncounter::NucCounterResult;
+use crate::core::strandutil::Stranded;
 
 pub mod prefilters;
 pub mod roi;
 pub mod site;
-pub mod utils;
 
-pub type StrandingCounts = StrandedData<usize>;
+pub type StrandingCounts = Stranded<usize>;
 
-pub trait MismatchesVec: AbstractInterval + Sized {
-    type Flat;
+pub trait MismatchesVec: Sized {
+    fn len(&self) -> usize;
+    fn is_empty(&self) -> bool;
 
-    // Predicted transcription strand
-    fn trstrand(&self) -> Strand;
-
-    // Once grouped representation is not needed, results might be flattened
-    // (object of arrays -> array of objects)
-    fn flatten(self) -> Vec<Self::Flat>;
+    fn to_csv<F: Write>(&self, writer: &mut csv::Writer<F>) -> csv::Result<()>;
 }
 
-pub struct Context<T: MismatchesVec> {
+pub trait Builder<'a> {
+    type Out: MismatchesVec;
+    type SourceCounts;
+    fn build(&mut self, nc: Self::SourceCounts) -> Batch<Self::Out>;
+}
+
+pub struct Batch<T: MismatchesVec> {
+    pub contig: String,
+    pub mapped: Stranded<u32>,
     // Must be retained & printed no matter what
-    pub retained: StrandedData<Option<T>>,
+    pub retained: Stranded<T>,
     // Other mismatches
-    pub items: StrandedData<Option<T>>,
-}
-
-pub trait MismatchesBuilder<'a, NucCounts: AggregatedNucCounts<'a>> {
-    type Mismatches: MismatchesVec;
-
-    fn build(&'a mut self, nc: NucCounts) -> Context<Self::Mismatches>;
+    pub items: Stranded<T>,
 }

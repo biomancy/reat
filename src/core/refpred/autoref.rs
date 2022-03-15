@@ -52,6 +52,7 @@ impl<T: FastaReader> RefEngine for AutoRef<T> {
 
         self.reader.fetch(contig, range);
         let reference = self.reader.result();
+        debug_assert!(reference.len() == sequenced.len());
 
         for (r, s) in zip(sequenced, reference) {
             let inferred = self.infer(*s, r);

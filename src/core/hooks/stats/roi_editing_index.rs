@@ -9,22 +9,20 @@ use serde::{Serialize, Serializer};
 use crate::core::hooks::stats::EditingStat;
 use crate::core::hooks::stats::EditingStatType;
 use crate::core::hooks::Hook;
-use crate::core::mismatches::roi::{NucMismatches, ROIMismatches, ROIMismatchesVec};
-use crate::core::mismatches::Context;
+use crate::core::mismatches::roi::{NucMismatches, ROIMismatchesVec};
+use crate::core::mismatches::{Batch, MismatchesVec};
 
 #[derive(Copy, Clone, Default, Add, AddAssign)]
 pub struct ROIEditingIndex {
     accumulator: NucMismatches,
+    unstranded: usize,
 }
 
 impl ROIEditingIndex {
-    fn process<T>(&mut self, x: &T)
-    where
-        T: ROIMismatchesVec,
-        T::Flat: ROIMismatches,
-    {
-        let iter = x.mismatches().iter();
-        match x.trstrand() {
+    fn process(&mut self, x: &ROIMismatchesVec, strand: Strand) {
+        let iter = x.data.mismatches.iter();
+
+        match strand {
             Strand::Forward => {
                 for x in iter {
                     self.accumulator += *x;
@@ -36,7 +34,7 @@ impl ROIEditingIndex {
                 }
             }
             Strand::Unknown => {
-                todo!("Warn about unstranded ROIs")
+                self.unstranded += 1;
             }
         }
     }
@@ -71,25 +69,16 @@ impl Serialize for ROIEditingIndex {
     }
 }
 
-impl<T> Hook<T> for ROIEditingIndex
-where
-    T: ROIMismatchesVec,
-    T::Flat: ROIMismatches,
-{
-    fn on_finish(&mut self, mismatches: &mut Context<T>) {
-        for items in [&mismatches.retained, &mismatches.items] {
-            for strand in [Strand::Forward, Strand::Reverse, Strand::Unknown] {
-                items[strand].as_ref().map(|x| self.process(x));
-            }
+impl Hook<ROIMismatchesVec> for ROIEditingIndex {
+    fn on_finish(&mut self, mismatches: &mut Batch<ROIMismatchesVec>) {
+        for strand in [Strand::Forward, Strand::Reverse, Strand::Unknown] {
+            self.process(&mismatches.retained[strand], strand);
+            self.process(&mismatches.items[strand], strand);
         }
     }
 }
 
-impl<T> EditingStat<T> for ROIEditingIndex
-where
-    T: ROIMismatchesVec,
-    T::Flat: ROIMismatches,
-{
+impl EditingStat<ROIMismatchesVec> for ROIEditingIndex {
     fn into_any(self: Box<Self>) -> (EditingStatType, Box<dyn Any>) {
         (EditingStatType::ROIEditingIndex, self)
     }

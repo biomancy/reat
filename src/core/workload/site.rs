@@ -32,20 +32,19 @@ impl SiteWorkload {
         if let Some(excluded) = exclude {
             intervals = utils::subtract(intervals, excluded)
                 .into_iter()
-                .map(|x| {
+                .flat_map(|x| {
                     let contig = x.inner.contig().to_owned();
                     x.retained.into_iter().map(move |piece| Interval::new(contig.clone(), piece))
                 })
-                .flatten()
                 .collect();
         }
 
         // Bin and transform to the workload
-        utils::bin(intervals, binsize)
+        utils::split(intervals, binsize)
             .into_iter()
             .map(|x| {
-                let ranges = x.items.into_iter().map(|x| x.range()).collect();
-                SiteWorkload { interval: x.bin, include: ranges }
+                let include = vec![x.range().start..x.range().end];
+                SiteWorkload { interval: x, include }
             })
             .collect()
     }

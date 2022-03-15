@@ -3,6 +3,7 @@ use std::ops::Range;
 use bio_types::genome::{AbstractInterval, Interval, Position};
 use bio_types::strand::{Same, Strand};
 use derive_getters::{Dissolve, Getters};
+use soa_derive::StructOfArray;
 
 use crate::core::io::bed::BedRecord;
 
@@ -49,17 +50,7 @@ impl ROI {
         debug_assert!(subintervals.iter().all(|x| x.start >= premasked.start && x.end <= premasked.end));
         ROI { contig, premasked, subintervals, name, strand }
     }
-
-    pub fn nucmasked(&self) -> u64 {
-        let mut nucin = 0;
-        for piece in &self.subintervals {
-            nucin += piece.end - piece.start;
-        }
-        let total = self.premasked.end - self.premasked.start;
-
-        total - nucin
-    }
-
+    
     pub fn premasked(&self) -> Range<Position> {
         self.premasked.clone()
     }

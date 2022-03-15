@@ -7,16 +7,18 @@ use std::path::Path;
 
 use bio::data_structures::annot_map::AnnotMap;
 use bio_types::annot::contig::Contig;
+use bio_types::annot::pos::Pos;
 use bio_types::genome::{AbstractInterval, Position};
 use bio_types::strand::{ReqStrand, Strand};
 use flate2::read::GzDecoder;
 use itertools::Itertools;
 
 use crate::core::io;
-use crate::core::mismatches::roi::{REATROIMismatchesVec, ROIMismatchesVec};
-use crate::core::mismatches::site::{REATSiteMismatchesVec, SiteMismatchesVec};
-use crate::core::mismatches::StrandingCounts;
-use crate::core::stranding::predict::{StrandingAlgo, StrandingAlgoResult};
+use crate::core::mismatches::roi::{ROIDataRef, ROIMismatchesVec};
+use crate::core::mismatches::site::{SiteDataVec, SiteMismatchesVec};
+use crate::core::mismatches::{MismatchesVec, StrandingCounts};
+use crate::core::stranding::predict::StrandingAlgo;
+use crate::core::strandutil::Stranded;
 
 use super::utils;
 
@@ -95,15 +97,13 @@ impl StrandByGenomicAnnotation {
         Strand::Unknown
     }
 
-    fn features_in(&self, supinterval: &impl AbstractInterval) -> Vec<Range<Position>> {
-        let contig = supinterval.contig().to_owned();
-        let (start, end) = (supinterval.range().start, supinterval.range().end);
+    fn features_in(&self, contig: &str, range: Range<Position>) -> Vec<Range<Position>> {
+        let (start, end) = (range.start, range.end);
 
-        let key = Contig::new(contig, start as isize, (end - start) as usize, Strand::Unknown);
+        let key = Contig::new(contig.to_owned(), start as isize, (end - start) as usize, Strand::Unknown);
         let borders = (self.exons.find(&key))
             .chain(self.genes.find(&key))
-            .map(|x| [x.interval().start as Position, x.interval().end as Position])
-            .flatten()
+            .flat_map(|x| [x.interval().start as Position, x.interval().end as Position])
             .sorted()
             .skip_while(|x| x <= &start)
             .dedup()
@@ -132,47 +132,68 @@ impl StrandByGenomicAnnotation {
     }
 }
 
-impl StrandingAlgo<REATROIMismatchesVec> for StrandByGenomicAnnotation {
-    fn predict(&self, x: &REATROIMismatchesVec) -> StrandingAlgoResult {
-        let iter = x.postmasked().iter().map(|range| self.predict(x.contig(), range.clone()));
-        utils::stranditer(iter)
+impl StrandingAlgo<ROIMismatchesVec> for StrandByGenomicAnnotation {
+    fn predict(&self, contig: &str, items: &mut Stranded<ROIMismatchesVec>) {
+        utils::assort_strands!(items, |x: ROIDataRef| self.predict(contig, x.roi.postmasked.clone()));
     }
 }
 
-impl StrandingAlgo<REATSiteMismatchesVec> for StrandByGenomicAnnotation {
-    fn predict(&self, x: &REATSiteMismatchesVec) -> StrandingAlgoResult {
+impl StrandingAlgo<SiteMismatchesVec> for StrandByGenomicAnnotation {
+    fn predict(&self, contig: &str, items: &mut Stranded<SiteMismatchesVec>) {
+        if items.unknown.is_empty() {
+            return;
+        }
+        let data = &mut items.unknown.data;
+        let argsort = (0..data.len()).into_iter().sorted_by_key(|&x| data.pos[x]).collect_vec();
+
         // Get all annotated features in the given region (=regions with constant annotation)
-        let features = self.features_in(x);
+        let range: Range<Position> = data.pos[*argsort.first().unwrap()]..data.pos[*argsort.last().unwrap()] + 1;
+        let features = self.features_in(contig, range.clone());
         debug_assert!(
             features.len() >= 1
-                && features.first().unwrap().start == x.range().start
-                && features.last().unwrap().end == x.range().end
+                && features.first().unwrap().start == range.start
+                && features.last().unwrap().end == range.end
         );
 
+        // Special case -> simply append all items to an existing vector
         if features.len() == 1 {
-            let strand = self.predict(x.contig(), x.range());
-            return StrandingAlgoResult::AllElements(strand);
+            match self.predict(contig, range) {
+                Strand::Forward => items.forward.data.append(data),
+                Strand::Reverse => items.reverse.data.append(data),
+                Strand::Unknown => {}
+            }
+            return;
         }
 
-        let mut strands = Vec::with_capacity(x.pos().len());
-        let mut counts = StrandingCounts::default();
+        let mut remained = SiteDataVec::with_capacity(data.len() / 10);
 
         let mut iter = features.into_iter();
         let mut feature = iter.next().unwrap();
-        let mut strand = None;
-        for &pos in x.pos() {
+        let mut strand = self.predict(contig, feature.clone());
+        for ind in argsort {
+            let pos = data.pos[ind];
             // While site is not inside the feature
             while !feature.contains(&pos) {
                 feature = iter.next().unwrap();
-                strand = None;
-            }
-            // Predict strand for the current feature (if not predicted yet)
-            let strand = strand.unwrap_or_else(|| self.predict(x.contig(), feature.clone()));
-            counts[strand] += 1;
-            strands.push(strand);
-        }
 
-        StrandingAlgoResult::EachElement((strands, counts))
+                // Predict strand if the next feature is useful
+                if feature.contains(&pos) {
+                    strand = self.predict(contig, feature.clone());
+                }
+            }
+
+            let item = data.get(ind).unwrap();
+            match strand {
+                Strand::Forward => {
+                    items.forward.data.push(item.into());
+                }
+                Strand::Reverse => {
+                    items.reverse.data.push(item.into());
+                }
+                Strand::Unknown => remained.push(item.into()),
+            }
+        }
+        items.unknown.data = remained;
     }
 }
 
@@ -239,7 +260,7 @@ mod tests {
             (2..7, [2..3, 3..6, 6..7].to_vec()),
             (0..7, [0..1, 1..3, 3..6, 6..7].to_vec()),
         ] {
-            let inferred = dummy.features_in(&Interval::new("chr1".into(), query));
+            let inferred = dummy.features_in("chr1", query);
             assert_eq!(inferred, expected);
         }
 
@@ -259,13 +280,14 @@ mod tests {
             (13..30, [13..16, 16..20, 20..24, 24..28, 28..30].to_vec()),
             (16..36, [16..20, 20..24, 24..28, 28..30, 30..36].to_vec()),
         ] {
-            let inferred = dummy.features_in(&Interval::new("chr1".into(), query));
+            let inferred = dummy.features_in("chr1", query);
             assert_eq!(inferred, expected);
         }
     }
 
     #[test]
+    #[ignore]
     fn batched_sites() {
-        // TODO: test for batched sites
+        todo!("Write tests for batch sites")
     }
 }

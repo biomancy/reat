@@ -1,6 +1,6 @@
-pub use roi::{ROI, ROIWorkload};
+pub use roi::{ROIWorkload, ROI};
 pub use site::SiteWorkload;
 
-mod roi;
+pub mod roi;
 mod site;
 mod utils;

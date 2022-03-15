@@ -1,21 +1,22 @@
 use bio_types::strand::Strand;
 
-use crate::core::mismatches::StrandingCounts;
-use crate::core::stranding::predict::StrandingAlgoResult;
+use crate::core::mismatches::{MismatchesVec, StrandingCounts};
+use crate::core::strandutil::Stranded;
 
-pub fn stranditer(strands: impl Iterator<Item = Strand>) -> StrandingAlgoResult {
-    let mut counts = StrandingCounts::default();
-    let strands = strands
-        .map(|s| {
-            counts[s] += 1;
-            s
-        })
-        .collect();
-
-    match (counts.forward > 0, counts.reverse > 0, counts.unknown > 0) {
-        (true, false, false) => StrandingAlgoResult::AllElements(Strand::Forward),
-        (false, true, false) => StrandingAlgoResult::AllElements(Strand::Reverse),
-        (false, false, true) => StrandingAlgoResult::AllElements(Strand::Unknown),
-        _ => StrandingAlgoResult::EachElement((strands, counts)),
-    }
+macro_rules! assort_strands {
+    ($items: ident, $func: expr) => {
+        $items.unknown.data.retain(|x| match $func(x) {
+            Strand::Forward => {
+                $items.forward.data.push(x.into());
+                false
+            }
+            Strand::Reverse => {
+                $items.reverse.data.push(x.into());
+                false
+            }
+            Strand::Unknown => true,
+        });
+    };
 }
+
+pub(crate) use assort_strands;

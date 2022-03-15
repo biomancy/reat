@@ -14,7 +14,7 @@ use crate::core::io::bed;
 use crate::core::io::fasta::FastaReader;
 use crate::core::mismatches::{prefilters, MismatchesVec};
 use crate::core::refpred::AutoRef;
-use crate::core::rpileup::ncounters::filters;
+use crate::core::rpileup::ncounter::filters;
 use crate::core::stranding::deduce::StrandSpecificExperimentDesign;
 use crate::core::stranding::predict::algo::{StrandByAtoIEditing, StrandByGenomicAnnotation};
 use crate::core::stranding::predict::{REATStrandingEngine, StrandingAlgo};
@@ -70,10 +70,11 @@ pub fn trimming(pbar: ProgressBar, matches: &ArgMatches) -> (u16, u16) {
     (trim5, trim3)
 }
 
-pub fn saveto(pbar: ProgressBar, matches: &ArgMatches) -> BufWriter<File> {
+pub fn saveto(pbar: ProgressBar, matches: &ArgMatches) -> csv::Writer<File> {
     pbar.set_message("Parsing output path...");
     let result = matches.value_of(args::core::SAVETO).unwrap();
-    let file = BufWriter::new(File::create(result).unwrap());
+    let file = File::create(result).unwrap();
+    let file = csv::WriterBuilder::new().from_writer(file);
     pbar.finish_with_message(format!("Result will be saved to {}", result));
     file
 }

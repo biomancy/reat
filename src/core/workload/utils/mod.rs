@@ -1,4 +1,4 @@
-pub use bin::bin;
+pub use bin::{bin, split};
 pub use subtract::subtract;
 
 mod bin;

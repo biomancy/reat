@@ -45,6 +45,13 @@ impl FastaReader for BasicFastaReader {
             .into_iter()
             .map(|x| Nucleotide::from(*x));
         self.cache.extend(iter);
+
+        let expected = (range.end - range.start) as usize;
+        if self.cache.len() != expected {
+            assert!(self.cache.len() > expected);
+            self.cache.truncate(expected);
+        }
+        debug_assert_eq!(self.cache.len(), expected);
     }
 
     fn result(&self) -> &[Nucleotide] {

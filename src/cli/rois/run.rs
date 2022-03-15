@@ -9,36 +9,36 @@ use crate::cli::shared::args::CoreArgs;
 use crate::cli::shared::stranding::Stranding;
 use crate::core::hooks::engine::REATHooksEngine;
 use crate::core::hooks::filters;
-use crate::core::hooks::stats::ROIEditingIndex;
-use crate::core::mismatches::roi::{REATROIMismatchesBuilder, REATROIMismatchesVec};
+use crate::core::hooks::stats::{EditingStatType, ROIEditingIndex};
+use crate::core::mismatches::roi::{ROIMismatchesBuilder, ROIMismatchesVec};
 use crate::core::rpileup::hts::HTSPileupEngine;
-use crate::core::rpileup::ncounters::cnt::{BaseNucCounter, ROINucCounter, StrandedNucCounter};
+use crate::core::rpileup::ncounter::cnt::{BaseNucCounter, ROINucCounter, StrandedNucCounter};
 use crate::core::runner::REATRunner;
 
-pub fn run(args: &ArgMatches, core: CoreArgs, factory: impl Fn() -> ProgressBar) {
+pub fn run(args: &ArgMatches, mut core: CoreArgs, factory: impl Fn() -> ProgressBar) {
     let args = ROIArgs::new(&core, args, &factory);
 
-    let mut hooks: REATHooksEngine<REATROIMismatchesVec> = REATHooksEngine::new();
+    let mut hooks: REATHooksEngine<ROIMismatchesVec> = REATHooksEngine::new();
+    let mut statsto = HashMap::new();
     let builder = match args.ei {
         None => {
             // Always with prefilter since there are no site-level stats right now
-            REATROIMismatchesBuilder::new(args.maxwsize, core.refnucpred, args.retain, Some(args.prefilter))
+            ROIMismatchesBuilder::new(args.maxwsize, core.refnucpred, args.retain, Some(args.prefilter))
         }
-        Some(_) => {
+        Some(ei) => {
+            statsto.insert(EditingStatType::ROIEditingIndex, ei);
             // Disable prefilter and use a hook instead
             hooks.add_stat(Box::new(ROIEditingIndex::default()));
             let filter: filters::ByMismatches = args.prefilter.into();
             hooks.add_filter(Box::new(filter));
             // Builder without prefiltering
-            REATROIMismatchesBuilder::new(args.maxwsize, core.refnucpred, args.retain, None)
+            ROIMismatchesBuilder::new(args.maxwsize, core.refnucpred, args.retain, None)
         }
     };
 
     // Initialize basic counter
     let counter = BaseNucCounter::new(args.maxwsize, core.readfilter, core.trim5, core.trim3);
     let counter = ROINucCounter::new(counter);
-
-    let mut saveto = csv::WriterBuilder::new().from_writer(core.saveto);
 
     let mut strander = args.stranding;
     match core.stranding {
@@ -47,7 +47,7 @@ pub fn run(args: &ArgMatches, core: CoreArgs, factory: impl Fn() -> ProgressBar)
             let pileuper = HTSPileupEngine::new(core.bamfiles, counter);
             // Launch the processing
             let runner = REATRunner::new(builder, strander, pileuper, hooks);
-            shared::run(args.workload, runner, factory(), &mut saveto, HashMap::new()).unwrap()
+            shared::run(args.workload, runner, factory(), &mut core.saveto, statsto).unwrap()
         }
         Stranding::Stranded(x) => {
             // Remove all stranding algorithm -> they are not required
@@ -58,7 +58,7 @@ pub fn run(args: &ArgMatches, core: CoreArgs, factory: impl Fn() -> ProgressBar)
 
             // Launch the processing
             let runner = REATRunner::new(builder, strander, pileuper, hooks);
-            shared::run(args.workload, runner, factory(), &mut saveto, HashMap::new()).unwrap()
+            shared::run(args.workload, runner, factory(), &mut core.saveto, statsto).unwrap()
         }
     };
 
@@ -151,7 +151,7 @@ pub fn run(args: &ArgMatches, core: CoreArgs, factory: impl Fn() -> ProgressBar)
 //     // use mockall::predicate::*;
 //     // use mockall::Sequence;
 //     //
-//     // use crate::core::ncounters::{CountsBufferContent, NucCounterContent, NucCounts};
+//     // use crate::core::ncounter::{CountsBufferContent, NucCounterContent, NucCounts};
 //     // use crate::core::dna::Nucleotide;
 //     // use crate::core::hooks::filters::MockIntervalSummaryFilter;
 //     // use crate::core::run::runner::MockROIRunCtx;

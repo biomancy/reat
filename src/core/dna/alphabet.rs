@@ -28,6 +28,12 @@ impl Display for Nucleotide {
     }
 }
 
+impl Default for Nucleotide {
+    fn default() -> Self {
+        Nucleotide::Unknown
+    }
+}
+
 impl From<u8> for Nucleotide {
     fn from(symbol: u8) -> Self {
         match symbol {

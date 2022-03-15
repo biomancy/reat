@@ -13,13 +13,18 @@ pub fn path(rawpath: &str) -> Result<(), String> {
 }
 
 pub fn writable(rawpath: &str) -> Result<(), String> {
-    let path = Path::new(&rawpath);
-    if let Some(parent) = path.parent() {
-        if parent.exists() && !parent.metadata().unwrap().permissions().readonly() {
-            return Ok(());
-        }
-    }
-    Err(format!("Path {} seems to be not writable", rawpath))
+    // TODO: are there any good way to actually check that file is writeable?
+    return Ok(());
+    // let path = Path::new(&rawpath);
+    //
+    // if let Some(parent) = path.parent() {
+    //     println!("{} {}", parent.display(), parent.exists());
+    //     if parent.exists() {
+    //         // && !parent.metadata().unwrap().permissions().readonly() {
+    //
+    //     }
+    // }
+    // Err(format!("Path {} seems to be not writable", rawpath))
 }
 
 pub fn stranding(stranding: &str) -> Result<(), String> {

@@ -4,11 +4,14 @@ use derive_more::Constructor;
 use itertools::zip;
 
 use crate::core::dna::{NucCounts, Nucleotide};
-use crate::core::mismatches::roi::{NucMismatches, REATROIMismatchesVec, ROIMismatchesVec};
-use crate::core::mismatches::site::{REATSiteMismatchesVec, SiteMismatchesVec};
+use crate::core::mismatches::roi::ROIDataRef;
+use crate::core::mismatches::roi::{NucMismatches, ROIData, ROIMismatchesVec};
+use crate::core::mismatches::site::{SiteDataRef, SiteMismatchesVec};
 use crate::core::mismatches::StrandingCounts;
 use crate::core::stranding::predict::algo::utils;
-use crate::core::stranding::predict::{StrandingAlgo, StrandingAlgoResult};
+use crate::core::stranding::predict::StrandingAlgo;
+use crate::core::strandutil::Stranded;
+use crate::core::workload::ROI;
 
 #[derive(Constructor, Getters, Copy, Clone)]
 pub struct StrandByAtoIEditing {
@@ -24,7 +27,7 @@ impl StrandByAtoIEditing {
     }
 
     #[inline]
-    fn sitepred(&self, sequenced: &NucCounts, refnuc: &Nucleotide) -> Strand {
+    fn sitepred(&self, sequenced: &NucCounts, refnuc: Nucleotide) -> Strand {
         match refnuc {
             Nucleotide::A => {
                 if self.edited(sequenced.A, sequenced.G) {
@@ -75,17 +78,15 @@ impl StrandByAtoIEditing {
     }
 }
 
-impl StrandingAlgo<REATROIMismatchesVec> for StrandByAtoIEditing {
-    fn predict(&self, x: &REATROIMismatchesVec) -> StrandingAlgoResult {
-        let iter = x.mismatches().iter().map(|m| self.roipred(m));
-        utils::stranditer(iter)
+impl StrandingAlgo<ROIMismatchesVec> for StrandByAtoIEditing {
+    fn predict(&self, _: &str, items: &mut Stranded<ROIMismatchesVec>) {
+        utils::assort_strands!(items, |x: ROIDataRef| self.roipred(x.mismatches));
     }
 }
 
-impl StrandingAlgo<REATSiteMismatchesVec> for StrandByAtoIEditing {
-    fn predict(&self, x: &REATSiteMismatchesVec) -> StrandingAlgoResult {
-        let iter = zip(x.prednuc(), x.seqnuc()).map(|(pn, sn)| self.sitepred(sn, pn));
-        utils::stranditer(iter)
+impl StrandingAlgo<SiteMismatchesVec> for StrandByAtoIEditing {
+    fn predict(&self, _: &str, items: &mut Stranded<SiteMismatchesVec>) {
+        utils::assort_strands!(items, |x: SiteDataRef| self.sitepred(x.sequenced, *x.prednuc));
     }
 }
 
@@ -94,8 +95,6 @@ mod tests {
     use std::ops::Neg;
 
     use bio_types::strand::Same;
-
-    use crate::core::mismatches::roi::REATROIMismatches;
 
     use super::*;
 
@@ -143,7 +142,7 @@ mod tests {
             (NucCounts::new(10, 0, 9, 0), Nucleotide::A),
             (NucCounts::new(0, 200, 0, 200), Nucleotide::G),
         ] {
-            assert!(dummy.sitepred(&sequenced, &refnuc).is_unknown());
+            assert!(dummy.sitepred(&sequenced, refnuc).is_unknown());
         }
 
         let dummy = StrandByAtoIEditing::new(8, 0.05);
@@ -152,10 +151,10 @@ mod tests {
             [(8, 8, Strand::Forward), (100, 4, Strand::Unknown), (1, 7, Strand::Unknown), (10, 10, Strand::Forward)]
         {
             let cnts = NucCounts::new(matches, 0, mismatches, 0);
-            assert!(dummy.sitepred(&cnts, &Nucleotide::A).same(&strand));
+            assert!(dummy.sitepred(&cnts, Nucleotide::A).same(&strand));
 
             let cnts = NucCounts::new(0, mismatches, 0, matches);
-            assert!(dummy.sitepred(&cnts, &Nucleotide::T).same(&strand.neg()));
+            assert!(dummy.sitepred(&cnts, Nucleotide::T).same(&strand.neg()));
         }
     }
 }

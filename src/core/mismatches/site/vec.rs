@@ -1,156 +1,111 @@
+use std::io::Write;
 use std::ops::Range;
 
 use bio_types::genome::{AbstractInterval, Position};
 use bio_types::strand::Strand;
+use csv::Writer;
 use itertools::{izip, Itertools};
+use serde::ser::{SerializeSeq, SerializeStruct};
+use serde::{Serialize, Serializer};
 
 use crate::core::dna::{NucCounts, Nucleotide};
-use crate::core::mismatches::site::flat::REATSiteMismatches;
+use crate::core::mismatches::site::SiteDataRef;
 use crate::core::mismatches::MismatchesVec;
-use crate::core::mismatches::{utils, StrandingCounts};
-use crate::core::strandutil::StrandedData;
 
-use super::SiteMismatchesVec;
+use super::data::SiteDataVec;
 
 #[derive(Clone)]
-pub struct REATSiteMismatchesVec {
+pub struct SiteMismatchesVec {
     contig: String,
     strand: Strand,
-    pos: Vec<Position>,
-    refnuc: Vec<Nucleotide>,
-    prednuc: Vec<Nucleotide>,
-    sequenced: Vec<NucCounts>,
-    blocks: Vec<Range<Position>>,
+    pub data: SiteDataVec,
 }
 
-impl REATSiteMismatchesVec {
-    pub fn new(
-        contig: String,
-        strand: Strand,
-        pos: Vec<Position>,
-        refnuc: Vec<Nucleotide>,
-        prednuc: Vec<Nucleotide>,
-        sequenced: Vec<NucCounts>,
-    ) -> Self {
-        // Not empty and equal size
-        debug_assert!(!pos.is_empty());
-        debug_assert!([pos.len(), refnuc.len(), prednuc.len(), sequenced.len()].iter().all_equal());
-        // Sites must be ordered
-        debug_assert!(pos.windows(2).all(|x| x[0] <= x[1]));
+impl SiteMismatchesVec {
+    pub fn new(contig: String, strand: Strand, data: SiteDataVec) -> Self {
+        Self { contig, strand, data }
+    }
+}
 
-        let blocks = Self::infer_blocks(&pos);
-        Self { contig, strand, pos, refnuc, prednuc, sequenced, blocks }
+impl MismatchesVec for SiteMismatchesVec {
+    fn len(&self) -> usize {
+        self.data.len()
     }
 
-    fn infer_blocks(loci: &[Position]) -> Vec<Range<Position>> {
-        let mut blocks = Vec::with_capacity(loci.len());
-        let mut start = *loci.first().unwrap();
-        let mut end = start + 1;
-        for &next in loci[1..].iter() {
-            if next == end {
-                end += 1;
-            } else {
-                blocks.push(start..end);
-                start = next;
-                end = start + 1;
-            }
+    fn is_empty(&self) -> bool {
+        self.data.is_empty()
+    }
+
+    fn to_csv<F: Write>(&self, writer: &mut Writer<F>) -> csv::Result<()> {
+        for data in &self.data {
+            writer.serialize(&SerializeSiteRef { contig: &self.contig, strand: self.strand, data })?;
         }
-        blocks.push(start..end);
-        blocks
+        Ok(())
     }
 }
 
-impl AbstractInterval for REATSiteMismatchesVec {
-    fn contig(&self) -> &str {
-        &self.contig
-    }
+struct SerializeSiteRef<'a> {
+    contig: &'a str,
+    strand: Strand,
+    data: SiteDataRef<'a>,
+}
 
-    fn range(&self) -> Range<Position> {
-        *self.pos.first().unwrap()..self.pos.last().unwrap() + 1
+impl Serialize for SerializeSiteRef<'_> {
+    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        let mut state = serializer.serialize_struct("SiteMismatches", 9)?;
+        state.serialize_field("contig", self.contig)?;
+        state.serialize_field("pos", &self.data.pos)?;
+        state.serialize_field("trstrand", self.strand.strand_symbol())?;
+        state.serialize_field("refnuc", self.data.refnuc.symbol())?;
+        state.serialize_field("prednuc", self.data.prednuc.symbol())?;
+        state.serialize_field("A", &self.data.sequenced.A)?;
+        state.serialize_field("C", &self.data.sequenced.C)?;
+        state.serialize_field("G", &self.data.sequenced.G)?;
+        state.serialize_field("T", &self.data.sequenced.T)?;
+        state.end()
     }
 }
 
-impl MismatchesVec for REATSiteMismatchesVec {
-    type Flat = REATSiteMismatches;
+#[cfg(test)]
+mod test {
+    use serde_test::{assert_ser_tokens, Token};
 
-    fn trstrand(&self) -> Strand {
-        self.strand
-    }
+    use crate::core::mismatches::site::SiteData;
 
-    // fn filter(mut self, mask: Vec<bool>) -> Self {
-    //     debug_assert!([mask.len(), self.pos.len(), self.refnuc.len(), self.prednuc.len(), self.sequenced.len()]
-    //         .iter()
-    //         .all_equal());
-    //
-    //     self.pos = utils::maskvec(self.pos, &mask);
-    //     self.refnuc = utils::maskvec(self.refnuc, &mask);
-    //     self.prednuc = utils::maskvec(self.prednuc, &mask);
-    //     self.sequenced = utils::maskvec(self.sequenced, &mask);
-    //     self.blocks = Self::infer_blocks(&self.pos);
-    //     self
-    // }
-    //
-    // fn extend(&mut self, other: Self) {
-    //     todo!()
-    // }
-    //
-    // fn restrand(self, strands: Vec<Strand>, fwdto: &mut Self, revto: &mut Self) {
-    //     todo!()
-    // }
+    use super::*;
 
-    // fn restrand(self, strands: Vec<Strand>, cnts: StrandingCounts) -> StrandedData<Option<Self>> {
-    //     let mut pos = utils::select_strands(self.pos, &strands, &cnts);
-    //     let mut refnuc = utils::select_strands(self.refnuc, &strands, &cnts);
-    //     let mut prednuc = utils::select_strands(self.prednuc, &strands, &cnts);
-    //     let mut sequenced = utils::select_strands(self.sequenced, &strands, &cnts);
-    //
-    //     let mut result = StrandedData { unknown: None, forward: None, reverse: None };
-    //     for strand in [Strand::Forward, Strand::Reverse, Strand::Unknown] {
-    //         if cnts[strand] > 0 {
-    //             result[strand] = Some(Self::new(
-    //                 self.contig.clone(),
-    //                 strand,
-    //                 std::mem::take(&mut pos[strand]),
-    //                 std::mem::take(&mut refnuc[strand]),
-    //                 std::mem::take(&mut prednuc[strand]),
-    //                 std::mem::take(&mut sequenced[strand]),
-    //             ));
-    //         }
-    //     }
-    //     result
-    // }
-
-    // fn restrand_all(&mut self, strand: Strand) {
-    //     self.strand = strand;
-    // }
-
-    fn flatten(self) -> Vec<Self::Flat> {
-        izip!(self.pos.into_iter(), self.refnuc.into_iter(), self.prednuc.into_iter(), self.sequenced.into_iter())
-            .map(|(pos, refn, predn, seq)| {
-                REATSiteMismatches::new(self.contig.clone(), pos, self.strand, refn, predn, seq)
-            })
-            .collect()
-    }
-}
-
-impl SiteMismatchesVec for REATSiteMismatchesVec {
-    fn pos(&self) -> &[Position] {
-        &self.pos
-    }
-
-    fn refnuc(&self) -> &[Nucleotide] {
-        &self.refnuc
-    }
-
-    fn prednuc(&self) -> &[Nucleotide] {
-        &self.prednuc
-    }
-
-    fn seqnuc(&self) -> &[NucCounts] {
-        &self.sequenced
-    }
-
-    fn blocks(&self) -> &[Range<Position>] {
-        &self.blocks
+    #[test]
+    fn loci() {
+        let data = SiteDataRef {
+            pos: &13,
+            refnuc: &Nucleotide::A,
+            prednuc: &Nucleotide::G,
+            sequenced: &NucCounts::new(1, 2, 3, 4),
+        };
+        assert_ser_tokens(
+            &SerializeSiteRef { contig: "MySuperContig", strand: Strand::Unknown, data },
+            &[
+                Token::Struct { name: "SiteMismatches", len: 9 },
+                Token::Str("contig"),
+                Token::Str("MySuperContig"),
+                Token::Str("pos"),
+                Token::U64(13),
+                Token::Str("trstrand"),
+                Token::Str("."),
+                Token::Str("refnuc"),
+                Token::Str("A"),
+                Token::Str("prednuc"),
+                Token::Str("G"),
+                Token::Str("A"),
+                Token::U32(1),
+                Token::Str("C"),
+                Token::U32(2),
+                Token::Str("G"),
+                Token::U32(3),
+                Token::Str("T"),
+                Token::U32(4),
+                Token::StructEnd,
+            ],
+        );
     }
 }

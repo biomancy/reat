@@ -7,7 +7,7 @@ pub use rust_htslib::bam::IndexedReader;
 use rust_htslib::bam::Read;
 
 pub fn contigs(hts: &[impl AsRef<Path>]) -> Vec<Interval> {
-    let mut contigs = HashMap::with_capacity(100);
+    let mut contigs = HashMap::new();
 
     let readers = hts
         .iter()

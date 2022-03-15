@@ -1,8 +1,9 @@
+use crate::core::dna::{NucCounts, Nucleotide};
+use crate::core::mismatches::roi::{NucMismatches, ROIData};
 use derive_getters::Getters;
 use derive_more::Constructor;
 
-use crate::core::mismatches::roi::ROIMismatchesPreview;
-use crate::core::mismatches::site::SiteMismatchesPreview;
+use crate::core::mismatches::site::SiteData;
 
 use super::MismatchesPreFilter;
 
@@ -15,30 +16,30 @@ pub struct ByMismatches {
 
 impl ByMismatches {
     #[inline]
-    pub fn enough_mismatches_per_roi(&self, x: &ROIMismatchesPreview) -> bool {
+    pub fn enough_mismatches_per_roi(&self, x: &NucMismatches) -> bool {
         let (cov, mismatch) = (x.coverage(), x.mismatches());
-        x.coverage() >= self.mincov && mismatch >= self.minmismatches && mismatch as f32 / cov as f32 >= self.minfreq
+        cov >= self.mincov && mismatch >= self.minmismatches && mismatch as f32 / cov as f32 >= self.minfreq
     }
 
     #[inline]
-    pub fn enough_mismatches_per_site(&self, x: &SiteMismatchesPreview) -> bool {
-        let cov = x.1.coverage();
-        let mismatch = x.1.mismatches(x.0);
+    pub fn enough_mismatches_per_site(&self, reference: Nucleotide, sequenced: &NucCounts) -> bool {
+        let cov = sequenced.coverage();
+        let mismatch = sequenced.mismatches(reference);
         cov >= self.mincov && mismatch >= self.minmismatches && mismatch as f32 / cov as f32 >= self.minfreq
     }
 }
 
-impl MismatchesPreFilter<ROIMismatchesPreview> for ByMismatches {
+impl MismatchesPreFilter<ROIData> for ByMismatches {
     #[inline]
-    fn is_ok(&self, preview: &ROIMismatchesPreview) -> bool {
-        self.enough_mismatches_per_roi(&preview)
+    fn is_ok(&self, preview: &ROIData) -> bool {
+        self.enough_mismatches_per_roi(&preview.mismatches)
     }
 }
 
-impl MismatchesPreFilter<SiteMismatchesPreview> for ByMismatches {
+impl MismatchesPreFilter<SiteData> for ByMismatches {
     #[inline]
-    fn is_ok(&self, preview: &SiteMismatchesPreview) -> bool {
-        self.enough_mismatches_per_site(preview)
+    fn is_ok(&self, preview: &SiteData) -> bool {
+        self.enough_mismatches_per_site(preview.prednuc, &preview.sequenced)
     }
 }
 
@@ -78,13 +79,14 @@ mod tests {
             (false, 1, 0.48f32, 42),
         ] {
             let filter = ByMismatches::new(minmismatches, minfreq, mincov);
-            assert_eq!(filter.is_ok(&dummy), expected, "{} {} {}", minmismatches, minfreq, mincov);
+            assert_eq!(filter.enough_mismatches_per_roi(&dummy), expected, "{} {} {}", minmismatches, minfreq, mincov);
         }
     }
 
     #[test]
     fn ok_site() {
-        let mut dummy: SiteMismatchesPreview = (Nucleotide::A, NucCounts { A: 1, C: 2, G: 3, T: 4 });
+        let mut reference = Nucleotide::A;
+        let mut sequenced = NucCounts { A: 1, C: 2, G: 3, T: 4 };
 
         for (expected, minmismatches, minfreq, mincov) in [
             (false, 10, 0f32, 0),
@@ -96,10 +98,10 @@ mod tests {
             (false, 9, 0.85f32, 11),
         ] {
             let filter = ByMismatches { minmismatches, minfreq, mincov };
-            assert_eq!(filter.is_ok(&dummy), expected);
+            assert_eq!(filter.enough_mismatches_per_site(reference, &sequenced), expected);
         }
 
-        dummy.0 = Nucleotide::Unknown;
+        reference = Nucleotide::Unknown;
         for (expected, minmismatches, minfreq, mincov) in [
             (true, 10, 0f32, 0),
             (true, 9, 0f32, 0),
@@ -110,7 +112,7 @@ mod tests {
             (false, 10, 1f32, 11),
         ] {
             let filter = ByMismatches { minmismatches, minfreq, mincov };
-            assert_eq!(filter.is_ok(&dummy), expected);
+            assert_eq!(filter.enough_mismatches_per_site(reference, &sequenced), expected);
         }
     }
 }

@@ -1,7 +1,7 @@
 use crate::core::hooks::filters::Filter;
 use crate::core::hooks::stats::EditingStat;
 use crate::core::hooks::{Hook, HooksEngine};
-use crate::core::mismatches::{Context, MismatchesVec};
+use crate::core::mismatches::{Batch, MismatchesVec};
 
 pub struct REATHooksEngine<T> {
     stats: Vec<Box<dyn EditingStat<T>>>,
@@ -32,7 +32,7 @@ impl<T> Clone for REATHooksEngine<T> {
 }
 
 impl<T: MismatchesVec> Hook<T> for REATHooksEngine<T> {
-    fn on_finish(&mut self, mismatches: &mut Context<T>) {
+    fn on_finish(&mut self, mismatches: &mut Batch<T>) {
         for s in &mut self.stats {
             s.on_finish(mismatches);
         }

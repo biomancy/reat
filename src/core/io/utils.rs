@@ -5,7 +5,7 @@ macro_rules! read_compressed {
             .and_then(OsStr::to_str)
             .unwrap_or_else(|| panic!("Failed to infer extension for the file {}.", $file.display()));
 
-        let reader = File::open(filename).unwrap_or_else(|_| panic!("Failed to open {}.", $file.display()));
+        let reader = File::open($file).unwrap_or_else(|x| panic!("Failed to open {}: {}.", $file.display(), x));
         let reader = BufReader::new(reader);
 
         match filename.split('.').last() {

@@ -1,196 +1,176 @@
+use std::io::Write;
 use std::ops::Range;
 
 use bio_types::genome::{AbstractInterval, Interval, Position};
 use bio_types::strand::Strand;
+use csv::Writer;
 use itertools::{izip, Itertools};
+use serde::ser::{SerializeSeq, SerializeStruct};
+use serde::{Serialize, Serializer};
 
 use crate::core::dna::NucCounts;
-use crate::core::mismatches::roi::flat::REATROIMismatches;
-use crate::core::mismatches::roi::NucMismatches;
-use crate::core::mismatches::utils::{maskvec, select_strands};
+use crate::core::mismatches::roi::{NucMismatches, ROIData, ROIDataRef, ROIDataVec};
 use crate::core::mismatches::{MismatchesVec, StrandingCounts};
-use crate::core::strandutil::StrandedData;
+use crate::core::strandutil::Stranded;
 use crate::core::workload::ROI;
 
-use super::ROIMismatchesVec;
-
-pub struct REATROIMismatchesVec {
+pub struct ROIMismatchesVec {
     contig: String,
     trstrand: Strand,
-    // ROI data
-    roi_names: Vec<String>,
-    roi_strands: Vec<Strand>,
-    roi_premasked: Vec<Range<Position>>,
-    roi_postmasked: Vec<Range<Position>>,
-    roi_subintervals: Vec<Vec<Range<Position>>>,
-    // Calculated stats
-    prednuc: Vec<NucCounts>,
-    coverage: Vec<u32>,
-    mismatches: Vec<NucMismatches>,
+    pub data: ROIDataVec,
 }
 
-impl REATROIMismatchesVec {
-    pub fn new(
-        contig: String,
-        trstrand: Strand,
-        rois: Vec<&ROI>,
-        coverage: Vec<u32>,
-        prednuc: Vec<NucCounts>,
-        mismatches: Vec<NucMismatches>,
-    ) -> Self {
-        debug_assert!(!rois.is_empty());
-        debug_assert!([rois.len(), coverage.len(), prednuc.len(), mismatches.len()].iter().all_equal());
-        // ROIs must be ordered
-        debug_assert!(rois.windows(2).all(|x| x[0].range().start <= x[1].range().start));
+impl ROIMismatchesVec {
+    pub fn new(contig: String, trstrand: Strand, data: ROIDataVec) -> Self {
+        Self { contig, trstrand, data }
+    }
+}
 
-        let items = rois.len();
-        let mut results = Self::with_capacity(contig, trstrand, items);
+impl MismatchesVec for ROIMismatchesVec {
+    fn len(&self) -> usize {
+        self.data.len()
+    }
 
-        for (roi, coverage, prednuc, mm) in izip!(rois, coverage, prednuc, mismatches) {
-            debug_assert_eq!(roi.contig(), results.contig);
-            results.mismatches.push(mm);
-            results.coverage.push(coverage);
-            results.prednuc.push(prednuc);
+    fn is_empty(&self) -> bool {
+        self.data.is_empty()
+    }
 
-            // ROI data
-            results.roi_premasked.push(roi.premasked());
-            results.roi_strands.push(roi.strand());
-            results.roi_names.push(roi.name().into());
-            results.roi_postmasked.push(roi.postmasked());
-            results.roi_subintervals.push(roi.subintervals().to_vec());
+    fn to_csv<F: Write>(&self, writer: &mut Writer<F>) -> csv::Result<()> {
+        for data in &self.data {
+            writer.serialize(&SerializeROIRef { contig: &self.contig, strand: self.trstrand, data })?;
         }
-        results
-    }
-
-    fn with_capacity(contig: String, trstrand: Strand, capacity: usize) -> Self {
-        Self {
-            contig,
-            trstrand,
-            roi_names: Vec::with_capacity(capacity),
-            roi_strands: Vec::with_capacity(capacity),
-            roi_premasked: Vec::with_capacity(capacity),
-            roi_postmasked: Vec::with_capacity(capacity),
-            roi_subintervals: Vec::with_capacity(capacity),
-            prednuc: Vec::with_capacity(capacity),
-            coverage: Vec::with_capacity(capacity),
-            mismatches: Vec::with_capacity(capacity),
-        }
+        Ok(())
     }
 }
 
-impl AbstractInterval for REATROIMismatchesVec {
-    fn contig(&self) -> &str {
-        &self.contig
-    }
+struct SerializeROIRef<'a> {
+    contig: &'a str,
+    strand: Strand,
+    data: ROIDataRef<'a>,
+}
 
-    fn range(&self) -> Range<Position> {
-        self.roi_postmasked.first().unwrap().start..self.roi_postmasked.last().unwrap().end
+impl Serialize for SerializeROIRef<'_> {
+    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        let mut state = serializer.serialize_struct("ROIMismatches", 28)?;
+        state.serialize_field("contig", &self.contig)?;
+        state.serialize_field("start", &self.data.roi.premasked.start)?;
+        state.serialize_field("end", &self.data.roi.premasked.end)?;
+        state.serialize_field("strand", &self.data.roi.strand.strand_symbol())?;
+        state.serialize_field("name", &self.data.roi.name)?;
+        state.serialize_field("trstrand", &self.strand.strand_symbol())?;
+        state.serialize_field("coverage", &self.data.coverage)?;
+        state.serialize_field("nucmasked", &self.data.roi.nucmasked())?;
+        state.serialize_field("#A", &self.data.prednuc.A)?;
+        state.serialize_field("A->A", &self.data.mismatches.A.A)?;
+        state.serialize_field("A->C", &self.data.mismatches.A.C)?;
+        state.serialize_field("A->G", &self.data.mismatches.A.G)?;
+        state.serialize_field("A->T", &self.data.mismatches.A.T)?;
+        state.serialize_field("#C", &self.data.prednuc.C)?;
+        state.serialize_field("C->A", &self.data.mismatches.C.A)?;
+        state.serialize_field("C->C", &self.data.mismatches.C.C)?;
+        state.serialize_field("C->G", &self.data.mismatches.C.G)?;
+        state.serialize_field("C->T", &self.data.mismatches.C.T)?;
+        state.serialize_field("#G", &self.data.prednuc.G)?;
+        state.serialize_field("G->A", &self.data.mismatches.G.A)?;
+        state.serialize_field("G->C", &self.data.mismatches.G.C)?;
+        state.serialize_field("G->G", &self.data.mismatches.G.G)?;
+        state.serialize_field("G->T", &self.data.mismatches.G.T)?;
+        state.serialize_field("#T", &self.data.prednuc.T)?;
+        state.serialize_field("T->A", &self.data.mismatches.T.A)?;
+        state.serialize_field("T->C", &self.data.mismatches.T.C)?;
+        state.serialize_field("T->G", &self.data.mismatches.T.G)?;
+        state.serialize_field("T->T", &self.data.mismatches.T.T)?;
+        state.end()
     }
 }
 
-impl MismatchesVec for REATROIMismatchesVec {
-    type Flat = REATROIMismatches;
+#[cfg(test)]
+mod test {
+    use serde_test::{assert_ser_tokens, Token};
 
-    fn trstrand(&self) -> Strand {
-        self.trstrand
-    }
+    use crate::core::mismatches::roi::{ROIDataRecord, ROIDataRecordRef};
 
-    // fn filter(mut self, mask: Vec<bool>) -> Self {
-    //     self.roi_premasked = maskvec(self.roi_premasked, &mask);
-    //     self.roi_strands = maskvec(self.roi_strands, &mask);
-    //     self.roi_names = maskvec(self.roi_names, &mask);
-    //     self.roi_subintervals = maskvec(self.roi_subintervals, &mask);
-    //     self.roi_postmasked = maskvec(self.roi_postmasked, &mask);
-    //
-    //     self.prednuc = maskvec(self.prednuc, &mask);
-    //     self.coverage = maskvec(self.coverage, &mask);
-    //     self.mismatches = maskvec(self.mismatches, &mask);
-    //
-    //     self
-    // }
-    //
-    // fn extend(&mut self, other: Self) {
-    //     todo!()
-    // }
-    //
-    // fn restrand(self, strands: Vec<Strand>, fwdto: &mut Self, revto: &mut Self) {
-    //     todo!()
-    // }
+    use super::*;
 
-    // fn restrand(self, strands: Vec<Strand>, cnts: StrandingCounts) -> StrandedData<Option<Self>> {
-    //     let mut names = select_strands(self.roi_names, &strands, &cnts);
-    //     let mut annostrand = select_strands(self.roi_strands, &strands, &cnts);
-    //     let mut coverage = select_strands(self.coverage, &strands, &cnts);
-    //     let mut premasked = select_strands(self.roi_premasked, &strands, &cnts);
-    //     let mut postmasked = select_strands(self.roi_postmasked, &strands, &cnts);
-    //     let mut subintervals = select_strands(self.roi_subintervals, &strands, &cnts);
-    //     let mut prednuc = select_strands(self.prednuc, &strands, &cnts);
-    //     let mut mismatches = select_strands(self.mismatches, &strands, &cnts);
-    //
-    //     let mut result = StrandedData { unknown: None, forward: None, reverse: None };
-    //     for strand in [Strand::Forward, Strand::Reverse, Strand::Unknown] {
-    //         if cnts[strand] > 0 {
-    //             result[strand] = Some(Self {
-    //                 contig: self.contig.clone(),
-    //                 trstrand: strand,
-    //                 roi_premasked: std::mem::take(&mut premasked[strand]),
-    //                 roi_strands: std::mem::take(&mut annostrand[strand]),
-    //                 roi_names: std::mem::take(&mut names[strand]),
-    //                 roi_subintervals: std::mem::take(&mut subintervals[strand]),
-    //                 roi_postmasked: std::mem::take(&mut postmasked[strand]),
-    //                 prednuc: std::mem::take(&mut prednuc[strand]),
-    //                 coverage: std::mem::take(&mut coverage[strand]),
-    //                 mismatches: std::mem::take(&mut mismatches[strand]),
-    //             })
-    //         }
-    //     }
-    //     result
-    // }
+    #[test]
+    fn roi() {
+        let record = ROIDataRecordRef {
+            premasked: &(0..123),
+            postmasked: &(1..100),
+            subintervals: &vec![1..10, 20..100],
+            name: &"MyRep".to_owned(),
+            strand: &Strand::Forward,
+        };
+        let mut mm = NucMismatches {
+            A: NucCounts::new(1, 2, 3, 4),
+            C: NucCounts::new(5, 6, 7, 8),
+            G: NucCounts::new(9, 10, 11, 12),
+            T: NucCounts::new(13, 14, 15, 16),
+        };
+        let roi = ROIDataRef { roi: record, coverage: &13, prednuc: &NucCounts::new(1, 12, 3, 5), mismatches: &mm };
 
-    // fn restrand_all(&mut self, strand: Strand) {
-    //     self.trstrand = strand;
-    // }
-
-    fn flatten(self) -> Vec<Self::Flat> {
-        let mut result = Vec::with_capacity(self.roi_names.len());
-        for (name, annostrand, coverage, premasked, subintervals, prednuc, mismatches) in izip!(
-            self.roi_names,
-            self.roi_strands,
-            self.coverage,
-            self.roi_premasked,
-            self.roi_subintervals,
-            self.prednuc,
-            self.mismatches
-        ) {
-            let roi = ROI::new(self.contig.to_owned(), premasked, subintervals, name, annostrand);
-            result.push(REATROIMismatches::new(roi, self.trstrand, coverage, prednuc, mismatches))
-        }
-        result
-    }
-}
-
-impl ROIMismatchesVec for REATROIMismatchesVec {
-    fn premasked(&self) -> &[Range<Position>] {
-        &self.roi_premasked
-    }
-
-    fn postmasked(&self) -> &[Range<Position>] {
-        &self.roi_postmasked
-    }
-
-    fn subintervals(&self) -> &[Vec<Range<Position>>] {
-        &self.roi_subintervals
-    }
-
-    fn coverage(&self) -> &[u32] {
-        &self.coverage
-    }
-
-    fn prednuc(&self) -> &[NucCounts] {
-        &self.prednuc
-    }
-
-    fn mismatches(&self) -> &[NucMismatches] {
-        &self.mismatches
+        assert_ser_tokens(
+            &SerializeROIRef { contig: "chr1", strand: Strand::Unknown, data: roi },
+            &[
+                Token::Struct { name: "ROIMismatches", len: 28 },
+                Token::Str("contig"),
+                Token::Str("chr1"),
+                Token::Str("start"),
+                Token::U64(0),
+                Token::Str("end"),
+                Token::U64(123),
+                Token::Str("strand"),
+                Token::Str("+"),
+                Token::Str("name"),
+                Token::Str("MyRep"),
+                Token::Str("trstrand"),
+                Token::Str("."),
+                Token::Str("coverage"),
+                Token::U32(13),
+                Token::Str("nucmasked"),
+                Token::U64(34),
+                Token::Str("#A"),
+                Token::U32(1),
+                Token::Str("A->A"),
+                Token::U32(1),
+                Token::Str("A->C"),
+                Token::U32(2),
+                Token::Str("A->G"),
+                Token::U32(3),
+                Token::Str("A->T"),
+                Token::U32(4),
+                Token::Str("#C"),
+                Token::U32(12),
+                Token::Str("C->A"),
+                Token::U32(5),
+                Token::Str("C->C"),
+                Token::U32(6),
+                Token::Str("C->G"),
+                Token::U32(7),
+                Token::Str("C->T"),
+                Token::U32(8),
+                Token::Str("#G"),
+                Token::U32(3),
+                Token::Str("G->A"),
+                Token::U32(9),
+                Token::Str("G->C"),
+                Token::U32(10),
+                Token::Str("G->G"),
+                Token::U32(11),
+                Token::Str("G->T"),
+                Token::U32(12),
+                Token::Str("#T"),
+                Token::U32(5),
+                Token::Str("T->A"),
+                Token::U32(13),
+                Token::Str("T->C"),
+                Token::U32(14),
+                Token::Str("T->G"),
+                Token::U32(15),
+                Token::Str("T->T"),
+                Token::U32(16),
+                Token::StructEnd,
+            ],
+        );
     }
 }

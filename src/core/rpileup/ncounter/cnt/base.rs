@@ -8,7 +8,7 @@ use rust_htslib::bam::record::Cigar;
 
 use crate::core::dna::NucCounts;
 use crate::core::read::AlignedRead;
-use crate::core::rpileup::ncounters::filters::ReadsFilter;
+use crate::core::rpileup::ncounter::filters::ReadsFilter;
 
 #[derive(Clone)]
 pub struct BaseNucCounter<R: AlignedRead, Filter: ReadsFilter<R>> {
@@ -164,7 +164,7 @@ mod tests {
 
     use crate::core::dna::NucCounts;
     use crate::core::read::MockRead;
-    use crate::core::rpileup::ncounters::filters::MockReadsFilter;
+    use crate::core::rpileup::ncounter::filters::MockReadsFilter;
 
     use super::*;
 

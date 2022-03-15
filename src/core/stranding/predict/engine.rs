@@ -1,5 +1,3 @@
-
-
 use crate::core::mismatches::MismatchesVec;
 use crate::core::strandutil::Stranded;
 

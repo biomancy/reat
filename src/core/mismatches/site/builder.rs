@@ -2,9 +2,9 @@ use std::ops::Range;
 
 use bio_types::genome::Position;
 use bio_types::strand::Strand;
-use itertools::{izip};
+use itertools::izip;
 
-use crate::core::dna::{NucCounts};
+use crate::core::dna::NucCounts;
 use crate::core::mismatches::prefilters::retain::SitesRetainer;
 use crate::core::mismatches::prefilters::MismatchesPreFilter;
 use crate::core::mismatches::site::{SiteData, SiteDataVec, SiteMismatchesVec};

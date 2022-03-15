@@ -404,28 +404,8 @@ mod tests {
     #[test]
     fn trim() {
         // normal trimming
-        run(
-            (1, 2),
-            1..6,
-            1,
-            "ACGT",
-            ReqStrand::Forward,
-            vec![true],
-            vec![M(4)],
-            &[Z(), C(), Z(), Z(), Z()],
-            &[1..2],
-        );
-        run(
-            (1, 2),
-            1..6,
-            1,
-            "ACGT",
-            ReqStrand::Reverse,
-            vec![true],
-            vec![M(4)],
-            &[Z(), Z(), G(), Z(), Z()],
-            &[2..3],
-        );
+        run((1, 2), 1..6, 1, "ACGT", ReqStrand::Forward, vec![true], vec![M(4)], &[Z(), C(), Z(), Z(), Z()], &[1..2]);
+        run((1, 2), 1..6, 1, "ACGT", ReqStrand::Reverse, vec![true], vec![M(4)], &[Z(), Z(), G(), Z(), Z()], &[2..3]);
 
         // trim all bases from 5` or 3`
         let ex = (vec![Z()].repeat(10), vec![]);

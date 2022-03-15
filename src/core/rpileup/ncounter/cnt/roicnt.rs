@@ -1,10 +1,7 @@
-
-
 use bio::data_structures::interval_tree::IntervalTree;
-use bio_types::genome::{AbstractInterval};
+use bio_types::genome::AbstractInterval;
 
 use itertools::{zip, Itertools};
-
 
 use crate::core::read::AlignedRead;
 use crate::core::rpileup::ncounter::filters::ReadsFilter;
@@ -52,8 +49,7 @@ impl<'a, R: AlignedRead, Filter: ReadsFilter<R>> ReadsCollider<'a, R> for ROINuc
     }
 
     fn collide(&mut self, read: &R) {
-        let covered_rois =
-            self.base.count(read).iter().flat_map(|x| self.index.find(x)).map(|x| x.data()).unique();
+        let covered_rois = self.base.count(read).iter().flat_map(|x| self.index.find(x)).map(|x| x.data()).unique();
         for ind in covered_rois {
             self.coverage[*ind] += 1;
         }

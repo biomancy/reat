@@ -1,6 +1,6 @@
 use std::ops::Range;
 
-use bio_types::genome::{AbstractInterval};
+use bio_types::genome::AbstractInterval;
 
 use crate::core::read::AlignedRead;
 use crate::core::rpileup::ncounter::filters::ReadsFilter;

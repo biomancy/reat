@@ -1,8 +1,3 @@
-
-
-
-
-
 macro_rules! assort_strands {
     ($items: ident, $func: expr) => {
         $items.unknown.data.retain(|x| match $func(x) {

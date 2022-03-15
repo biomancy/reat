@@ -1,5 +1,5 @@
 use crate::core::dna::NucCounts;
-use crate::core::rpileup::ncounter::{InnerNucCounts};
+use crate::core::rpileup::ncounter::InnerNucCounts;
 
 impl<'a, Data> InnerNucCounts<'a, Data> {
     pub fn seqnuc<'b>(&'a self, buffer: &'b mut Vec<NucCounts>) -> Option<&'a [NucCounts]> {

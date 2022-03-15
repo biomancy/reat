@@ -1,10 +1,8 @@
 use std::ops::Range;
 
-use bio_types::genome::{Position};
+use bio_types::genome::Position;
 
 pub use crate::core::dna::NucCounts;
-
-
 
 use crate::core::strandutil::Stranded;
 

@@ -1,9 +1,8 @@
-
 use dyn_clone::DynClone;
 
 pub use engine::REATStrandingEngine;
 
-use crate::core::mismatches::{MismatchesVec};
+use crate::core::mismatches::MismatchesVec;
 
 use crate::core::strandutil::Stranded;
 

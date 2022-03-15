@@ -1,5 +1,3 @@
-
-
 use rust_htslib::bam::Record;
 
 use crate::core::hooks::stats::EditingStat;

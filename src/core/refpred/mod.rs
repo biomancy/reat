@@ -7,7 +7,6 @@ pub use autoref::AutoRef;
 use crate::core::dna::NucCounts;
 use crate::core::dna::Nucleotide;
 
-
 mod autoref;
 mod fasta;
 

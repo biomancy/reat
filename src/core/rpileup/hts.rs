@@ -4,7 +4,6 @@ use bio_types::genome::AbstractInterval;
 use itertools::Itertools;
 use rust_htslib::bam::{IndexedReader, Read, Record};
 
-
 use crate::core::rpileup::{ReadsCollider, ReadsCollidingEngine};
 
 pub struct HTSPileupEngine<Collider> {

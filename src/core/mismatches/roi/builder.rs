@@ -1,5 +1,3 @@
-
-
 use bio_types::genome::{AbstractInterval, Position};
 use bio_types::strand::Strand;
 
@@ -72,7 +70,7 @@ where
 
         (nuccnts, mismatches)
     }
-    
+
     #[inline]
     fn size_hint(&self, nc: &NucCounterResult<'a, &'a ROI>) -> Stranded<usize> {
         let mut size: Stranded<usize> = Stranded::default();

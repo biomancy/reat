@@ -4,7 +4,6 @@ use bio_types::genome::{AbstractInterval, Interval, Position};
 use bio_types::strand::{Same, Strand};
 use derive_getters::{Dissolve, Getters};
 
-
 use crate::core::io::bed::BedRecord;
 
 use super::utils;
@@ -50,7 +49,7 @@ impl ROI {
         debug_assert!(subintervals.iter().all(|x| x.start >= premasked.start && x.end <= premasked.end));
         ROI { contig, premasked, subintervals, name, strand }
     }
-    
+
     pub fn premasked(&self) -> Range<Position> {
         self.premasked.clone()
     }

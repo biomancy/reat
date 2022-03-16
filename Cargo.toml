@@ -30,6 +30,7 @@ tempfile = "3.2"
 static_init = "1.0.2"
 file_diff = "1.0"
 serde_test = "1.0.136"
+rand = "0.8.5"
 
 [profile.release]
 lto = true

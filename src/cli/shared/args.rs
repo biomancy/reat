@@ -1,5 +1,4 @@
 use std::fs::File;
-
 use std::path::PathBuf;
 
 use clap::{Arg, ArgSettings};
@@ -237,6 +236,7 @@ pub mod stranding {
     pub const MIN_MISMATCHES: &str = "str-min-mismatches";
     pub const MIN_FREQ: &str = "str-min-freq";
     pub const ANNOTATION: &str = "annotation";
+    pub const EXTEND_UTR3: &str = "utr3ext";
 
     pub const SECTION_NAME: &str = "Stranding";
 
@@ -249,6 +249,15 @@ pub mod stranding {
                     It is recommended to provide genome annotation for unstranded libraries, \
                     otherwise stranding will be highly inaccurate.",
             ),
+            Arg::new(EXTEND_UTR3)
+                .long(EXTEND_UTR3)
+                .setting(defaults())
+                .requires(ANNOTATION)
+                .validator(validate::numeric(0, u32::MAX))
+                .long_help(
+                    "Extend 3`UTRs of the annotated genes by the given value and use these pseudo \
+                    3`UTRs to predict strands in intergenic regions. A good default is ~3000-6000bp.",
+                ),
             Arg::new(MIN_MISMATCHES)
                 .long(MIN_MISMATCHES)
                 .setting(defaults())

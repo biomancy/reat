@@ -1,3 +1,4 @@
+use std::cmp::Ordering;
 use std::io::Write;
 
 use bio_types::strand::Strand;
@@ -38,37 +39,27 @@ impl MismatchesVec for ROIMismatchesVec {
         self.data.is_empty()
     }
 
-    fn ugly_sort_and_to_csv<F: Write>(items: Vec<Self>, writer: &mut Writer<F>) -> csv::Result<()> {
-        // TODO: REFACTORING!!!
-
-        // Group by chromosomes
-        let items = items
-            .into_iter()
-            .filter(|x| !x.is_empty())
-            .into_group_map_by(|x| x.contig.clone())
-            .into_iter()
-            .sorted_by_key(|x| x.0.clone());
-
-        for (_, batches) in items {
-            let iter = batches
-                .iter()
-                .flat_map(|x| x.data.iter().map(|data| SerializeROIRef { contig: &x.contig, strand: x.trstrand, data }))
-                .sorted_by(|first, second| {
-                    let mut ord = first.data.roi.premasked.start.cmp(&second.data.roi.premasked.start);
-                    if ord.is_eq() {
-                        ord = first.data.roi.premasked.end.cmp(&second.data.roi.premasked.end);
-                    }
-                    if ord.is_eq() {
-                        ord = first.strand.strand_symbol().cmp(second.strand.strand_symbol());
-                    }
-                    if ord.is_eq() {
-                        ord = first.data.roi.name.cmp(second.data.roi.name);
-                    }
-                    ord
-                });
-            for item in iter {
-                writer.serialize(item)?;
+    fn ugly_in_contig_sort_and_to_csv<F: Write>(items: Vec<Self>, writer: &mut Writer<F>) -> csv::Result<()> {
+        fn pos_then_strand_then_name(first: &SerializeROIRef, second: &SerializeROIRef) -> Ordering {
+            let mut ord = first.data.roi.premasked.start.cmp(&second.data.roi.premasked.start);
+            if ord.is_eq() {
+                ord = first.data.roi.premasked.end.cmp(&second.data.roi.premasked.end);
             }
+            if ord.is_eq() {
+                ord = first.strand.strand_symbol().cmp(second.strand.strand_symbol());
+            }
+            if ord.is_eq() {
+                ord = first.data.roi.name.cmp(second.data.roi.name);
+            }
+            ord
+        }
+
+        let iter = items
+            .iter()
+            .flat_map(|x| x.data.iter().map(|data| SerializeROIRef { contig: &x.contig, strand: x.trstrand, data }))
+            .sorted_by(pos_then_strand_then_name);
+        for item in iter {
+            writer.serialize(item)?;
         }
         Ok(())
     }

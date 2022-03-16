@@ -1,3 +1,4 @@
+use std::cmp::Ordering;
 use std::io::Write;
 
 use bio_types::strand::Strand;
@@ -41,33 +42,21 @@ impl MismatchesVec for SiteMismatchesVec {
         self.data.is_empty()
     }
 
-    fn ugly_sort_and_to_csv<F: Write>(items: Vec<Self>, writer: &mut Writer<F>) -> csv::Result<()> {
-        // TODO: REFACTORING!!!
-
-        // Group by chromosomes
-        let items = items
-            .into_iter()
-            .filter(|x| !x.is_empty())
-            .into_group_map_by(|x| x.contig.clone())
-            .into_iter()
-            .sorted_by_key(|x| x.0.clone());
-
-        for (_, batches) in items {
-            let iter = batches
-                .iter()
-                .flat_map(|x| {
-                    x.data.iter().map(|data| SerializeSiteRef { contig: &x.contig, strand: x.trstrand, data })
-                })
-                .sorted_by(|first, second| {
-                    let mut ord = first.data.pos.cmp(second.data.pos);
-                    if ord.is_eq() {
-                        ord = first.strand.strand_symbol().cmp(second.strand.strand_symbol());
-                    }
-                    ord
-                });
-            for item in iter {
-                writer.serialize(item)?;
+    fn ugly_in_contig_sort_and_to_csv<F: Write>(items: Vec<Self>, writer: &mut Writer<F>) -> csv::Result<()> {
+        fn pos_then_strand(first: &SerializeSiteRef, second: &SerializeSiteRef) -> Ordering {
+            let mut ord = first.data.pos.cmp(second.data.pos);
+            if ord.is_eq() {
+                ord = first.strand.strand_symbol().cmp(second.strand.strand_symbol());
             }
+            ord
+        }
+
+        let iter = items
+            .iter()
+            .flat_map(|x| x.data.iter().map(|data| SerializeSiteRef { contig: &x.contig, strand: x.trstrand, data }))
+            .sorted_by(pos_then_strand);
+        for item in iter {
+            writer.serialize(item)?;
         }
         Ok(())
     }

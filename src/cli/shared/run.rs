@@ -73,21 +73,26 @@ where
         };
     }
 
-    // TODO: refactoring!!!
-    let items = edits
-        .into_iter()
-        .flat_map(|x| {
-            [
-                x.items.forward,
-                x.items.reverse,
-                x.items.unknown,
-                x.retained.forward,
-                x.retained.reverse,
-                x.retained.unknown,
-            ]
-        })
-        .filter(|x| !x.is_empty())
-        .collect_vec();
-    Mismatches::ugly_sort_and_to_csv(items, saveto).expect(OUTPUT_IO_ERROR);
+    // Group by contigs
+    let mut percontig = HashMap::with_capacity(120);
+    for batch in edits {
+        for item in [batch.items, batch.retained] {
+            for mm in [item.forward, item.unknown, item.reverse] {
+                if mm.is_empty() {
+                    continue;
+                }
+                if !percontig.contains_key(mm.contig()) {
+                    percontig.insert(mm.contig().to_owned(), vec![]);
+                }
+                percontig.get_mut(mm.contig()).unwrap().push(mm);
+            }
+        }
+    }
+    // Sort by contig name
+    let percontig = percontig.into_iter().sorted_by(|x, y| x.0.cmp(&y.0));
+
+    for items in percontig {
+        Mismatches::ugly_in_contig_sort_and_to_csv(items.1, saveto).expect(OUTPUT_IO_ERROR);
+    }
     Ok(())
 }

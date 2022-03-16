@@ -16,7 +16,7 @@ pub trait MismatchesVec: Sized {
     fn len(&self) -> usize;
     fn is_empty(&self) -> bool;
 
-    fn ugly_sort_and_to_csv<F: Write>(items: Vec<Self>, writer: &mut csv::Writer<F>) -> csv::Result<()>;
+    fn ugly_in_contig_sort_and_to_csv<F: Write>(items: Vec<Self>, writer: &mut csv::Writer<F>) -> csv::Result<()>;
 }
 
 pub trait Builder<'a> {

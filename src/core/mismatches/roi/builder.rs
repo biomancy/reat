@@ -30,6 +30,7 @@ where
         Self { buffer: Vec::with_capacity(maxsize), refpred, retainer, prefilter }
     }
 
+    #[allow(clippy::too_many_arguments)]
     fn process(
         &self,
         cntstart: Position,

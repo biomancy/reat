@@ -120,11 +120,11 @@ where
 
     // User message
     let mut msg = vec![];
-    matches.value_of(args::stranding::ANNOTATION).map(|x| {
+    if let Some(x) = matches.value_of(args::stranding::ANNOTATION) {
         msg.push("by genomic features [exons, genes]".to_owned());
         let extend3utr = matches.value_of(args::stranding::EXTEND_UTR3).unwrap_or("0").parse().unwrap();
         engine.add(Box::new(StrandByGenomicAnnotation::from_gff(x.as_ref(), extend3utr, |_| pbar.inc(1))));
-    });
+    }
 
     let (minmismatches, minfreq) = (
         matches.value_of(args::stranding::MIN_MISMATCHES).unwrap().parse().unwrap(),

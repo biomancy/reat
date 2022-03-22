@@ -1,3 +1,5 @@
+use std::iter::zip;
+
 use bio_types::genome::{AbstractInterval, Position};
 use bio_types::strand::Strand;
 
@@ -6,26 +8,25 @@ use crate::core::mismatches::prefilters::retain::ROIRetainer;
 use crate::core::mismatches::prefilters::MismatchesPreFilter;
 use crate::core::mismatches::roi::{NucMismatches, ROIData, ROIDataVec, ROIMismatchesVec};
 use crate::core::mismatches::{Batch, Builder};
-use crate::core::refpred::{RefEngine, RefEngineResult};
+use crate::core::refpred::{PredNucleotide, RefEngine, RefEngineResult};
 use crate::core::rpileup::ncounter::NucCounterResult;
 use crate::core::strandutil::Stranded;
 use crate::core::workload::ROI;
 
 #[derive(Clone)]
-pub struct ROIMismatchesBuilder<RE: RefEngine, RR: ROIRetainer, MP: MismatchesPreFilter<ROIData>> {
+pub struct ROIMismatchesBuilder<RR: ROIRetainer, MP: MismatchesPreFilter<ROIData>> {
     buffer: Vec<NucCounts>,
-    refpred: RE,
+    refpred: Box<dyn RefEngine>,
     retainer: Option<RR>,
     prefilter: Option<MP>,
 }
 
-impl<'a, RE, RR, MP> ROIMismatchesBuilder<RE, RR, MP>
+impl<'a, RR, MP> ROIMismatchesBuilder<RR, MP>
 where
-    RE: RefEngine,
     RR: ROIRetainer,
     MP: MismatchesPreFilter<ROIData>,
 {
-    pub fn new(maxsize: usize, refpred: RE, retainer: Option<RR>, prefilter: Option<MP>) -> Self {
+    pub fn new(maxsize: usize, refpred: Box<dyn RefEngine>, retainer: Option<RR>, prefilter: Option<MP>) -> Self {
         Self { buffer: Vec::with_capacity(maxsize), refpred, retainer, prefilter }
     }
 
@@ -40,8 +41,8 @@ where
         other: &mut ROIDataVec,
     ) {
         // Get mismatches
-        let (prednuc, mismatches) = self.summarize(roi, cntstart, refpred.predicted, cnts);
-        let record = ROIData { roi: roi.into(), coverage, prednuc, mismatches };
+        let (prednuc, mismatches, heterozygous) = self.summarize(roi, cntstart, refpred.predicted, cnts);
+        let record = ROIData { roi: roi.into(), coverage, prednuc, heterozygous, mismatches };
         if self.retainer.as_ref().map_or(false, |x| x.retained(roi.contig(), &roi.range(), roi.strand(), roi.name())) {
             // Must be retained
             retain.push(record);
@@ -55,20 +56,45 @@ where
         &self,
         roi: &'a ROI,
         cntstart: Position,
-        prednuc: &'a [Nucleotide],
+        prednuc: &'a [PredNucleotide],
         cnts: &'a [NucCounts],
-    ) -> (NucCounts, NucMismatches) {
+    ) -> (NucCounts, NucMismatches, u64) {
         debug_assert!(roi.range().start >= cntstart && roi.range().end <= (cntstart + cnts.len() as u64));
         let mut mismatches = NucMismatches::zeros();
         let mut nuccnts = NucCounts::zeros();
+        let mut heterozygous = 0;
 
         for sub in roi.subintervals() {
             let idx = (sub.start - cntstart) as usize..(sub.end - cntstart) as usize;
-            nuccnts.increment(&prednuc[idx.clone()]);
-            mismatches.increment(&prednuc[idx.clone()], &cnts[idx])
+            for (nuc, seq) in zip(&prednuc[idx.clone()], &cnts[idx]) {
+                match nuc {
+                    PredNucleotide::Homozygous(nuc) => match nuc {
+                        Nucleotide::A => {
+                            nuccnts.A += 1;
+                            mismatches.A += *seq;
+                        }
+                        Nucleotide::C => {
+                            nuccnts.C += 1;
+                            mismatches.C += *seq;
+                        }
+                        Nucleotide::G => {
+                            nuccnts.G += 1;
+                            mismatches.G += *seq;
+                        }
+                        Nucleotide::T => {
+                            nuccnts.T += 1;
+                            mismatches.T += *seq;
+                        }
+                        Nucleotide::Unknown => {}
+                    },
+                    PredNucleotide::Heterozygous(_) => {
+                        heterozygous += 1;
+                    }
+                }
+            }
         }
 
-        (nuccnts, mismatches)
+        (nuccnts, mismatches, heterozygous)
     }
 
     #[inline]
@@ -81,9 +107,8 @@ where
     }
 }
 
-impl<'a, RE, RR, MP> Builder<'a> for ROIMismatchesBuilder<RE, RR, MP>
+impl<'a, RR, MP> Builder<'a> for ROIMismatchesBuilder<RR, MP>
 where
-    RE: RefEngine,
     RR: ROIRetainer,
     MP: MismatchesPreFilter<ROIData>,
 {

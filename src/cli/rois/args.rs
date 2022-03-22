@@ -131,9 +131,10 @@ impl ROIArgs {
         let mut retain: Option<RetainROIFromList> = Default::default();
 
         let (pbarw, pbars, pbarr) = (factory(), factory(), factory());
+        let excluded = core.excluded.clone();
         rayon::scope(|s| {
             s.spawn(|_| {
-                let (w, m) = parse::work(pbarw, args, core.excluded.clone());
+                let (w, m) = parse::work(pbarw, args, excluded);
                 workload = Some(w);
                 maxsize = Some(m)
             });

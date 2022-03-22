@@ -103,7 +103,6 @@ impl NucCounts {
         Self { A: self.T, C: self.G, G: self.C, T: self.A }
     }
 }
-// }
 
 #[cfg(test)]
 mod tests {

@@ -1,9 +1,10 @@
-use crate::core::dna::{NucCounts, Nucleotide};
-use crate::core::mismatches::roi::{NucMismatches, ROIData};
 use derive_getters::Getters;
 use derive_more::Constructor;
 
+use crate::core::dna::{NucCounts, Nucleotide};
+use crate::core::mismatches::roi::{NucMismatches, ROIData};
 use crate::core::mismatches::site::SiteData;
+use crate::core::refpred::PredNucleotide;
 
 use super::MismatchesPreFilter;
 
@@ -39,7 +40,13 @@ impl MismatchesPreFilter<ROIData> for ByMismatches {
 impl MismatchesPreFilter<SiteData> for ByMismatches {
     #[inline]
     fn is_ok(&self, preview: &SiteData) -> bool {
-        self.enough_mismatches_per_site(preview.prednuc, &preview.sequenced)
+        match preview.prednuc {
+            PredNucleotide::Homozygous(nuc) => self.enough_mismatches_per_site(nuc, &preview.sequenced),
+            PredNucleotide::Heterozygous((n1, n2)) => {
+                self.enough_mismatches_per_site(n1, &preview.sequenced)
+                    || self.enough_mismatches_per_site(n2, &preview.sequenced)
+            }
+        }
     }
 }
 

@@ -16,20 +16,19 @@ use crate::core::strandutil::Stranded;
 use super::super::Builder;
 
 #[derive(Clone)]
-pub struct SiteMismatchesBuilder<RE, SR, MP> {
+pub struct SiteMismatchesBuilder<SR, MP> {
     buffer: Vec<NucCounts>,
-    refpred: RE,
+    refpred: Box<dyn RefEngine>,
     retainer: Option<SR>,
     prefilter: Option<MP>,
 }
 
-impl<'a, RE, SR, MP> SiteMismatchesBuilder<RE, SR, MP>
+impl<'a, SR, MP> SiteMismatchesBuilder<SR, MP>
 where
-    RE: RefEngine,
     SR: SitesRetainer,
     MP: MismatchesPreFilter<SiteData>,
 {
-    pub fn new(maxsize: usize, refpred: RE, retainer: Option<SR>, prefilter: Option<MP>) -> Self {
+    pub fn new(maxsize: usize, refpred: Box<dyn RefEngine>, retainer: Option<SR>, prefilter: Option<MP>) -> Self {
         Self { buffer: Vec::with_capacity(maxsize), refpred, retainer, prefilter }
     }
 
@@ -83,9 +82,8 @@ where
     }
 }
 
-impl<'a, RE, SR, MP> Builder<'a> for SiteMismatchesBuilder<RE, SR, MP>
+impl<'a, SR, MP> Builder<'a> for SiteMismatchesBuilder<SR, MP>
 where
-    RE: RefEngine,
     SR: SitesRetainer,
     MP: MismatchesPreFilter<SiteData>,
 {

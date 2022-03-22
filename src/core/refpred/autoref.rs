@@ -6,21 +6,22 @@ use itertools::zip;
 use crate::core::dna::NucCounts;
 use crate::core::dna::{Nucleotide, ReqNucleotide};
 use crate::core::io::fasta::FastaReader;
-use crate::core::refpred::RefEngineResult;
+use crate::core::refpred::PredNucleotide::Homozygous;
+use crate::core::refpred::{PredNucleotide, RefEngineResult};
 
 use super::RefEngine;
 
 #[derive(Clone)]
-pub struct AutoRef<T: FastaReader> {
+pub struct AutoRef {
     mincoverage: u32,
     minfreq: f32,
     skip_hyperediting: bool,
-    cache: Vec<Nucleotide>,
-    reader: T,
+    cache: Vec<PredNucleotide>,
+    reader: Box<dyn FastaReader>,
 }
 
-impl<T: FastaReader> AutoRef<T> {
-    pub fn new(mincoverage: u32, minfreq: f32, skip_hyperediting: bool, reader: T) -> Self {
+impl AutoRef {
+    pub fn new(mincoverage: u32, minfreq: f32, skip_hyperediting: bool, reader: Box<dyn FastaReader>) -> Self {
         Self { mincoverage, minfreq, skip_hyperediting, cache: Vec::new(), reader }
     }
 
@@ -45,7 +46,7 @@ impl<T: FastaReader> AutoRef<T> {
     }
 }
 
-impl<T: FastaReader> RefEngine for AutoRef<T> {
+impl RefEngine for AutoRef {
     fn run(&mut self, contig: &str, range: Range<Position>, sequenced: &[NucCounts]) {
         self.cache.clear();
         self.cache.reserve(sequenced.len());
@@ -56,7 +57,7 @@ impl<T: FastaReader> RefEngine for AutoRef<T> {
 
         for (r, s) in zip(sequenced, reference) {
             let inferred = self.infer(*s, r);
-            self.cache.push(inferred);
+            self.cache.push(Homozygous(inferred));
         }
     }
 
@@ -71,6 +72,7 @@ mod tests {
     use mockall::Sequence;
 
     use crate::core::io::fasta::MockFastaReader;
+    use itertools::Itertools;
 
     use super::*;
 
@@ -86,7 +88,7 @@ mod tests {
             (0, 0.4, Nucleotide::T),
             (4, 0.4, Nucleotide::T),
         ] {
-            let dummy = AutoRef::new(mincoverage, minfreq, false, MockFastaReader::new());
+            let dummy = AutoRef::new(mincoverage, minfreq, false, Box::new(MockFastaReader::new()));
             assert_eq!(dummy.infer(assembly, &sequenced), result);
         }
     }
@@ -115,13 +117,22 @@ mod tests {
             reader.expect_result().once().return_const(sequenced[ind].1.clone()).in_sequence(&mut seq);
         }
 
-        let mut dummy = AutoRef::new(10, 1f32, false, reader);
+        let mut dummy = AutoRef::new(10, 1f32, false, Box::new(reader));
 
         for ind in 0..sequenced.len() {
             dummy.run(intervals[ind].contig(), intervals[ind].range(), &sequenced[ind].0);
             let result = dummy.results();
             assert_eq!(result.reference, sequenced[ind].1);
-            assert_eq!(result.predicted, sequenced[ind].2);
+
+            let predicted = result
+                .predicted
+                .into_iter()
+                .map(|x| match x {
+                    PredNucleotide::Homozygous(x) => *x,
+                    _ => panic!("Autoref should always return Homozygous positions"),
+                })
+                .collect_vec();
+            assert_eq!(predicted, sequenced[ind].2);
         }
     }
 
@@ -129,7 +140,7 @@ mod tests {
     fn skip_hyper_editing() {
         let run = |expected, skip, sequenced, assembly| {
             for (ex, sk) in zip(expected, skip) {
-                let dummy = AutoRef::new(0, 0f32, sk, MockFastaReader::new());
+                let dummy = AutoRef::new(0, 0f32, sk, Box::new(MockFastaReader::new()));
                 assert_eq!(dummy.infer(assembly, sequenced), ex);
             }
         };

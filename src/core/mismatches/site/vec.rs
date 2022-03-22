@@ -89,6 +89,7 @@ mod test {
     use serde_test::{assert_ser_tokens, Token};
 
     use crate::core::dna::{NucCounts, Nucleotide};
+    use crate::core::refpred::PredNucleotide;
 
     use super::*;
 
@@ -97,7 +98,7 @@ mod test {
         let data = SiteDataRef {
             pos: &13,
             refnuc: &Nucleotide::A,
-            prednuc: &Nucleotide::G,
+            prednuc: &PredNucleotide::Heterozygous((Nucleotide::T, Nucleotide::G)),
             sequenced: &NucCounts::new(1, 2, 3, 4),
         };
         assert_ser_tokens(
@@ -113,7 +114,7 @@ mod test {
                 Token::Str("refnuc"),
                 Token::Str("A"),
                 Token::Str("prednuc"),
-                Token::Str("G"),
+                Token::Str("G/T"),
                 Token::Str("A"),
                 Token::U32(1),
                 Token::Str("C"),

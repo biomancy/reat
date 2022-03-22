@@ -73,7 +73,7 @@ struct SerializeROIRef<'a> {
 
 impl Serialize for SerializeROIRef<'_> {
     fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
-        let mut state = serializer.serialize_struct("ROIMismatches", 28)?;
+        let mut state = serializer.serialize_struct("ROIMismatches", 29)?;
         state.serialize_field("contig", &self.contig)?;
         state.serialize_field("start", &self.data.roi.premasked.start)?;
         state.serialize_field("end", &self.data.roi.premasked.end)?;
@@ -82,6 +82,7 @@ impl Serialize for SerializeROIRef<'_> {
         state.serialize_field("trstrand", &self.strand.strand_symbol())?;
         state.serialize_field("coverage", &self.data.coverage)?;
         state.serialize_field("nucmasked", &self.data.roi.nucmasked())?;
+        state.serialize_field("heterozygous", &self.data.heterozygous)?;
         state.serialize_field("#A", &self.data.prednuc.A)?;
         state.serialize_field("A->A", &self.data.mismatches.A.A)?;
         state.serialize_field("A->C", &self.data.mismatches.A.C)?;
@@ -130,12 +131,18 @@ mod test {
             G: NucCounts::new(9, 10, 11, 12),
             T: NucCounts::new(13, 14, 15, 16),
         };
-        let roi = ROIDataRef { roi: record, coverage: &13, prednuc: &NucCounts::new(1, 12, 3, 5), mismatches: &mm };
+        let roi = ROIDataRef {
+            roi: record,
+            coverage: &13,
+            prednuc: &NucCounts::new(1, 12, 3, 5),
+            heterozygous: &13,
+            mismatches: &mm,
+        };
 
         assert_ser_tokens(
             &SerializeROIRef { contig: "chr1", strand: Strand::Unknown, data: roi },
             &[
-                Token::Struct { name: "ROIMismatches", len: 28 },
+                Token::Struct { name: "ROIMismatches", len: 29 },
                 Token::Str("contig"),
                 Token::Str("chr1"),
                 Token::Str("start"),
@@ -152,6 +159,8 @@ mod test {
                 Token::U32(13),
                 Token::Str("nucmasked"),
                 Token::U64(34),
+                Token::Str("heterozygous"),
+                Token::U64(13),
                 Token::Str("#A"),
                 Token::U32(1),
                 Token::Str("A->A"),

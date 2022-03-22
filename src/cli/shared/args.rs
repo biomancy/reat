@@ -9,7 +9,7 @@ use rust_htslib::bam::Record;
 use crate::cli::shared::stranding::Stranding;
 use crate::core::io::bed::BedRecord;
 use crate::core::io::fasta::BasicFastaReader;
-use crate::core::refpred::AutoRef;
+use crate::core::refpred::RefEngine;
 use crate::core::rpileup::ncounter::filters;
 
 use super::parse;
@@ -196,11 +196,17 @@ pub mod autoref {
     pub const MIN_COVERAGE: &str = "ref-min-cov";
     pub const MIN_FREQ: &str = "ref-min-freq";
     pub const HYPEREDITING: &str = "hyperedit";
+    pub const VCF: &str = "vcf";
 
     pub const SECTION_NAME: &str = "Autoref";
 
     pub fn args<'a>() -> Vec<Arg<'a>> {
         let args = vec![
+            Arg::new(VCF)
+                .long(VCF)
+                .setting(defaults())
+                .validator(validate::path)
+                .long_help("Path to a VCF file with filtered variants relevant to the given sample."),
             Arg::new(MIN_COVERAGE)
                 .long(MIN_COVERAGE)
                 .setting(defaults())
@@ -299,7 +305,7 @@ pub struct CoreArgs {
     pub trim5: u16,
     pub trim3: u16,
     pub bamfiles: Vec<PathBuf>,
-    pub refnucpred: AutoRef<BasicFastaReader>,
+    pub refnucpred: Box<dyn RefEngine>,
     pub readfilter: ReadsFilter,
     pub stranding: Stranding,
     pub excluded: Option<Vec<BedRecord>>,
@@ -320,7 +326,7 @@ impl CoreArgs {
             trim5,
             trim3,
             bamfiles: parse::bamfiles(factory(), args),
-            refnucpred: parse::refnucpred(factory(), args, refreader),
+            refnucpred: parse::refnucpred(factory(), args, Box::new(refreader)),
             readfilter: parse::readfilter(factory(), args),
             stranding: parse::stranding(factory(), args),
             excluded: parse::excluded(factory(), args),

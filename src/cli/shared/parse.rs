@@ -1,5 +1,4 @@
 use std::fs::File;
-
 use std::path::{Path, PathBuf};
 use std::str::FromStr;
 
@@ -10,10 +9,10 @@ use itertools::Itertools;
 use rust_htslib::bam::Record;
 
 use crate::cli::shared::stranding::Stranding;
-use crate::core::io::bed;
 use crate::core::io::fasta::FastaReader;
+use crate::core::io::{bed, vcf};
 use crate::core::mismatches::{prefilters, MismatchesVec};
-use crate::core::refpred::AutoRef;
+use crate::core::refpred::{AutoRef, RefEngine, VCFCorrectedReference};
 use crate::core::rpileup::ncounter::filters;
 use crate::core::stranding::deduce::StrandSpecificExperimentDesign;
 use crate::core::stranding::predict::algo::{StrandByAtoIEditing, StrandByGenomicAnnotation};
@@ -139,24 +138,30 @@ where
     engine
 }
 
-pub fn refnucpred<T: FastaReader>(pbar: ProgressBar, matches: &ArgMatches, reader: T) -> AutoRef<T> {
+pub fn refnucpred(pbar: ProgressBar, matches: &ArgMatches, reader: Box<dyn FastaReader>) -> Box<dyn RefEngine> {
     pbar.set_message("Parsing reference prediction parameters...");
 
-    let (mincoverage, minfreq, hyperedit) = (
-        matches.value_of(args::autoref::MIN_COVERAGE).unwrap().parse().unwrap(),
-        matches.value_of(args::autoref::MIN_FREQ).unwrap().parse().unwrap(),
-        matches.is_present(args::autoref::HYPEREDITING),
-    );
-    let mut msg = format!(
-        "Reference prediction for site with coverage >= {} and most common nucleotide frequency >= {}.",
-        mincoverage, minfreq
-    );
-    if hyperedit {
-        msg += " A->G or T->C corrections was disabled (hyper editing mode)."
+    if let Some(file) = matches.value_of(args::autoref::VCF) {
+        let varaints = vcf::parse(file);
+        let variants = VCFCorrectedReference::new(varaints, reader);
+        Box::new(variants)
+    } else {
+        let (mincoverage, minfreq, hyperedit) = (
+            matches.value_of(args::autoref::MIN_COVERAGE).unwrap().parse().unwrap(),
+            matches.value_of(args::autoref::MIN_FREQ).unwrap().parse().unwrap(),
+            matches.is_present(args::autoref::HYPEREDITING),
+        );
+        let mut msg = format!(
+            "Reference prediction for site with coverage >= {} and most common nucleotide frequency >= {}.",
+            mincoverage, minfreq
+        );
+        if hyperedit {
+            msg += " A->G or T->C corrections was disabled (hyper editing mode)."
+        }
+        let result = AutoRef::new(mincoverage, minfreq, hyperedit, reader);
+        pbar.finish_with_message(msg);
+        Box::new(result)
     }
-    let result = AutoRef::new(mincoverage, minfreq, hyperedit, reader);
-    pbar.finish_with_message(msg);
-    result
 }
 
 pub fn bamfiles(pbar: ProgressBar, matches: &ArgMatches) -> Vec<PathBuf> {

@@ -1,4 +1,4 @@
-use bio_types::strand::Strand;
+use bio_types::strand::{Same, Strand};
 use derive_getters::Getters;
 use derive_more::Constructor;
 
@@ -6,7 +6,7 @@ use crate::core::dna::{NucCounts, Nucleotide};
 use crate::core::mismatches::roi::ROIDataRef;
 use crate::core::mismatches::roi::{NucMismatches, ROIMismatchesVec};
 use crate::core::mismatches::site::{SiteDataRef, SiteMismatchesVec};
-
+use crate::core::refpred::PredNucleotide;
 use crate::core::stranding::predict::algo::utils;
 use crate::core::stranding::predict::StrandingAlgo;
 use crate::core::strandutil::Stranded;
@@ -84,7 +84,18 @@ impl StrandingAlgo<ROIMismatchesVec> for StrandByAtoIEditing {
 
 impl StrandingAlgo<SiteMismatchesVec> for StrandByAtoIEditing {
     fn predict(&self, _: &str, items: &mut Stranded<SiteMismatchesVec>) {
-        utils::assort_strands!(items, |x: SiteDataRef| self.sitepred(x.sequenced, *x.prednuc));
+        utils::assort_strands!(items, |x: SiteDataRef| match x.prednuc {
+            PredNucleotide::Homozygous(nuc) => self.sitepred(x.sequenced, *nuc),
+            PredNucleotide::Heterozygous((n1, n2)) => {
+                let (s1, s2) = (self.sitepred(x.sequenced, *n1), self.sitepred(x.sequenced, *n2));
+                match (s1.is_unknown(), s2.is_unknown()) {
+                    (false, true) => s1,
+                    (true, false) => s2,
+                    (false, false) if s1.same(&s2) => s1,
+                    _ => Strand::Unknown,
+                }
+            }
+        });
     }
 }
 

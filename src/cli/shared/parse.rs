@@ -144,6 +144,7 @@ pub fn refnucpred(pbar: ProgressBar, matches: &ArgMatches, reader: Box<dyn Fasta
     if let Some(file) = matches.value_of(args::autoref::VCF) {
         let varaints = vcf::parse(file);
         let variants = VCFCorrectedReference::new(varaints, reader);
+        pbar.finish_with_message("Reference will be corrected by supplied VCF file");
         Box::new(variants)
     } else {
         let (mincoverage, minfreq, hyperedit) = (

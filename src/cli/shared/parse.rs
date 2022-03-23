@@ -121,7 +121,7 @@ where
     // User message
     let mut msg = vec![];
     if let Some(x) = matches.value_of(args::stranding::ANNOTATION) {
-        msg.push("by genomic features [exons, genes]".to_owned());
+        msg.push("by genomic features [exons, genes, extended utrs]".to_owned());
         let extend3utr = matches.value_of(args::stranding::EXTEND_UTR3).unwrap_or("0").parse().unwrap();
         engine.add(Box::new(StrandByGenomicAnnotation::from_gff(x.as_ref(), extend3utr, |_| pbar.inc(1))));
     }
@@ -142,9 +142,13 @@ pub fn refnucpred(pbar: ProgressBar, matches: &ArgMatches, reader: Box<dyn Fasta
     pbar.set_message("Parsing reference prediction parameters...");
 
     if let Some(file) = matches.value_of(args::autoref::VCF) {
+        let file = Path::new(file);
         let varaints = vcf::parse(file);
         let variants = VCFCorrectedReference::new(varaints, reader);
-        pbar.finish_with_message("Reference will be corrected by supplied VCF file");
+        pbar.finish_with_message(format!(
+            "Reference will be adjusted by SNPs from the provided VCF file: {}.",
+            file.file_name().unwrap().to_str().unwrap()
+        ));
         Box::new(variants)
     } else {
         let (mincoverage, minfreq, hyperedit) = (

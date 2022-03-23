@@ -1,12 +1,13 @@
+use std::cmp::Ordering;
 use std::iter::zip;
 
 use bio_types::genome::{AbstractInterval, Position};
 use bio_types::strand::Strand;
 
-use crate::core::dna::{NucCounts, Nucleotide};
+use crate::core::dna::{NucCounts, Nucleotide, ReqNucleotide};
 use crate::core::mismatches::prefilters::retain::ROIRetainer;
 use crate::core::mismatches::prefilters::MismatchesPreFilter;
-use crate::core::mismatches::roi::{NucMismatches, ROIData, ROIDataVec, ROIMismatchesVec};
+use crate::core::mismatches::roi::{ROIData, ROIDataVec, ROIMismatchesVec, ROINucCounts};
 use crate::core::mismatches::{Batch, Builder};
 use crate::core::refpred::{PredNucleotide, RefEngine, RefEngineResult};
 use crate::core::rpileup::ncounter::NucCounterResult;
@@ -43,7 +44,7 @@ where
     ) {
         // Get mismatches
         let (prednuc, mismatches, heterozygous) = self.summarize(roi, cntstart, refpred.predicted, cnts);
-        let record = ROIData { roi: roi.into(), coverage, prednuc, heterozygous, mismatches };
+        let record = ROIData { roi: roi.into(), coverage, homozygous: prednuc, heterozygous, mismatches };
         if self.retainer.as_ref().map_or(false, |x| x.retained(roi.contig(), &roi.range(), roi.strand(), roi.name())) {
             // Must be retained
             retain.push(record);
@@ -59,9 +60,9 @@ where
         cntstart: Position,
         prednuc: &'a [PredNucleotide],
         cnts: &'a [NucCounts],
-    ) -> (NucCounts, NucMismatches, u64) {
+    ) -> (NucCounts, ROINucCounts, u64) {
         debug_assert!(roi.range().start >= cntstart && roi.range().end <= (cntstart + cnts.len() as u64));
-        let mut mismatches = NucMismatches::zeros();
+        let mut mismatches = ROINucCounts::zeros();
         let mut nuccnts = NucCounts::zeros();
         let mut heterozygous = 0;
 
@@ -72,24 +73,50 @@ where
                     PredNucleotide::Homozygous(nuc) => match nuc {
                         Nucleotide::A => {
                             nuccnts.A += 1;
-                            mismatches.A += *seq;
+                            mismatches.A += seq.into();
                         }
                         Nucleotide::C => {
                             nuccnts.C += 1;
-                            mismatches.C += *seq;
+                            mismatches.C += seq.into();
                         }
                         Nucleotide::G => {
                             nuccnts.G += 1;
-                            mismatches.G += *seq;
+                            mismatches.G += seq.into();
                         }
                         Nucleotide::T => {
                             nuccnts.T += 1;
-                            mismatches.T += *seq;
+                            mismatches.T += seq.into();
                         }
+                        // Skip unknown nucleotides
                         Nucleotide::Unknown => {}
                     },
-                    PredNucleotide::Heterozygous(_) => {
+                    PredNucleotide::Heterozygous((n1, n2)) => {
                         heterozygous += 1;
+                        // Skip sites with unknown alleles
+                        let (n1, n2) = ((*n1).try_into(), (*n2).try_into());
+                        if n1.is_err() || n2.is_err() {
+                            continue;
+                        }
+                        let (n1, n2): (ReqNucleotide, ReqNucleotide) = (n1.unwrap(), n2.unwrap());
+                        // Fill in heterozygous mismatches
+                        match seq[n1].cmp(&seq[n2]) {
+                            Ordering::Less => {
+                                mismatches[n1][n2] += (seq[n2] - seq[n1]) as f32;
+                            }
+                            Ordering::Greater => {
+                                mismatches[n2][n1] += (seq[n1] - seq[n2]) as f32;
+                            }
+                            Ordering::Equal => {}
+                        }
+                        // Half-weight other mismatches
+                        for n in [n1, n2] {
+                            for subs in [ReqNucleotide::A, ReqNucleotide::C, ReqNucleotide::G, ReqNucleotide::T] {
+                                if subs == n1 || subs == n2 {
+                                    continue;
+                                }
+                                mismatches[n][subs] += (seq[subs] as f32) * 0.5;
+                            }
+                        }
                     }
                 }
             }

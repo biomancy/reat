@@ -4,7 +4,7 @@ use derive_more::Constructor;
 
 use crate::core::dna::{NucCounts, Nucleotide};
 use crate::core::mismatches::roi::ROIDataRef;
-use crate::core::mismatches::roi::{NucMismatches, ROIMismatchesVec};
+use crate::core::mismatches::roi::{ROIMismatchesVec, ROINucCounts};
 use crate::core::mismatches::site::{SiteDataRef, SiteMismatchesVec};
 use crate::core::refpred::PredNucleotide;
 use crate::core::stranding::predict::algo::utils;
@@ -19,23 +19,23 @@ pub struct StrandByAtoIEditing {
 
 impl StrandByAtoIEditing {
     #[inline]
-    fn edited(&self, matches: u32, mismatches: u32) -> bool {
+    fn edited(&self, matches: f32, mismatches: f32) -> bool {
         let coverage = mismatches + matches;
-        coverage > 0 && mismatches >= self.minmismatches && (mismatches as f32 / coverage as f32) >= self.minfreq
+        coverage > f32::EPSILON && mismatches >= self.minmismatches as f32 && (mismatches / coverage) >= self.minfreq
     }
 
     #[inline]
     fn sitepred(&self, sequenced: &NucCounts, refnuc: Nucleotide) -> Strand {
         match refnuc {
             Nucleotide::A => {
-                if self.edited(sequenced.A, sequenced.G) {
+                if self.edited(sequenced.A as f32, sequenced.G as f32) {
                     Strand::Forward
                 } else {
                     Strand::Unknown
                 }
             }
             Nucleotide::T => {
-                if self.edited(sequenced.T, sequenced.C) {
+                if self.edited(sequenced.T as f32, sequenced.C as f32) {
                     Strand::Reverse
                 } else {
                     Strand::Unknown
@@ -46,7 +46,7 @@ impl StrandByAtoIEditing {
     }
 
     #[inline]
-    fn roipred(&self, mismatches: &NucMismatches) -> Strand {
+    fn roipred(&self, mismatches: &ROINucCounts) -> Strand {
         let a2g = self.edited(mismatches.A.A, mismatches.A.G);
         let t2c = self.edited(mismatches.T.T, mismatches.T.C);
 
@@ -58,14 +58,14 @@ impl StrandByAtoIEditing {
                 let a2g_coverage = mismatches.A.A + mismatches.A.G;
                 let t2c_coverage = mismatches.T.T + mismatches.T.C;
 
-                if a2g_coverage == 0 && t2c_coverage == 0 {
+                if a2g_coverage <= f32::EPSILON && t2c_coverage <= f32::EPSILON {
                     Strand::Unknown
                 } else {
                     let a2g = mismatches.A.G as f32 / a2g_coverage as f32;
                     let t2c = mismatches.T.C as f32 / t2c_coverage as f32;
-                    if mismatches.A.G > 0 && a2g > t2c {
+                    if mismatches.A.G > f32::EPSILON && a2g > t2c {
                         Strand::Forward
-                    } else if mismatches.T.C > 0 && t2c > a2g {
+                    } else if mismatches.T.C > f32::EPSILON && t2c > a2g {
                         Strand::Reverse
                     } else {
                         Strand::Unknown
@@ -113,12 +113,13 @@ mod tests {
         for (result, matches, mismatches) in
             [(Strand::Forward, 8, 8), (Strand::Unknown, 100, 4), (Strand::Unknown, 1, 7), (Strand::Forward, 10, 10)]
         {
-            let mut mm = NucMismatches::zeros();
+            let (matches, mismatches) = (matches as f32, mismatches as f32);
+            let mut mm = ROINucCounts::zeros();
             mm.T.T = matches;
             mm.T.C = mismatches;
             assert!(result.neg().same(&dummy.roipred(&mm)));
 
-            mm = NucMismatches::zeros();
+            mm = ROINucCounts::zeros();
             mm.A.A = matches;
             mm.A.G = mismatches;
             assert!(result.same(&dummy.roipred(&mm)));
@@ -127,7 +128,9 @@ mod tests {
         for (result, matches, a2g, t2c) in
             [(Strand::Unknown, 10, 10, 10), (Strand::Reverse, 10, 10, 11), (Strand::Forward, 10, 11, 10)]
         {
-            let mut mm = NucMismatches::zeros();
+            let (matches, a2g, t2c) = (matches as f32, a2g as f32, t2c as f32);
+
+            let mut mm = ROINucCounts::zeros();
             mm.A.A = matches;
             mm.A.G = a2g;
 

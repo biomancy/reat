@@ -98,20 +98,20 @@ where
                             continue;
                         }
                         let (n1, n2): (ReqNucleotide, ReqNucleotide) = (n1.unwrap(), n2.unwrap());
-                        // Fill in heterozygous mismatches
-                        match seq[n1].cmp(&seq[n2]) {
-                            Ordering::Less => {
-                                mismatches[n1][n2] += (seq[n2] - seq[n1]) as f32;
-                            }
-                            Ordering::Greater => {
-                                mismatches[n2][n1] += (seq[n1] - seq[n2]) as f32;
-                            }
-                            Ordering::Equal => {}
+                        // Fill in heterozygous matches
+                        let matches = std::cmp::min(seq[n1], seq[n2]) as f32;
+                        mismatches[n1][n1] += matches;
+                        mismatches[n2][n2] += matches;
+                        // Heterozygous mismatches
+                        if seq[n1] > seq[n2] {
+                            mismatches[n2][n1] += (seq[n1] - seq[n2]) as f32;
+                        } else {
+                            mismatches[n1][n2] += (seq[n2] - seq[n1]) as f32;
                         }
                         // Half-weight other mismatches
                         for n in [n1, n2] {
                             for subs in [ReqNucleotide::A, ReqNucleotide::C, ReqNucleotide::G, ReqNucleotide::T] {
-                                if subs == n1 || subs == n2 {
+                                if subs == n1 || subs == n2 || seq[subs] == 0 {
                                     continue;
                                 }
                                 mismatches[n][subs] += (seq[subs] as f32) * 0.5;

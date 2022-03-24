@@ -5,7 +5,6 @@ use clap::ArgMatches;
 use indicatif::ProgressBar;
 
 use crate::cli::shared;
-use crate::cli::shared::args::{defaults, reqdefaults};
 use crate::cli::shared::validate;
 use crate::core::mismatches::prefilters;
 use crate::core::mismatches::prefilters::retain::RetainROIFromList;
@@ -25,7 +24,7 @@ pub mod stats {
     pub fn args<'a>() -> Vec<Arg<'a>> {
         let args = vec![Arg::new(EDITING_INDEX)
             .long(EDITING_INDEX)
-            .setting(defaults())
+            .takes_value(true)
             .validator(validate::writable)
             .long_help(
                 "File for saving Editing Indexes (EI). \
@@ -43,7 +42,7 @@ pub mod special {
     pub const SECTION_NAME: &str = "Special information";
 
     pub fn args<'a>() -> Vec<Arg<'a>> {
-        let args = vec![Arg::new(ROI).long(ROI).setting(reqdefaults()).validator(validate::path).long_help(
+        let args = vec![Arg::new(ROI).long(ROI).required(true).takes_value(true).validator(validate::path).long_help(
             "Path to a BED file with regions of interest(ROIS) \
             with at least 4 first BED columns(chr, start, end, name)",
         )];
@@ -65,13 +64,13 @@ pub mod output_filtering {
         let args = vec![
             Arg::new(MIN_COVERAGE)
                 .long(MIN_COVERAGE)
-                .setting(defaults())
+                .takes_value(true)
                 .validator(validate::numeric(0u32, u32::MAX))
                 .default_value("10")
                 .long_help("Output only ROIs covered by at least X unique filters(after filters/bases hooks)"),
             Arg::new(MIN_MISMATCHES)
                 .long(MIN_MISMATCHES)
-                .setting(defaults())
+                .takes_value(true)
                 .validator(validate::numeric(0u32, u32::MAX))
                 .default_value("5")
                 .long_help(
@@ -82,13 +81,13 @@ pub mod output_filtering {
                 ),
             Arg::new(MIN_FREQ)
                 .long(MIN_FREQ)
-                .setting(defaults())
+                .takes_value(true)
                 .validator(validate::numeric(0f32, 1f32))
                 .default_value("0.01")
                 .long_help(
                     "Output only ROI having total mismatches frequency ≥ threshold (freq = ∑ mismatches / coverage)",
                 ),
-            Arg::new(FORCE_LIST).long(FORCE_LIST).setting(defaults()).validator(validate::path).long_help(
+            Arg::new(FORCE_LIST).long(FORCE_LIST).takes_value(true).validator(validate::path).long_help(
                 "Force the output of ROIs located in a given BED file (even if they do not pass other filters).",
             ),
         ];

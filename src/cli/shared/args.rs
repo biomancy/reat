@@ -1,8 +1,8 @@
 use std::fs::File;
 use std::path::PathBuf;
 
-use clap::{Arg, ArgSettings};
-use clap::{ArgFlags, ArgMatches};
+use clap::Arg;
+use clap::ArgMatches;
 use indicatif::ProgressBar;
 use rust_htslib::bam::Record;
 
@@ -14,14 +14,6 @@ use crate::core::rpileup::ncounter::filters;
 
 use super::parse;
 use super::validate;
-
-pub fn reqdefaults() -> ArgFlags {
-    ArgSettings::Required | ArgSettings::TakesValue
-}
-
-pub fn defaults() -> ArgFlags {
-    ArgSettings::TakesValue.into()
-}
 
 pub mod core {
     use super::*;
@@ -42,7 +34,8 @@ pub mod core {
             Arg::new(INPUT)
                 .short('i')
                 .long(INPUT)
-                .setting(reqdefaults())
+                .required(true)
+                .takes_value(true)
                 .multiple_values(true)
                 .validator(validate::path)
                 .long_help(
@@ -50,13 +43,19 @@ pub mod core {
                     May contain a space-separated list of files, in which case they are treated as \
                     technical replicates and pulled together",
                 ),
-            Arg::new(REFERENCE).short('r').long(REFERENCE).setting(reqdefaults()).validator(validate::path).long_help(
-                "Indexed fasta file with a reference genome assembly. \
+            Arg::new(REFERENCE)
+                .short('r')
+                .long(REFERENCE)
+                .required(true)
+                .takes_value(true)
+                .validator(validate::path)
+                .long_help(
+                    "Indexed fasta file with a reference genome assembly. \
                     Contig / chromosome names must match the entries in the BAM header(s)",
-            ),
+                ),
             Arg::new(BINSIZE)
                 .long(BINSIZE)
-                .setting(defaults())
+                .takes_value(true)
                 .validator(validate::numeric(1u32, 1_000_000u32))
                 .default_value("64000")
                 .long_help(
@@ -66,7 +65,8 @@ pub mod core {
             Arg::new(STRANDING)
                 .short('s')
                 .long(STRANDING)
-                .setting(reqdefaults())
+                .required(true)
+                .takes_value(true)
                 .validator(validate::stranding)
                 .possible_values(&["u", "s", "f", "s/f", "f/s"])
                 .long_help(
@@ -77,24 +77,24 @@ pub mod core {
                     same read1/flip read2:\"s/f\" (1++,1--/2+-,2-+), \
                     flip read1/same read2:\"f/s\" (1+-,1-+/2++,2--)",
                 ),
-            Arg::new(NAME).short('n').long(NAME).setting(defaults()).default_value("NA").long_help("Name of the run."),
+            Arg::new(NAME).short('n').long(NAME).takes_value(true).default_value("NA").long_help("Name of the run."),
             Arg::new(SAVETO)
                 .short('o')
                 .long(SAVETO)
-                .setting(defaults())
+                .takes_value(true)
                 .validator(validate::writable)
                 .default_value("/dev/stdout")
                 .long_help("Path to the output tsv file. By default, the results are printed to stdout"),
             Arg::new(THREADS)
                 .short('t')
                 .long(THREADS)
-                .setting(defaults())
+                .takes_value(true)
                 .validator(validate::numeric(1, usize::MAX))
                 .default_value("1")
                 .long_help("Maximum number of threads to spawn at once"),
             Arg::new(EXCLUDE_LIST)
                 .long(EXCLUDE_LIST)
-                .setting(defaults())
+                .takes_value(true)
                 .validator(validate::path)
                 .long_help("Path to a BED file with regions to exclude from the analysis"),
         ];
@@ -119,7 +119,7 @@ pub mod reads_filtering {
         let args = vec![
             Arg::new(MAPQ)
                 .long(MAPQ)
-                .setting(defaults())
+                .takes_value(true)
                 .validator(validate::numeric(0u8, 254u8))
                 .default_value("1")
                 .long_help(
@@ -127,14 +127,14 @@ pub mod reads_filtering {
                     Note that reads with mapq = 255 are NOT skipped by default\
                     (mapq 255 means \"not available\" according to the SAM spec)",
                 ),
-            Arg::new(NO_MAPQ_255).long(NO_MAPQ_255).setting(defaults()).takes_value(false).long_help(
+            Arg::new(NO_MAPQ_255).long(NO_MAPQ_255).takes_value(true).takes_value(false).long_help(
                 "Skip reads with mapq=255. \
                 Note, some aligners don't fully conform to the SAM specification \
                 (e.g., STAR with default parameters use mapq=255 for unique alignments)",
             ),
             Arg::new(INCLUDE_FLAGS)
                 .long(INCLUDE_FLAGS)
-                .setting(defaults())
+                .takes_value(true)
                 .validator(validate::numeric(0u16, 4095u16))
                 .default_value("0")
                 .long_help(
@@ -144,7 +144,7 @@ pub mod reads_filtering {
                 ),
             Arg::new(EXCLUDE_FLAGS)
                 .long(EXCLUDE_FLAGS)
-                .setting(defaults())
+                .takes_value(true)
                 .validator(validate::numeric(0u16, 4095u16))
                 .default_value("2820")
                 .long_help(
@@ -155,7 +155,7 @@ pub mod reads_filtering {
                 ),
             Arg::new(PHREAD)
                 .long(PHREAD)
-                .setting(defaults())
+                .takes_value(true)
                 .validator(validate::numeric(0u8, 255u8))
                 .default_value("20")
                 .long_help(
@@ -166,7 +166,7 @@ pub mod reads_filtering {
             Arg::new(TRIM5)
                 .short('5')
                 .long(TRIM5)
-                .setting(defaults())
+                .takes_value(true)
                 .validator(validate::numeric(0u16, 65535u16))
                 .default_value("0")
                 .long_help(
@@ -177,7 +177,7 @@ pub mod reads_filtering {
             Arg::new(TRIM3)
                 .short('3')
                 .long(TRIM3)
-                .setting(defaults())
+                .takes_value(true)
                 .validator(validate::numeric(0u16, 65535u16))
                 .default_value("0")
                 .long_help(
@@ -204,12 +204,12 @@ pub mod autoref {
         let args = vec![
             Arg::new(VCF)
                 .long(VCF)
-                .setting(defaults())
+                .takes_value(true)
                 .validator(validate::path)
                 .long_help("Path to a VCF file with filtered variants relevant to the given sample."),
             Arg::new(MIN_COVERAGE)
                 .long(MIN_COVERAGE)
-                .setting(defaults())
+                .takes_value(true)
                 .validator(validate::numeric(0u32, u32::MAX))
                 .default_value("20")
                 .long_help(
@@ -220,14 +220,14 @@ pub mod autoref {
                 ),
             Arg::new(MIN_FREQ)
                 .long(MIN_FREQ)
-                .setting(defaults())
+                .takes_value(true)
                 .validator(validate::numeric(0f32, 1f32))
                 .default_value("0.95")
                 .long_help(
                     "Automatically correct reference sequence for site with the most common nucleotide \
                     frequency ≥ cutoff",
                 ),
-            Arg::new(HYPEREDITING).long(HYPEREDITING).setting(defaults()).takes_value(false).long_help(
+            Arg::new(HYPEREDITING).long(HYPEREDITING).takes_value(true).takes_value(false).long_help(
                 "Turn on the \"hyperediting\" mode, i.e. do not correct(replace) A with G and T with C. \
                     This will ensure that potentially hyper-editable sites are not accidentally lost",
             ),
@@ -248,7 +248,7 @@ pub mod stranding {
 
     pub fn args<'a>() -> Vec<Arg<'a>> {
         let args = vec![
-            Arg::new(ANNOTATION).long(ANNOTATION).setting(defaults()).validator(validate::path).long_help(
+            Arg::new(ANNOTATION).long(ANNOTATION).takes_value(true).validator(validate::path).long_help(
                 "Genome annotation in the GFF3 format. \
                     Genomic features (exons and genes) are used only to inference site/ROI strand based on the most \
                     likely direction of transcription (see the GitHub documentation for details). \
@@ -257,7 +257,7 @@ pub mod stranding {
             ),
             Arg::new(EXTEND_UTR3)
                 .long(EXTEND_UTR3)
-                .setting(defaults())
+                .takes_value(true)
                 .requires(ANNOTATION)
                 .validator(validate::numeric(0, u32::MAX))
                 .long_help(
@@ -266,7 +266,7 @@ pub mod stranding {
                 ),
             Arg::new(MIN_MISMATCHES)
                 .long(MIN_MISMATCHES)
-                .setting(defaults())
+                .takes_value(true)
                 .validator(validate::numeric(0u32, u32::MAX))
                 .default_value("50")
                 .long_help(
@@ -276,7 +276,7 @@ pub mod stranding {
                 ),
             Arg::new(MIN_FREQ)
                 .long(MIN_FREQ)
-                .setting(defaults())
+                .takes_value(true)
                 .validator(validate::numeric(0f32, 1f32))
                 .default_value("0.05")
                 .long_help(

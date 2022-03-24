@@ -50,7 +50,8 @@ fn main() {
         .version(crate_version!())
         .max_term_width(120)
         .setting(AppSettings::DeriveDisplayOrder)
-        .setting(AppSettings::SubcommandRequiredElseHelp)
+        .subcommand_required(true)
+        .arg_required_else_help(true)
         .subcommand(
             Command::new("roi")
                 .long_about("Quantify editing for the specified Regions Of Interest (ROIs)")

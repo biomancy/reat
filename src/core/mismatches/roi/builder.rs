@@ -1,10 +1,9 @@
-use std::cmp::Ordering;
 use std::iter::zip;
 
 use bio_types::genome::{AbstractInterval, Position};
 use bio_types::strand::Strand;
 
-use crate::core::dna::{NucCounts, Nucleotide, ReqNucleotide};
+use crate::core::dna::{NucCounts, Nucleotide};
 use crate::core::mismatches::prefilters::retain::ROIRetainer;
 use crate::core::mismatches::prefilters::MismatchesPreFilter;
 use crate::core::mismatches::roi::{ROIData, ROIDataVec, ROIMismatchesVec, ROINucCounts};
@@ -90,33 +89,33 @@ where
                         // Skip unknown nucleotides
                         Nucleotide::Unknown => {}
                     },
-                    PredNucleotide::Heterozygous((n1, n2)) => {
+                    PredNucleotide::Heterozygous(_) => {
                         heterozygous += 1;
-                        // Skip sites with unknown alleles
-                        let (n1, n2) = ((*n1).try_into(), (*n2).try_into());
-                        if n1.is_err() || n2.is_err() {
-                            continue;
-                        }
-                        let (n1, n2): (ReqNucleotide, ReqNucleotide) = (n1.unwrap(), n2.unwrap());
-                        // Fill in heterozygous matches
-                        let matches = std::cmp::min(seq[n1], seq[n2]) as f32;
-                        mismatches[n1][n1] += matches;
-                        mismatches[n2][n2] += matches;
-                        // Heterozygous mismatches
-                        if seq[n1] > seq[n2] {
-                            mismatches[n2][n1] += (seq[n1] - seq[n2]) as f32;
-                        } else {
-                            mismatches[n1][n2] += (seq[n2] - seq[n1]) as f32;
-                        }
-                        // Half-weight other mismatches
-                        for n in [n1, n2] {
-                            for subs in [ReqNucleotide::A, ReqNucleotide::C, ReqNucleotide::G, ReqNucleotide::T] {
-                                if subs == n1 || subs == n2 || seq[subs] == 0 {
-                                    continue;
-                                }
-                                mismatches[n][subs] += (seq[subs] as f32) * 0.5;
-                            }
-                        }
+                        // // Skip sites with unknown alleles
+                        // let (n1, n2) = ((*n1).try_into(), (*n2).try_into());
+                        // if n1.is_err() || n2.is_err() {
+                        //     continue;
+                        // }
+                        // let (n1, n2): (ReqNucleotide, ReqNucleotide) = (n1.unwrap(), n2.unwrap());
+                        // // Fill in heterozygous matches / mismatches
+                        // let matches = std::cmp::min(seq[n1], seq[n2]) as f32;
+                        // mismatches[n1][n1] += matches;
+                        // mismatches[n2][n2] += matches;
+                        // // Unbalanced alleles counts
+                        // if seq[n1] > seq[n2] {
+                        //     mismatches[n2][n1] += (seq[n1] - seq[n2]) as f32;
+                        // } else {
+                        //     mismatches[n1][n2] += (seq[n2] - seq[n1]) as f32;
+                        // }
+                        // // Half-weight other mismatches
+                        // for n in [n1, n2] {
+                        //     for subs in [ReqNucleotide::A, ReqNucleotide::C, ReqNucleotide::G, ReqNucleotide::T] {
+                        //         if subs == n1 || subs == n2 || seq[subs] == 0 {
+                        //             continue;
+                        //         }
+                        //         mismatches[n][subs] += (seq[subs] as f32) * 0.5;
+                        //     }
+                        // }
                     }
                 }
             }

@@ -3,7 +3,6 @@ use clap::ArgMatches;
 use indicatif::ProgressBar;
 
 use crate::cli::shared;
-use crate::cli::shared::args::defaults;
 use crate::cli::shared::validate;
 use crate::core::mismatches::prefilters;
 use crate::core::mismatches::prefilters::retain::RetainSitesFromIntervals;
@@ -27,13 +26,13 @@ pub mod output_filtering {
         let args = vec![
             Arg::new(MIN_COVERAGE)
                 .long(MIN_COVERAGE)
-                .setting(defaults())
+                .takes_value(true)
                 .validator(validate::numeric(0u32, u32::MAX))
                 .default_value("10")
                 .long_help("Output only site covered by at least X unique reads"),
             Arg::new(MIN_MISMATCHES)
                 .long(MIN_MISMATCHES)
-                .setting(defaults())
+                .takes_value(true)
                 .validator(validate::numeric(0u32, u32::MAX))
                 .default_value("3")
                 .long_help(
@@ -44,13 +43,13 @@ pub mod output_filtering {
                 ),
             Arg::new(MIN_FREQ)
                 .long(MIN_FREQ)
-                .setting(defaults())
+                .takes_value(true)
                 .validator(validate::numeric(0f32, 1f32))
                 .default_value("0.01")
                 .long_help(
                     "Output only sites with total mismatches frequency ≥ threshold (freq = ∑ mismatches / coverage)",
                 ),
-            Arg::new(FORCE_LIST).long(FORCE_LIST).setting(defaults()).validator(validate::path).long_help(
+            Arg::new(FORCE_LIST).long(FORCE_LIST).takes_value(true).validator(validate::path).long_help(
                 "Force the output of sites located in a given BED file (even if they do not pass other filters).",
             ),
         ];

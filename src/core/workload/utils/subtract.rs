@@ -102,7 +102,7 @@ pub fn subtract<T: AbstractInterval>(
         match (nextiter, nextsub) {
             (Some(i), Some(s)) => {
                 // Skip intervals before the subtract
-                if i.contig() < s.contig() && i.range().end <= s.range().start {
+                if i.contig() < s.contig() || (i.contig() == s.contig() && i.range().end <= s.range().start) {
                     let range = i.range();
                     saveto.push(MaskedInterval { inner: i, retained: vec![range] });
                     nextiter = interit.next();
@@ -236,4 +236,6 @@ mod tests {
 
         assert_eq!(subtract(inter, sub), expect);
     }
+
+    // TODO: add tests with extreme number of subtract regions and/or features
 }

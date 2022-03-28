@@ -40,12 +40,10 @@ impl SiteWorkload {
         }
 
         // Bin and transform to the workload
-        utils::split(intervals, binsize)
+        let intervals = utils::split(intervals, binsize);
+        utils::bin(intervals, binsize)
             .into_iter()
-            .map(|x| {
-                let include = vec![x.range().start..x.range().end];
-                SiteWorkload { interval: x, include }
-            })
+            .map(|x| SiteWorkload { interval: x.bin, include: x.items.into_iter().map(|x| x.range()).collect() })
             .collect()
     }
 }

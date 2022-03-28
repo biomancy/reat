@@ -74,7 +74,7 @@ pub fn bin<T: AbstractInterval>(mut workloads: Vec<T>, maxbinsize: u64) -> Vec<B
     result
 }
 
-fn split_interval(chromosome: &str, len: u64, binsize: u64) -> Vec<Interval> {
+fn split_interval(chromosome: &str, interstart: u64, len: u64, binsize: u64) -> Vec<Interval> {
     let total_bins = (len + binsize - 1) / binsize;
     let mut bins: Vec<Interval> = Vec::with_capacity(total_bins as usize);
 
@@ -83,13 +83,17 @@ fn split_interval(chromosome: &str, len: u64, binsize: u64) -> Vec<Interval> {
         let end = std::cmp::min(bin * binsize, len);
         debug_assert!(end - start <= binsize);
 
-        bins.push(Interval::new(chromosome.to_owned(), start..end))
+        bins.push(Interval::new(chromosome.to_owned(), interstart + start..interstart + end))
     }
+    debug_assert!(!bins.is_empty());
     bins
 }
 
 pub fn split(intervals: Vec<impl AbstractInterval>, binsize: u64) -> Vec<Interval> {
-    intervals.into_iter().flat_map(|x| split_interval(x.contig(), x.range().end - x.range().start, binsize)).collect()
+    intervals
+        .into_iter()
+        .flat_map(|x| split_interval(x.contig(), x.range().start, x.range().end - x.range().start, binsize))
+        .collect()
 }
 
 #[cfg(test)]
@@ -226,8 +230,8 @@ mod tests {
 
         assert_eq!(split(vec![workload], 100), expected);
 
-        let result = split(vec![interval("2", 0..10)], 1000);
+        let result = split(vec![interval("2", 10..999)], 1000);
         assert_eq!(result.len(), 1);
-        assert_eq!(result[0], interval("2", 0..10));
+        assert_eq!(result[0], interval("2", 10..999));
     }
 }

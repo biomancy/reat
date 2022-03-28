@@ -148,6 +148,7 @@ pub fn subtract<T: AbstractInterval>(
             }
         }
     }
+    // TODO: rewrite the whole thing. There should be better algorithms to do this subtract
     saveto
 }
 
@@ -220,9 +221,9 @@ mod tests {
         let inter_3 = mwork("3", vec![0..2, 1..3, 2..3, 6..7, 6..8, 6..10, 8..11]);
         let sub_3 = mwork("3", vec![1..2, 4..5, 4..6, 4..6, 7..10, 12..15]);
         let expect_3 = vec![
+            MaskedInterval { inner: inter_3[2].clone(), retained: vec![2..3] },
             MaskedInterval { inner: inter_3[0].clone(), retained: vec![0..1] },
             MaskedInterval { inner: inter_3[1].clone(), retained: vec![2..3] },
-            MaskedInterval { inner: inter_3[2].clone(), retained: vec![2..3] },
             MaskedInterval { inner: inter_3[3].clone(), retained: vec![6..7] },
             MaskedInterval { inner: inter_3[4].clone(), retained: vec![6..7] },
             MaskedInterval { inner: inter_3[5].clone(), retained: vec![6..7] },

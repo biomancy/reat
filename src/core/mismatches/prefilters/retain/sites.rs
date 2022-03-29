@@ -40,6 +40,7 @@ impl SitesRetainer for RetainSitesFromIntervals {
                 for hit in map.find(range) {
                     results.push(hit.interval().start..hit.interval().end)
                 }
+                results.sort_by_key(|x| x.start);
                 results
             }
         }

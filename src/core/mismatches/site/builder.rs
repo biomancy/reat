@@ -56,7 +56,7 @@ where
         for (pos, (&cnt, &refnuc, &prednuc)) in izip!(cnts, refngn.reference, refngn.predicted).enumerate() {
             let pos = pos as Position + cntrange.start;
             // Do we need to move the iterator?
-            if !retrange.map_or(true, |x| x.end <= pos) {
+            if retrange.map_or(false, |x| x.end <= pos) {
                 retrange = reiter.next();
             }
 

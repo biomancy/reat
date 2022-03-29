@@ -52,7 +52,18 @@ where
     // Report the result
     pbar.set_style(shared::style::run::finished());
     let reads: Stranded<u32> = edits.iter().map(|x| x.mapped).fold(Default::default(), |a, b| a + b);
-    pbar.finish_with_message(format!("Finished with {} items, processed reads: {}", edits.len(), reads));
+    let items: usize = edits
+        .iter()
+        .map(|x| {
+            x.retained.unknown.len()
+                + x.retained.forward.len()
+                + x.retained.reverse.len()
+                + x.items.unknown.len()
+                + x.items.forward.len()
+                + x.items.reverse.len()
+        })
+        .sum();
+    pbar.finish_with_message(format!("Finished with {} items, processed reads: {}", items, reads));
 
     // Group stats by type
     let stats = ctxstore.dissolve().flat_map(|x| x.into_inner().stats());

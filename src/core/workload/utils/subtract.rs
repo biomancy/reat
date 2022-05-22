@@ -1,8 +1,11 @@
 use std::cmp::Ordering;
 use std::cmp::{max, min};
+use std::collections::HashMap;
 use std::ops::Range;
 
 use bio_types::genome::AbstractInterval;
+use itertools::Itertools;
+use rayon::prelude::*;
 
 #[derive(Eq, PartialEq, Debug)]
 pub struct MaskedInterval<T: AbstractInterval> {
@@ -81,9 +84,9 @@ fn process_window<T: AbstractInterval>(
     window
 }
 
-pub fn subtract<T: AbstractInterval>(
+pub fn _subtract<T: AbstractInterval, S: AbstractInterval>(
     mut inters: Vec<T>,
-    mut subtract: Vec<impl AbstractInterval>,
+    mut subtract: Vec<S>,
 ) -> Vec<MaskedInterval<T>> {
     // Sort intervals by coordinate
     inters.sort_by(cmp);
@@ -150,6 +153,35 @@ pub fn subtract<T: AbstractInterval>(
     }
     // TODO: rewrite the whole thing. There should be better algorithms to do this subtract
     saveto
+}
+
+pub fn subtract<T: AbstractInterval + Send, S: AbstractInterval + Send>(
+    inters: Vec<T>,
+    subtract: Vec<S>,
+) -> Vec<MaskedInterval<T>> {
+    // Group by contig
+    let mut grouped: HashMap<String, (Vec<T>, Vec<S>)> = HashMap::with_capacity(128);
+    for t in inters {
+        if !grouped.contains_key(t.contig()) {
+            grouped.insert(t.contig().into(), Default::default());
+        }
+        grouped.get_mut(t.contig()).unwrap().0.push(t);
+    }
+    for s in subtract {
+        if !grouped.contains_key(s.contig()) {
+            grouped.insert(s.contig().into(), Default::default());
+        }
+        grouped.get_mut(s.contig()).unwrap().1.push(s);
+    }
+    grouped
+        .into_par_iter()
+        .map(|x| (x.0, _subtract(x.1 .0, x.1 .1)))
+        .collect::<Vec<(String, Vec<MaskedInterval<T>>)>>()
+        .into_iter()
+        .sorted_by(|x1, x2| x1.0.cmp(&x2.0))
+        .map(|x| x.1)
+        .flatten()
+        .collect()
 }
 
 #[cfg(test)]

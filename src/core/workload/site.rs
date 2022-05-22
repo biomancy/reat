@@ -25,7 +25,7 @@ impl SiteWorkload {
     pub fn from_intervals(
         mut intervals: Vec<Interval>,
         binsize: u64,
-        exclude: Option<Vec<impl AbstractInterval>>,
+        exclude: Option<Vec<impl AbstractInterval + Send>>,
     ) -> Vec<SiteWorkload> {
         assert!(binsize > 0, "Binsize must be > 0");
         // Subtract excluded if needed

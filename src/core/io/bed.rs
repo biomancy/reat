@@ -49,6 +49,7 @@ fn _parse<T: BufRead>(mut reader: T) -> Vec<BedRecord> {
 
         let start = split[1].parse().expect("Failed to filters string start");
         let end = split[2].parse().expect("Failed to filters string start");
+        assert!(end > start, "{}", line);
         let interval = Interval::new(split[0].to_owned(), Range { start, end });
 
         let name = split.get(3).unwrap_or(&"").to_string();

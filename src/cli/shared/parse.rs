@@ -143,10 +143,14 @@ pub fn refnucpred(pbar: ProgressBar, matches: &ArgMatches, reader: Box<dyn Fasta
 
     if let Some(file) = matches.value_of(args::autoref::VCF) {
         let file = Path::new(file);
-        let varaints = vcf::parse(file);
-        let variants = VCFCorrectedReference::new(varaints, reader);
+        let snv = vcf::parse(file);
+
+        let heterozygotes: usize = snv.heterozygous.iter().map(|x| x.len()).sum();
+        let homozygotes: usize = snv.homozygous.iter().map(|x| x.len()).sum();
+
+        let variants = VCFCorrectedReference::new(snv, reader);
         pbar.finish_with_message(format!(
-            "Reference will be adjusted by SNPs from the provided VCF file: {}.",
+            "Reference will be adjusted by SNPs(heterozygotes: {heterozygotes}, homozygotes: {homozygotes}) from: {}.",
             file.file_name().unwrap().to_str().unwrap()
         ));
         Box::new(variants)

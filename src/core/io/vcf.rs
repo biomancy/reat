@@ -2,7 +2,9 @@ use std::collections::HashMap;
 use std::path::Path;
 
 use bio_types::genome::Position;
+use itertools::Itertools;
 use rust_htslib::bcf::header::Id;
+use rust_htslib::bcf::record::GenotypeAllele;
 use rust_htslib::bcf::{Read, Reader};
 
 use crate::core::dna::ReqNucleotide;
@@ -41,39 +43,41 @@ pub fn parse(vcf: impl AsRef<Path>) -> SimplisticSNV {
             continue;
         }
 
-        let alleles = record.alleles();
-        // Skip complex mismatches
-        if alleles.len() != 2 || alleles[0].len() != 1 || alleles[1].len() != 1 {
+        let mut genotype = record
+            .genotypes()
+            .unwrap()
+            .get(0)
+            .iter()
+            .filter_map(|g| match g {
+                GenotypeAllele::PhasedMissing | GenotypeAllele::UnphasedMissing => None,
+                GenotypeAllele::Unphased(i) | GenotypeAllele::Phased(i) => Some(*i as usize),
+            })
+            .collect_vec();
+        // Unknown genotype + known -> set to known only
+        if genotype.len() == 1 {
+            genotype.push(genotype[0])
+        }
+        // Skip reference or strange genotypes
+        if genotype.len() == 0 || (genotype[0] == 0 && genotype[1] == 0) || genotype.len() > 2 {
             continue;
         }
 
-        // Consider only well-defined mismatches
-        let (refn, altn): (ReqNucleotide, ReqNucleotide) = match (alleles[0][0].try_into(), alleles[1][0].try_into()) {
+        // Fetch alleles
+        let (first, second) = (record.alleles()[genotype[0]], record.alleles()[genotype[1]]);
+
+        // Skip indels or large variants
+        if first.len() != 1 || second.len() != 1 {
+            continue;
+        }
+        let (first, second): (ReqNucleotide, ReqNucleotide) = match (first[0].try_into(), second[0].try_into()) {
             (Ok(a), Ok(b)) => (a, b),
             _ => continue,
         };
 
-        // First/Second locus
-        let genotype = record.genotypes().expect("Failed to read genotypes information").get(0);
-        let (floc, sloc) = (genotype[0].index(), genotype[1].index());
-        if floc.is_none() || sloc.is_none() {
-            continue;
-        }
-        let (floc, sloc) = (floc.unwrap(), sloc.unwrap());
-        match (floc, sloc) {
-            // Reference genotype => do nothing
-            (0, 0) => continue,
-            // Heterozygous
-            (0, 1) | (1, 0) => {
-                let rid = record.rid().unwrap() as usize;
-                heterozygous[rid].push((record.pos() as Position, refn, altn));
-            }
-            // Alt genotype
-            (1, 1) => {
-                let rid = record.rid().unwrap() as usize;
-                homozygous[rid].push((record.pos() as Position, altn));
-            }
-            _ => unreachable!("Only two alleles available, but the sample genotypes contains values > 1"),
+        let rid = record.rid().unwrap() as usize;
+        match first == second {
+            true => homozygous[rid].push((record.pos() as Position, first)),
+            false => heterozygous[rid].push((record.pos() as Position, first, second)),
         }
     }
     SimplisticSNV { rid2ref, ref2rid, homozygous, heterozygous }

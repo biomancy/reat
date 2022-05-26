@@ -69,8 +69,9 @@ where
     let stats = ctxstore.dissolve().flat_map(|x| x.into_inner().stats());
     let mut grouped: HashMap<EditingStatType, Vec<Box<dyn Any>>> = HashMap::new();
     for stat in stats {
-        let (typed, any) = stat.into_any();
-        grouped.entry(typed).or_default().push(any);
+        // let (typed, any) = stat.into_any();
+        // grouped.entry(typed).or_default().push(any);
+        println!("STATS DISABLED!")
     }
 
     // Collapse identical stats & write them into requested serializers

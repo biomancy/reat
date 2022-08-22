@@ -1,12 +1,12 @@
 use std::convert::TryInto;
 use std::path::Path;
 
-use bio_types::genome::AbstractInterval;
+use bio_types::genome::{AbstractInterval, Interval};
 use clap::ArgMatches;
 use indicatif::ProgressBar;
 
 use crate::cli::shared;
-use crate::cli::sites::args::output_filtering::FORCE_LIST;
+use crate::cli::sites::args::output_filtering::{FORCE_LIST, REGIONS};
 use crate::core::io;
 use crate::core::io::bed;
 use crate::core::io::bed::BedRecord;
@@ -20,10 +20,20 @@ pub fn work(
     matches: &ArgMatches,
 ) -> (Vec<SiteWorkload>, usize) {
     let binsize = matches.value_of(shared::args::core::BINSIZE).unwrap().parse().unwrap();
-    pbar.set_message(format!("Splitting the genome into {}bp bins...", binsize));
 
-    let contigs = io::hts::contigs(bamfiles);
-    let workload = SiteWorkload::from_intervals(contigs, binsize, exclude);
+    let workload = if let Some(path) = matches.value_of(REGIONS) {
+        let bed: Vec<Interval> = bed::parse(Path::new(path)).into_iter().map(|x| x.interval).collect();
+
+        let bases = bed.iter().map(|x| x.range().end - x.range().start).sum::<u64>();
+        pbar.set_message(format!("Will process: {} regions ({} bases)", bed.len(), bases));
+        SiteWorkload::from_intervals(bed, binsize, exclude)
+    } else {
+        pbar.set_message(format!("Splitting the genome into {}bp bins...", binsize));
+
+        let contigs = io::hts::contigs(bamfiles);
+        SiteWorkload::from_intervals(contigs, binsize, exclude)
+    };
+
     debug_assert!(!workload.is_empty());
 
     let maxsize = workload.iter().map(|x| x.range().end - x.range().start).max().unwrap();

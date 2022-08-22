@@ -19,11 +19,13 @@ pub mod output_filtering {
     pub const MIN_FREQ: &str = "out-min-freq";
     pub const MIN_COVERAGE: &str = "out-min-cov";
     pub const FORCE_LIST: &str = "force";
+    pub const REGIONS: &str = "region";
 
     pub const SECTION_NAME: &str = "Output hooks";
 
     pub fn args<'a>() -> Vec<Arg<'a>> {
-        let args = vec![
+        let args =
+            vec![
             Arg::new(MIN_COVERAGE)
                 .long(MIN_COVERAGE)
                 .takes_value(true)
@@ -51,6 +53,9 @@ pub mod output_filtering {
                 ),
             Arg::new(FORCE_LIST).long(FORCE_LIST).takes_value(true).validator(validate::path).long_help(
                 "Force the output of sites located in a given BED file (even if they do not pass other filters).",
+            ),
+            Arg::new(REGIONS).long(REGIONS).takes_value(true).validator(validate::path).long_help(
+                "Process only sites overlapping the given BED file.",
             ),
         ];
         args.into_iter().map(|x| x.help_heading(Some(SECTION_NAME))).collect()
@@ -94,7 +99,7 @@ impl SiteArgs {
             s.spawn(|_| {
                 stranding = shared::parse::strandpred(pbars, args);
             });
-            s.spawn(|_| retain = parse::retain(pbarf, args))
+            s.spawn(|_| retain = parse::retain(pbarf, args));
         });
 
         Self { workload: workload.unwrap(), maxwsize: maxsize.unwrap(), prefilter: filter, stranding, retain }

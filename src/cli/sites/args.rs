@@ -3,7 +3,6 @@ use clap::ArgMatches;
 use indicatif::ProgressBar;
 
 use crate::cli::shared;
-use crate::cli::shared::args::defaults;
 use crate::cli::shared::validate;
 use crate::core::mismatches::prefilters;
 use crate::core::mismatches::prefilters::retain::RetainSitesFromIntervals;
@@ -20,20 +19,22 @@ pub mod output_filtering {
     pub const MIN_FREQ: &str = "out-min-freq";
     pub const MIN_COVERAGE: &str = "out-min-cov";
     pub const FORCE_LIST: &str = "force";
+    pub const REGIONS: &str = "region";
 
     pub const SECTION_NAME: &str = "Output hooks";
 
     pub fn args<'a>() -> Vec<Arg<'a>> {
-        let args = vec![
+        let args =
+            vec![
             Arg::new(MIN_COVERAGE)
                 .long(MIN_COVERAGE)
-                .setting(defaults())
+                .takes_value(true)
                 .validator(validate::numeric(0u32, u32::MAX))
                 .default_value("10")
                 .long_help("Output only site covered by at least X unique reads"),
             Arg::new(MIN_MISMATCHES)
                 .long(MIN_MISMATCHES)
-                .setting(defaults())
+                .takes_value(true)
                 .validator(validate::numeric(0u32, u32::MAX))
                 .default_value("3")
                 .long_help(
@@ -44,14 +45,17 @@ pub mod output_filtering {
                 ),
             Arg::new(MIN_FREQ)
                 .long(MIN_FREQ)
-                .setting(defaults())
+                .takes_value(true)
                 .validator(validate::numeric(0f32, 1f32))
                 .default_value("0.01")
                 .long_help(
                     "Output only sites with total mismatches frequency ≥ threshold (freq = ∑ mismatches / coverage)",
                 ),
-            Arg::new(FORCE_LIST).long(FORCE_LIST).setting(defaults()).validator(validate::path).long_help(
+            Arg::new(FORCE_LIST).long(FORCE_LIST).takes_value(true).validator(validate::path).long_help(
                 "Force the output of sites located in a given BED file (even if they do not pass other filters).",
+            ),
+            Arg::new(REGIONS).long(REGIONS).takes_value(true).validator(validate::path).long_help(
+                "Process only sites overlapping the given BED file.",
             ),
         ];
         args.into_iter().map(|x| x.help_heading(Some(SECTION_NAME))).collect()
@@ -95,7 +99,7 @@ impl SiteArgs {
             s.spawn(|_| {
                 stranding = shared::parse::strandpred(pbars, args);
             });
-            s.spawn(|_| retain = parse::retain(pbarf, args))
+            s.spawn(|_| retain = parse::retain(pbarf, args));
         });
 
         Self { workload: workload.unwrap(), maxwsize: maxsize.unwrap(), prefilter: filter, stranding, retain }

@@ -25,7 +25,7 @@ impl SiteWorkload {
     pub fn from_intervals(
         mut intervals: Vec<Interval>,
         binsize: u64,
-        exclude: Option<Vec<impl AbstractInterval>>,
+        exclude: Option<Vec<impl AbstractInterval + Send>>,
     ) -> Vec<SiteWorkload> {
         assert!(binsize > 0, "Binsize must be > 0");
         // Subtract excluded if needed
@@ -40,12 +40,10 @@ impl SiteWorkload {
         }
 
         // Bin and transform to the workload
-        utils::split(intervals, binsize)
+        let intervals = utils::split(intervals, binsize);
+        utils::bin(intervals, binsize)
             .into_iter()
-            .map(|x| {
-                let include = vec![x.range().start..x.range().end];
-                SiteWorkload { interval: x, include }
-            })
+            .map(|x| SiteWorkload { interval: x.bin, include: x.items.into_iter().map(|x| x.range()).collect() })
             .collect()
     }
 }

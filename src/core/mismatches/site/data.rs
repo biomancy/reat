@@ -3,6 +3,7 @@ use soa_derive::StructOfArray;
 
 use crate::core::dna::NucCounts;
 use crate::core::dna::Nucleotide;
+use crate::core::refpred::PredNucleotide;
 
 #[derive(Clone, Debug, Default, StructOfArray)]
 #[soa_derive(Clone, Debug)]
@@ -12,7 +13,7 @@ pub struct SiteData {
     // FASTA reference nucleotides
     pub refnuc: Nucleotide,
     // Auto corrected reference nucleotide
-    pub prednuc: Nucleotide,
+    pub prednuc: PredNucleotide,
     // Sequenced nucleotides
     pub sequenced: NucCounts,
 }

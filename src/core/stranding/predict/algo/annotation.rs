@@ -87,7 +87,7 @@ impl StrandByGenomicAnnotation {
             parsedcnt += 1;
             hook(parsedcnt);
         }
-        StrandByGenomicAnnotation { exons, genes, extended3utr: extended3utr }
+        StrandByGenomicAnnotation { exons, genes, extended3utr }
     }
 
     fn strand_in_index(&self, dummy: &Contig<String, Strand>, index: &AnnotMap<String, ReqStrand>) -> (u32, u32) {

@@ -11,12 +11,10 @@ impl<'a, Data> InnerNucCounts<'a, Data> {
             _ => {
                 buffer.clear();
                 buffer.resize(self.range.end as usize - self.range.start as usize, Default::default());
-                for x in [self.cnts.forward, self.cnts.reverse, self.cnts.unknown] {
-                    if let Some(x) = x {
-                        debug_assert!(x.len() == buffer.len());
-                        for (bc, xc) in buffer.iter_mut().zip(x.iter()) {
-                            *bc += *xc;
-                        }
+                for x in [self.cnts.forward, self.cnts.reverse, self.cnts.unknown].into_iter().flatten() {
+                    debug_assert!(x.len() == buffer.len());
+                    for (bc, xc) in buffer.iter_mut().zip(x.iter()) {
+                        *bc += *xc;
                     }
                 }
                 None

@@ -2,7 +2,7 @@ use std::io::Write;
 use std::sync::{Arc, Mutex};
 use std::{env, io};
 
-use clap::{crate_authors, crate_name, crate_version, App, AppSettings, ArgMatches};
+use clap::{crate_authors, crate_name, crate_version, AppSettings, ArgMatches, Command};
 use indicatif::{MultiProgress, ProgressBar, ProgressFinish, ProgressStyle};
 use itertools::Itertools;
 use rayon::ThreadPoolBuilder;
@@ -45,19 +45,20 @@ impl PanicAwareProgressManager {
 }
 
 fn main() {
-    let app = App::new(crate_name!())
+    let app = Command::new(crate_name!())
         .author(crate_authors!("\n"))
         .version(crate_version!())
         .max_term_width(120)
         .setting(AppSettings::DeriveDisplayOrder)
-        .setting(AppSettings::SubcommandRequiredElseHelp)
+        .subcommand_required(true)
+        .arg_required_else_help(true)
         .subcommand(
-            App::new("roi")
+            Command::new("roi")
                 .long_about("Quantify editing for the specified Regions Of Interest (ROIs)")
                 .args(cli::rois::args()),
         )
         .subcommand(
-            App::new("site").long_about("Estimate editing per-site for the whole genome.").args(cli::sites::args()),
+            Command::new("site").long_about("Estimate editing per-site for the whole genome.").args(cli::sites::args()),
         )
         .get_matches();
     // Log the exact command used to call reat

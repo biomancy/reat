@@ -66,16 +66,30 @@ pub enum ReqNucleotide {
     T,
 }
 
-// impl From<Nucleotide> for ReqNucleotide {
-//     fn from(nuc: Nucleotide) -> Self {
-//         match nuc {
-//             Nucleotide::A => ReqNucleotide::A,
-//             Nucleotide::C => ReqNucleotide::C,
-//             Nucleotide::G => ReqNucleotide::G,
-//             Nucleotide::T => ReqNucleotide::T,
-//             Nucleotide::Unknown => {
-//                 panic!("Can't cast Nucleotide::Unknown to the ReqNucleotide")
-//             }
-//         }
-//     }
-// }
+impl TryFrom<Nucleotide> for ReqNucleotide {
+    type Error = ();
+
+    fn try_from(nuc: Nucleotide) -> Result<Self, Self::Error> {
+        match nuc {
+            Nucleotide::A => Ok(ReqNucleotide::A),
+            Nucleotide::C => Ok(ReqNucleotide::C),
+            Nucleotide::G => Ok(ReqNucleotide::G),
+            Nucleotide::T => Ok(ReqNucleotide::T),
+            Nucleotide::Unknown => Err(()),
+        }
+    }
+}
+
+impl TryFrom<u8> for ReqNucleotide {
+    type Error = ();
+
+    fn try_from(nuc: u8) -> Result<Self, Self::Error> {
+        match nuc {
+            b'A' | b'a' => Ok(ReqNucleotide::A),
+            b'C' | b'c' => Ok(ReqNucleotide::C),
+            b'G' | b'g' => Ok(ReqNucleotide::G),
+            b'T' | b't' => Ok(ReqNucleotide::T),
+            _ => Err(()),
+        }
+    }
+}

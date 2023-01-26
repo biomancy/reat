@@ -73,7 +73,7 @@ struct SerializeROIRef<'a> {
 
 impl Serialize for SerializeROIRef<'_> {
     fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
-        let mut state = serializer.serialize_struct("ROIMismatches", 28)?;
+        let mut state = serializer.serialize_struct("ROIMismatches", 29)?;
         state.serialize_field("contig", &self.contig)?;
         state.serialize_field("start", &self.data.roi.premasked.start)?;
         state.serialize_field("end", &self.data.roi.premasked.end)?;
@@ -82,22 +82,23 @@ impl Serialize for SerializeROIRef<'_> {
         state.serialize_field("trstrand", &self.strand.strand_symbol())?;
         state.serialize_field("coverage", &self.data.coverage)?;
         state.serialize_field("nucmasked", &self.data.roi.nucmasked())?;
-        state.serialize_field("#A", &self.data.prednuc.A)?;
+        state.serialize_field("heterozygous", &self.data.heterozygous)?;
+        state.serialize_field("#A", &self.data.homozygous.A)?;
         state.serialize_field("A->A", &self.data.mismatches.A.A)?;
         state.serialize_field("A->C", &self.data.mismatches.A.C)?;
         state.serialize_field("A->G", &self.data.mismatches.A.G)?;
         state.serialize_field("A->T", &self.data.mismatches.A.T)?;
-        state.serialize_field("#C", &self.data.prednuc.C)?;
+        state.serialize_field("#C", &self.data.homozygous.C)?;
         state.serialize_field("C->A", &self.data.mismatches.C.A)?;
         state.serialize_field("C->C", &self.data.mismatches.C.C)?;
         state.serialize_field("C->G", &self.data.mismatches.C.G)?;
         state.serialize_field("C->T", &self.data.mismatches.C.T)?;
-        state.serialize_field("#G", &self.data.prednuc.G)?;
+        state.serialize_field("#G", &self.data.homozygous.G)?;
         state.serialize_field("G->A", &self.data.mismatches.G.A)?;
         state.serialize_field("G->C", &self.data.mismatches.G.C)?;
         state.serialize_field("G->G", &self.data.mismatches.G.G)?;
         state.serialize_field("G->T", &self.data.mismatches.G.T)?;
-        state.serialize_field("#T", &self.data.prednuc.T)?;
+        state.serialize_field("#T", &self.data.homozygous.T)?;
         state.serialize_field("T->A", &self.data.mismatches.T.A)?;
         state.serialize_field("T->C", &self.data.mismatches.T.C)?;
         state.serialize_field("T->G", &self.data.mismatches.T.G)?;
@@ -110,8 +111,8 @@ impl Serialize for SerializeROIRef<'_> {
 mod test {
     use serde_test::{assert_ser_tokens, Token};
 
-    use crate::core::dna::NucCounts;
-    use crate::core::mismatches::roi::{NucMismatches, ROIDataRecordRef};
+    use crate::core::dna::{FracNucCounts, NucCounts};
+    use crate::core::mismatches::roi::{ROIDataRecordRef, ROINucCounts};
 
     use super::*;
 
@@ -124,18 +125,24 @@ mod test {
             name: &"MyRep".to_owned(),
             strand: &Strand::Forward,
         };
-        let mm = NucMismatches {
-            A: NucCounts::new(1, 2, 3, 4),
-            C: NucCounts::new(5, 6, 7, 8),
-            G: NucCounts::new(9, 10, 11, 12),
-            T: NucCounts::new(13, 14, 15, 16),
+        let mm = ROINucCounts {
+            A: FracNucCounts::new(1_f32, 2_f32, 3_f32, 4_f32),
+            C: FracNucCounts::new(5_f32, 6_f32, 7_f32, 8_f32),
+            G: FracNucCounts::new(9_f32, 10_f32, 11_f32, 12_f32),
+            T: FracNucCounts::new(13_f32, 14_f32, 15_f32, 16_f32),
         };
-        let roi = ROIDataRef { roi: record, coverage: &13, prednuc: &NucCounts::new(1, 12, 3, 5), mismatches: &mm };
+        let roi = ROIDataRef {
+            roi: record,
+            coverage: &13,
+            homozygous: &NucCounts::new(1, 12, 3, 5),
+            heterozygous: &13,
+            mismatches: &mm,
+        };
 
         assert_ser_tokens(
             &SerializeROIRef { contig: "chr1", strand: Strand::Unknown, data: roi },
             &[
-                Token::Struct { name: "ROIMismatches", len: 28 },
+                Token::Struct { name: "ROIMismatches", len: 29 },
                 Token::Str("contig"),
                 Token::Str("chr1"),
                 Token::Str("start"),
@@ -152,46 +159,48 @@ mod test {
                 Token::U32(13),
                 Token::Str("nucmasked"),
                 Token::U64(34),
+                Token::Str("heterozygous"),
+                Token::U64(13),
                 Token::Str("#A"),
                 Token::U32(1),
                 Token::Str("A->A"),
-                Token::U32(1),
+                Token::F32(1_f32),
                 Token::Str("A->C"),
-                Token::U32(2),
+                Token::F32(2_f32),
                 Token::Str("A->G"),
-                Token::U32(3),
+                Token::F32(3_f32),
                 Token::Str("A->T"),
-                Token::U32(4),
+                Token::F32(4_f32),
                 Token::Str("#C"),
                 Token::U32(12),
                 Token::Str("C->A"),
-                Token::U32(5),
+                Token::F32(5_f32),
                 Token::Str("C->C"),
-                Token::U32(6),
+                Token::F32(6_f32),
                 Token::Str("C->G"),
-                Token::U32(7),
+                Token::F32(7_f32),
                 Token::Str("C->T"),
-                Token::U32(8),
+                Token::F32(8_f32),
                 Token::Str("#G"),
                 Token::U32(3),
                 Token::Str("G->A"),
-                Token::U32(9),
+                Token::F32(9_f32),
                 Token::Str("G->C"),
-                Token::U32(10),
+                Token::F32(10_f32),
                 Token::Str("G->G"),
-                Token::U32(11),
+                Token::F32(11_f32),
                 Token::Str("G->T"),
-                Token::U32(12),
+                Token::F32(12_f32),
                 Token::Str("#T"),
                 Token::U32(5),
                 Token::Str("T->A"),
-                Token::U32(13),
+                Token::F32(13_f32),
                 Token::Str("T->C"),
-                Token::U32(14),
+                Token::F32(14_f32),
                 Token::Str("T->G"),
-                Token::U32(15),
+                Token::F32(15_f32),
                 Token::Str("T->T"),
-                Token::U32(16),
+                Token::F32(16_f32),
                 Token::StructEnd,
             ],
         );

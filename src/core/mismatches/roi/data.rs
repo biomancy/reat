@@ -2,11 +2,10 @@ use std::ops::Range;
 
 use bio_types::genome::Position;
 use bio_types::strand::Strand;
-
 use soa_derive::StructOfArray;
 
 use crate::core::dna::NucCounts;
-use crate::core::mismatches::roi::NucMismatches;
+use crate::core::mismatches::roi::ROINucCounts;
 use crate::core::workload::roi::*;
 
 #[derive(Clone, Debug, StructOfArray)]
@@ -27,10 +26,12 @@ pub struct ROIData {
     pub roi: ROIDataRecord,
     // Number of unique fragments covering the ROI
     pub coverage: u32,
-    // Total nucleotides in the given ROI (after masking)
-    pub prednuc: NucCounts,
+    // Predicted homozygous nucleotides in the given ROI (after masking)
+    pub homozygous: NucCounts,
+    // Total heterozygous loci in the ROI (after masking)
+    pub heterozygous: u64,
     // Observed mismatches relative to the predicted reference
-    pub mismatches: NucMismatches,
+    pub mismatches: ROINucCounts,
 }
 
 impl ROIDataRecordRef<'_> {
@@ -71,6 +72,12 @@ impl From<ROIDataRecordRef<'_>> for ROIDataRecord {
 
 impl From<ROIDataRef<'_>> for ROIData {
     fn from(x: ROIDataRef<'_>) -> Self {
-        Self { roi: x.roi.into(), coverage: *x.coverage, prednuc: *x.prednuc, mismatches: *x.mismatches }
+        Self {
+            roi: x.roi.into(),
+            coverage: *x.coverage,
+            homozygous: *x.homozygous,
+            heterozygous: *x.heterozygous,
+            mismatches: *x.mismatches,
+        }
     }
 }

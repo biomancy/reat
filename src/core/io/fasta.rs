@@ -2,16 +2,30 @@ use std::ops::Range;
 use std::path::PathBuf;
 
 use bio_types::genome::Position;
+use dyn_clone::DynClone;
 #[cfg(test)]
-use mockall::automock;
+use mockall::mock;
 use rust_htslib::faidx;
 
 use crate::core::dna::Nucleotide;
 
-#[cfg_attr(test, automock)]
-pub trait FastaReader {
+pub trait FastaReader: Send + DynClone {
     fn fetch(&mut self, contig: &str, range: Range<Position>);
     fn result(&self) -> &[Nucleotide];
+}
+dyn_clone::clone_trait_object!(FastaReader);
+
+#[cfg(test)]
+mock! {
+    pub FastaReader {}
+    impl Clone for FastaReader {
+        fn clone(&self) -> Self;
+    }
+
+    impl FastaReader for FastaReader {
+        fn fetch(&mut self, contig: &str, range: Range<Position>);
+        fn result(&self) -> &[Nucleotide];
+    }
 }
 
 pub struct BasicFastaReader {

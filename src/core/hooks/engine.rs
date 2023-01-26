@@ -3,6 +3,7 @@ use crate::core::hooks::stats::EditingStat;
 use crate::core::hooks::{Hook, HooksEngine};
 use crate::core::mismatches::{Batch, MismatchesVec};
 
+#[derive(Default)]
 pub struct REATHooksEngine<T> {
     stats: Vec<Box<dyn EditingStat<T>>>,
     filters: Vec<Box<dyn Filter<T>>>,

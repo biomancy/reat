@@ -1,8 +1,11 @@
 use std::cmp::Ordering;
 use std::cmp::{max, min};
+use std::collections::HashMap;
 use std::ops::Range;
 
 use bio_types::genome::AbstractInterval;
+use itertools::Itertools;
+use rayon::prelude::*;
 
 #[derive(Eq, PartialEq, Debug)]
 pub struct MaskedInterval<T: AbstractInterval> {
@@ -81,9 +84,9 @@ fn process_window<T: AbstractInterval>(
     window
 }
 
-pub fn subtract<T: AbstractInterval>(
+pub fn _subtract<T: AbstractInterval, S: AbstractInterval>(
     mut inters: Vec<T>,
-    mut subtract: Vec<impl AbstractInterval>,
+    mut subtract: Vec<S>,
 ) -> Vec<MaskedInterval<T>> {
     // Sort intervals by coordinate
     inters.sort_by(cmp);
@@ -102,7 +105,7 @@ pub fn subtract<T: AbstractInterval>(
         match (nextiter, nextsub) {
             (Some(i), Some(s)) => {
                 // Skip intervals before the subtract
-                if i.contig() < s.contig() && i.range().end <= s.range().start {
+                if i.contig() < s.contig() || (i.contig() == s.contig() && i.range().end <= s.range().start) {
                     let range = i.range();
                     saveto.push(MaskedInterval { inner: i, retained: vec![range] });
                     nextiter = interit.next();
@@ -148,7 +151,37 @@ pub fn subtract<T: AbstractInterval>(
             }
         }
     }
+    // TODO: rewrite the whole thing. There should be better algorithms to do this subtract
     saveto
+}
+
+pub fn subtract<T: AbstractInterval + Send, S: AbstractInterval + Send>(
+    inters: Vec<T>,
+    subtract: Vec<S>,
+) -> Vec<MaskedInterval<T>> {
+    // Group by contig
+    let mut grouped: HashMap<String, (Vec<T>, Vec<S>)> = HashMap::with_capacity(128);
+    for t in inters {
+        if !grouped.contains_key(t.contig()) {
+            grouped.insert(t.contig().into(), Default::default());
+        }
+        grouped.get_mut(t.contig()).unwrap().0.push(t);
+    }
+    for s in subtract {
+        if !grouped.contains_key(s.contig()) {
+            grouped.insert(s.contig().into(), Default::default());
+        }
+        grouped.get_mut(s.contig()).unwrap().1.push(s);
+    }
+    grouped
+        .into_par_iter()
+        .map(|x| (x.0, _subtract(x.1 .0, x.1 .1)))
+        .collect::<Vec<(String, Vec<MaskedInterval<T>>)>>()
+        .into_iter()
+        .sorted_by(|x1, x2| x1.0.cmp(&x2.0))
+        .map(|x| x.1)
+        .flatten()
+        .collect()
 }
 
 #[cfg(test)]
@@ -220,9 +253,9 @@ mod tests {
         let inter_3 = mwork("3", vec![0..2, 1..3, 2..3, 6..7, 6..8, 6..10, 8..11]);
         let sub_3 = mwork("3", vec![1..2, 4..5, 4..6, 4..6, 7..10, 12..15]);
         let expect_3 = vec![
+            MaskedInterval { inner: inter_3[2].clone(), retained: vec![2..3] },
             MaskedInterval { inner: inter_3[0].clone(), retained: vec![0..1] },
             MaskedInterval { inner: inter_3[1].clone(), retained: vec![2..3] },
-            MaskedInterval { inner: inter_3[2].clone(), retained: vec![2..3] },
             MaskedInterval { inner: inter_3[3].clone(), retained: vec![6..7] },
             MaskedInterval { inner: inter_3[4].clone(), retained: vec![6..7] },
             MaskedInterval { inner: inter_3[5].clone(), retained: vec![6..7] },
@@ -236,4 +269,6 @@ mod tests {
 
         assert_eq!(subtract(inter, sub), expect);
     }
+
+    // TODO: add tests with extreme number of subtract regions and/or features
 }

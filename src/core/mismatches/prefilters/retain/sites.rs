@@ -20,11 +20,11 @@ impl RetainSitesFromIntervals {
                 index.insert(record.contig().into(), Default::default());
             }
 
-            index.get_mut(record.contig()).map(|x| {
+            if let Some(x) = index.get_mut(record.contig()) {
                 // There must be no overlapping records!
                 debug_assert!(x.find(record.range()).collect_vec().is_empty());
                 x.insert(record.range(), ());
-            });
+            }
         }
         Self { index }
     }
@@ -40,6 +40,7 @@ impl SitesRetainer for RetainSitesFromIntervals {
                 for hit in map.find(range) {
                     results.push(hit.interval().start..hit.interval().end)
                 }
+                results.sort_by_key(|x| x.start);
                 results
             }
         }

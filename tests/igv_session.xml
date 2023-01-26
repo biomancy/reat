@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<Session genome="resources/GRCh38/Homo_sapiens.GRCh38.dna.primary_assembly.fa.gz" hasGeneTrack="false" hasSequenceTrack="true" locus="17:29140103-54117336" version="8">
+    <Resources>
+        <Resource path="resources/GRCh38/Alu.bed.gz"/>
+        <Resource path="resources/GRCh38/Homo_sapiens.GRCh38.104.gff3.gz"/>
+        <Resource path="resources/bam/SRX6966474.bam"/>
+    </Resources>
+    <Panel height="803" name="DataPanel" width="1853">
+        <Track attributeKey="Reference sequence" clazz="org.broad.igv.track.SequenceTrack" fontSize="10" id="Reference sequence" name="Reference sequence" sequenceTranslationStrandValue="POSITIVE" shouldShowTranslation="false" visible="true"/>
+        <Track attributeKey="Homo_sapiens.GRCh38.104.gff3.gz" clazz="org.broad.igv.track.FeatureTrack" colorScale="ContinuousColorScale;0.0;1932.0;255,255,255;0,0,178" fontSize="10" groupByStrand="false" id="/home/aleksander/projects/rada/tests/resources/GRCh38/Homo_sapiens.GRCh38.104.gff3.gz" name="Homo_sapiens.GRCh38.104.gff3.gz" visible="true"/>
+        <Track attributeKey="Alu.bed.gz" clazz="org.broad.igv.track.FeatureTrack" colorScale="ContinuousColorScale;0.0;239.0;255,255,255;0,0,178" fontSize="10" groupByStrand="false" id="/home/aleksander/projects/rada/tests/resources/GRCh38/Alu.bed.gz" name="Alu.bed.gz" visible="true"/>
+        <Track attributeKey="SRX6966474.bam Coverage" autoScale="true" clazz="org.broad.igv.sam.CoverageTrack" color="175,175,175" fontSize="10" id="/home/aleksander/projects/rada/tests/resources/bam/SRX6966474.bam_coverage" name="SRX6966474.bam Coverage" snpThreshold="0.025" visible="true">
+            <DataRange baseline="0.0" drawBaseline="true" flipAxis="false" maximum="60.0" minimum="0.0" type="LINEAR"/>
+        </Track>
+        <Track attributeKey="SRX6966474.bam" clazz="org.broad.igv.sam.AlignmentTrack" displayMode="EXPANDED" experimentType="RNA" fontSize="10" id="/home/aleksander/projects/rada/tests/resources/bam/SRX6966474.bam" name="SRX6966474.bam" visible="true">
+            <RenderOptions/>
+        </Track>
+    </Panel>
+    <HiddenAttributes>
+        <Attribute name="DATA FILE"/>
+        <Attribute name="DATA TYPE"/>
+        <Attribute name="NAME"/>
+    </HiddenAttributes>
+</Session>

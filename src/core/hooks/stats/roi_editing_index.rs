@@ -7,12 +7,12 @@ use serde::{Serialize, Serializer};
 use crate::core::hooks::stats::EditingStat;
 use crate::core::hooks::stats::EditingStatType;
 use crate::core::hooks::Hook;
-use crate::core::mismatches::roi::{NucMismatches, ROIMismatchesVec};
+use crate::core::mismatches::roi::{ROIMismatchesVec, ROINucCounts};
 use crate::core::mismatches::Batch;
 
 #[derive(Clone)]
 pub struct ROIEditingIndex {
-    accumulator: NucMismatches,
+    accumulator: ROINucCounts,
     unstranded_roi: usize,
     expname: String,
     roifiles: String,
@@ -20,7 +20,7 @@ pub struct ROIEditingIndex {
 
 impl ROIEditingIndex {
     pub fn new(expname: String, roifiles: String) -> Self {
-        Self { accumulator: NucMismatches::zeros(), unstranded_roi: 0, expname, roifiles }
+        Self { accumulator: ROINucCounts::zeros(), unstranded_roi: 0, expname, roifiles }
     }
 
     fn process(&mut self, x: &ROIMismatchesVec, strand: Strand) {

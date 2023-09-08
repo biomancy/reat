@@ -9,13 +9,13 @@ use bio_types::annot::contig::Contig;
 use bio_types::annot::loc::Loc;
 use bio_types::genome::Position;
 use bio_types::strand::{ReqStrand, Strand};
-use flate2::read::GzDecoder;
+use flate2::read::MultiGzDecoder;
 use itertools::Itertools;
 
 use crate::core::io;
+use crate::core::mismatches::MismatchesVec;
 use crate::core::mismatches::roi::{ROIDataRef, ROIMismatchesVec};
 use crate::core::mismatches::site::{SiteDataVec, SiteMismatchesVec};
-use crate::core::mismatches::MismatchesVec;
 use crate::core::stranding::predict::StrandingAlgo;
 use crate::core::strandutil::Stranded;
 

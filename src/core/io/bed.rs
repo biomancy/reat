@@ -7,7 +7,7 @@ use std::path::Path;
 use bio_types::genome::{AbstractInterval, Interval, Position};
 use bio_types::strand::{Same, Strand};
 use derive_getters::Dissolve;
-use flate2::bufread::GzDecoder;
+use flate2::bufread::MultiGzDecoder;
 
 use super::utils;
 

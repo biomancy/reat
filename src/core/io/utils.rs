@@ -10,7 +10,7 @@ macro_rules! read_compressed {
 
         match filename.split('.').last() {
             Some("gz") => {
-                let reader = BufReader::new(GzDecoder::new(reader));
+                let reader = BufReader::new(MultiGzDecoder::new(reader));
                 $function(reader $(, $param)*)
             }
             Some(_) | None => $function(reader $(, $param)*),
